@@ -11,6 +11,17 @@ const feedback = ref(
   'Nog niet gekoppeld. Kies expliciet je rol en koppel deze fictieve tab.',
 );
 const busy = ref(false);
+async function openPanel() {
+  try {
+    const window = await chrome.windows.getCurrent();
+    if (window.id === undefined) throw new Error('Geen venster');
+    await chrome.sidePanel.open({ windowId: window.id });
+    feedback.value = 'Chrome heeft het Side Panel geopend.';
+  } catch {
+    feedback.value =
+      'Side Panel kon niet worden geopend. Controleer browserondersteuning en beleid.';
+  }
+}
 async function send(command: FixtureCommand) {
   const raw: unknown = await chrome.runtime.sendMessage(command);
   const reply = fixtureReplySchema.parse(raw);
@@ -55,8 +66,10 @@ async function act(kind: 'BIND' | 'OBSERVE') {
       De maan van papier · Fictief Filmhuis · 12 april 2030 · 19:30 · Zaal 2.
     </p>
     <p>
-      Geen account, ticket, betaling of reservering. A vereist een regulier
-      venster; B vereist expliciet toegestane incognitotoegang.
+      Geen account, ticket, betaling of reservering. Deze verpakte pagina
+      ondersteunt A in een regulier venster. B is hier alleen een negatieve
+      roltest: spanning kan geen verpakte hoofdpagina in incognito laden.
+      Gebruik voor B de contextkeuze in de handmatige assistent.
     </p>
     <label for="role">Rol voor deze tab</label>
     <select id="role" v-model="role">
@@ -82,6 +95,17 @@ async function act(kind: 'BIND' | 'OBSERVE') {
         </button>
       </div>
     </section>
+    <button class="secondary" @click="openPanel">Open echt Side Panel</button>
+    <button
+      class="secondary"
+      @click="
+        send({ type: 'UNBIND' })
+          .then(() => (feedback = 'Fictieve tab losgekoppeld.'))
+          .catch(() => (feedback = 'Loskoppelen mislukt.'))
+      "
+    >
+      Koppeling ongedaan maken
+    </button>
     <p role="status">{{ feedback }}</p>
     <p>
       SIMULATED_COMPLETE is uitsluitend een demo-uitkomst en bewijst nooit

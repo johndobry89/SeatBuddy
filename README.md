@@ -1,61 +1,57 @@
-# SeatBuddy 🎬
+# SeatBuddy / SeatMates — Sprint 02 testbuild
 
-**SeatMates** (working product name) is an independent Chrome desktop companion prototype for two separate Movie Pass holders.
+Een Nederlandstalige Chrome Side Panel-assistent om **zelf één filmavond met twee aparte accounts te plannen en te controleren**. De hoofdworkflow werkt zonder Vue-toegang: filmplan, onafhankelijke A/B-stappen, gewenste stoelen, expliciete zelfmeldingen en herstel bij problemen. **De extensie leest Vue niet en boekt niets.**
 
-**Sprint 01: local simulations only.** The repository contains a Vue 3 / strict TypeScript Manifest V3 extension, two independent fictional A/B sessions, conservative matching and a manual checklist. There is no live Vue Cinemas adapter, account access, booking integration, payment or seat hold. `SIMULATED_COMPLETE` is never a real `CONFIRMED` booking.
+## Meteen proberen op Windows
 
-## Build and load locally
+Download de **seatmates-windows-test** Actions-artifact bij de gewenste Sprint 02-commit. Pak het Actions-archief uit en daarna ook `seatmates-0.2.0-windows-test.zip`. Open `chrome://extensions`, zet Ontwikkelaarsmodus aan, kies **Uitgepakte extensie laden** en selecteer de map met `manifest.json`. Pin SeatMates en klik het icoon.
 
-Prerequisites: Node.js 24 LTS (see `.nvmrc`), npm and desktop Chrome 116+ allowing unpacked extensions. No credentials or environment variables are required.
+Volledige stappen, incognito-opt-in, verwijderen en een fictieve proef staan in de [Nederlandse Windows-testgids](docs/windows-test-guide.md). Vereist: desktop Chrome 116+ en toestemming om lokale extensies te installeren. Dit is geen Store-release; Windows moet nog door een menselijke tester worden gevalideerd.
+
+## Wat je kunt doen
+
+1. Vul film, Vue-bioscoop, datum, tijd en eventueel zaal in. Zonder volledige zaalgegevens blijft de voorstellingvergelijking UNKNOWN.
+2. Controleer de overgenomen voorstelling en vul per persoon gewenste rij/stoel in. Bewaar de invoer en volg daarna afzonderlijk A en B. Een gewijzigde invoer wist de eerdere eigen controles.
+3. Meld per persoon wat je **zelf** op Vue hebt gecontroleerd. Alleen A afronden geeft een partiële eigen melding; B verandert niet. Er is geen automatische definitieve actie of terugdraaiing.
+4. Vergelijk eigen showtime-invoer en stoelnummers. Opeenvolgende nummers blijven **niet geverifieerd naast elkaar**: gangpad, stoelcategorie, beschikbaarheid en echte aangrenzendheid zijn onbekend.
+5. Haal alleen desgewenst via **Vensterlijst ophalen / vernieuwen** de actieve vensters op. Koppel expliciet een normale actieve Chrome-context voor A en een toegestane incognitocontext voor B. Alleen tab-/vensternummers en incognitostatus worden gebruikt. Dit bewijst geen accountidentiteit of live websitegegevens. Zonder koppeling blijft de handmatige begeleiding bruikbaar.
+6. Gebruik **Simulatie / technische proef** voor fictieve scenario's; die is gescheiden van de dagelijkse assistent. `SIMULATED_COMPLETE`, een eigen melding en werkelijke websitebevestiging zijn verschillende dingen. Deze build kan geen echte `CONFIRMED`-status produceren.
+
+Eigen controles verlopen na 15 minuten. Navigatie, sluiten/verplaatsen/vervangen van een gekoppelde tab en ingetrokken incognitotoegang maken de betreffende controles ongeldig. Worker-/browserherstart wist tijdelijke gegevens. Er wordt niets automatisch herhaald. Bij ontbrekende browser-API's blijft een lokale handmatige assistent beschikbaar; herladen wist die invoer.
+
+## Ontwikkelen en bouwen
+
+Node.js 24 LTS (zie `.nvmrc`), npm en een desktopbrowser die unpacked extensions toelaat. Geen backend, credentials of runtime-omgevingsvariabelen nodig.
 
 ```sh
 npm ci
 npm run check
+npm run package
 ```
 
-The build produces `dist/manifest.json`, `dist/background.js`, `dist/sidepanel.html`, `dist/fixture.html` and their local bundled assets.
+`dist/` bevat de unpacked runtime. `build/seatmates-0.2.0-windows-test.zip` bevat alleen runtimebestanden en krijgt een aparte SHA-256-checksum. `npm run dev` bouwt bij wijzigingen opnieuw; herlaad de extensie daarna zelf. Gebruik de bestaande cloudcheckout; iedere taak is al geïsoleerd, dus maak geen extra Git worktree zonder expliciete opdracht. Bij een onschrijfbare npm-cache: `npm ci --cache /tmp/seatbuddy-npm`.
 
-1. Open `chrome://extensions` in a browser/profile where local extension installation is allowed.
-2. Enable **Developer mode**, choose **Load unpacked** and select the generated `dist/` directory.
-3. Pin SeatMates and click its toolbar action to open the Side Panel.
-4. Choose **Start simulatie**. Advance A or B independently using **Volgende simulatiestap A/B**, or select a mismatch, partial failure, aisle or expired-observation scenario.
-5. Choose **Wis sessies / handmatig** to discard both sessions and use the independent checklists. Checklist ticks never change booking status.
+| Commando           | Controle                                                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run check`    | Formatter, lint zonder waarschuwingen, strict TypeScript, unit/contracttests, build                                                        |
+| `npm run test:ui`  | Gebouwde Vue-interface met nagebootst transport naar echte coördinator                                                                     |
+| `npm run test:e2e` | Echte unpacked extensie, Side Panel, fixturezenders, contextkoppeling, incognito-opt-in/-revocation en workerstop waar beleid dit toestaat |
+| `npm run package`  | Gecontroleerde versiegebonden runtime-ZIP, geen broncode/cache/node_modules                                                                |
 
-`npm run dev` rebuilds `dist/` when files change. Reload the extension in `chrome://extensions` and reopen the panel after rebuilding. It does not start a production website or a live integration.
+Installeer voor browsertests `npm exec playwright install -- --with-deps chromium`, of zet `CHROMIUM_PATH` op een bestaande compatibele Chromium. In deze cloud: `CHROMIUM_PATH=/usr/bin/chromium XDG_CONFIG_HOME=/tmp/seatbuddy-chromium-config XDG_CACHE_HOME=/tmp/seatbuddy-chromium-cache npm run test:ui` (of `test:e2e`). Beheerd Chrome-beleid wordt nooit aangepast om tests groen te maken.
 
-In a cloud sandbox with an unwritable default npm cache, use `npm ci --cache /tmp/seatbuddy-npm`. Use the existing checkout: each cloud task is already isolated; no extra Git worktree is needed.
+## Chrome-, CI- en G0-bewijs
 
-## Fictional browser-session experiment
+Sprint 01 [Actions-run 39389132288](https://github.com/johndobry89/SeatBuddy/actions/runs/39389132288) heeft **Success** voor head `b2be53ee40d756da1a68b5455d5ab3f81fe36074`, inclusief de toenmalige unpacked-fixture-smoke. Dat is Linux-runnerbewijs, geen Windows- of Vue-bewijs. De beheerde cloudbrowser blokkeert unpacked installatie en incognito; die lokale blokkade blijft apart geregistreerd.
 
-The panel's **Open fictieve testpagina** opens a packaged, fictional page. Explicitly bind A there in a normal window. To try B, personally enable **Allow in incognito** in the extension's details, open the same extension fixture URL in an incognito window, and explicitly bind B there. Then send observations from each page. Role, tab, window, document and incognito provenance are checked by the worker; no identity is inferred from a login or cookies.
+Een verpakte extensiepagina kan bij `incognito: "spanning"` niet als hoofdpagina van een incognitotab laden. Het oude Sprint 01-advies om `fixture.html` in incognito te openen is daarom vervangen. De handmatige contextkoppeling heeft geen verpakte B-pagina nodig. Zie [ADR-003](docs/decisions/ADR-003-manual-first-context-pairing.md).
 
-This experiment sends only synthetic showtime/seat data and minimal browser metadata. It is not proof of independent real accounts or a uniform Side Panel experience across normal/incognito windows. If browser policy or consent prevents it, retain the demo and manual fallback. See [the manual test plan](docs/manual-test-plan.md).
+**G0 voor echte Vue-integratie is niet gehaald.** De actuele Vue-voorwaarden en live checkoutvelden konden hier niet worden onderzocht door ontbrekende netwerk-/account-/toestemmingscontext. Publieke documentatie geeft op zichzelf geen toestemming voor een live adapter. Er zijn geen productiehostrechten, live selectors of content scripts geactiveerd. Alleen een zuivere interface met fictieve DOM/SVG-fixtures is toegevoegd. Exacte bevindingen, commando-uitkomsten en grenzen: [haalbaarheidsregister](docs/feasibility.md).
 
-## Verification commands
+## Privacy en scope
 
-| Command            | Purpose                                                                                    |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| `npm run check`    | Prettier check, ESLint, strict typecheck, unit/contract tests, production build            |
-| `npm test`         | Matcher, geometry, state, sender/privacy and worker lifecycle tests with fake data         |
-| `npm run test:ui`  | Built Vue UI in Chromium with a simulated browser transport to the real router/coordinator |
-| `npm run test:e2e` | Actual unpacked-extension smoke test; requires a browser permitting extension installation |
-| `npm run format`   | Format maintained implementation files and docs                                            |
+Alleen `sidePanel`-permissie. Geen cookies, host-/tabs-/scripting-/storage-/debugger-permissies, backend, tracking, clipboardlezing of automatische externe requests. De gewone Vue-hyperlink werkt uitsluitend na een menselijke klik en geeft geen accounttoegang. Browsermetadata wordt bewust gereduceerd tot nummers en incognitostatus; geen paginatitels, URL's, namen, e-mails, pasnummers, tokens, tickets of betaalgegevens worden opgehaald. Plan, contexten en eigen voortgang blijven in geheugen. Externe data krijgt geen privilege via DOM of berichten.
 
-For browser tests, install Playwright Chromium with `npm exec playwright install -- --with-deps chromium`, or point `CHROMIUM_PATH` to an existing compatible Chromium binary. In this sandbox the installed binary is `/usr/bin/chromium`; use writable `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` locations under `/tmp` when needed. The CI workflow installs Playwright Chromium and runs both browser suites. CI results remain unverified until GitHub Actions runs.
-
-**Current evidence:** unit/contract tests, lint, formatting, strict types, build and the browser UI mock checks passed locally; see [the exact evidence and limitations](docs/feasibility.md). Actual unpacked installation is **BLOCKED in this cloud instance** by managed browser policy (`ExtensionInstallBlocklist: ["*"]`); incognito is disabled by policy too. The actual-extension test is retained and fails on this restriction; it is not silently skipped or replaced by the UI mock tests. G0 remains **NOT_RUN**.
-
-## Architecture and privacy
-
-- Plain Vite multi-entry build: the Side Panel, packaged fictional page and module service worker have local entry points. No extension builder plugin or development server is needed at runtime.
-- Pure core modules compare all five showtime fields, reject incomplete matches and require explicit fictional geometry (same hall, row, section, category and neighbouring positions) for mock adjacency. Seat numbers alone are insufficient.
-- The worker owns two independent states. Strict runtime schemas reject unknown commands/fields, oversized messages, claimed tab IDs and real-confirmation claims. Only exact packaged pages and browser-supplied sender metadata are accepted. There is no page-to-extension bridge or external content script.
-- Observations expire after 60 seconds; navigation, tab closure, rebind, revoked consent and worker restart invalidate evidence. A service worker restart starts in manual mode. Nothing retries a transaction.
-- Only `sidePanel` permission is requested. There are **no host permissions**, cookies, storage permission, broad tab permission, external backend, tracking, remote code or network requests. The incognito `spanning` setting remains an experiment.
-- Booking/session data and checklist entries stay in memory, disappear on lifecycle reset, and are not written to `storage.local`, `storage.sync`, logs or a server. No real names, credentials, tickets, account identifiers or payment data belong in fixtures.
-
-## Project documents
-
-Read [AGENTS.md](AGENTS.md), [SEATMATES_MASTERPLAN.md](SEATMATES_MASTERPLAN.md), [CODEX_BUILD_BRIEF.md](CODEX_BUILD_BRIEF.md), [feasibility](docs/feasibility.md), [ADR-001](docs/decisions/ADR-001-extension-first.md) and [ADR-002](docs/decisions/ADR-002-dual-session.md). This implementation addresses [issue #3](https://github.com/johndobry89/SeatBuddy/issues/3). Contributing and security guidance remain in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+Lees [AGENTS.md](AGENTS.md), [masterplan](SEATMATES_MASTERPLAN.md), [Sprint 01-brief](CODEX_BUILD_BRIEF.md), [ADR-001](docs/decisions/ADR-001-extension-first.md), [ADR-002](docs/decisions/ADR-002-dual-session.md), [ADR-003](docs/decisions/ADR-003-manual-first-context-pairing.md) en het [testplan](docs/manual-test-plan.md). Sprint 02 volgt [issue #5](https://github.com/johndobry89/SeatBuddy/issues/5) en blijft afhankelijk van [PR #4](https://github.com/johndobry89/SeatBuddy/pull/4) zolang die openstaat.
 
 Independent third-party tool. Not affiliated with or endorsed by Vue Cinemas. Reservations remain separate and are only final when independently confirmed by Vue.

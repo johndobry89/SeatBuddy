@@ -1,16 +1,31 @@
-# Local Chrome verification — fictional data only
+# Sprint 02 — handmatige Chrome- en Windows-proef
 
-Use a desktop Chrome 116+ profile where unpacked extensions are permitted. Do not alter managed browser policy to run this test. These steps do not require or permit any real Vue account, production checkout or purchase.
+Gebruik alleen fictieve film-/stoelgegevens en neutrale tabs. Geen echte accounts, live checkoutacties of aankoop. Noteer per stap datum/tijd/tijdzone, OS, Chrome-versie, commit, extensieversie en de werkelijk geziene uitkomst. Installatie: [Windows-testgids](windows-test-guide.md).
 
-1. Run `npm ci` and `npm run check`; load `dist/` through **Load unpacked**. Record OS, browser version, Git commit, extension ID/version and time with timezone.
-2. Click the extension action. Confirm that the actual Side Panel opens, the disclaimer is visible and A/B initially show `UNKNOWN`.
-3. Start the matching simulation. Confirm the five fictional showtime fields match and F10/F11 are marked **mock** neighbours. Advance A alone through review and simulated completion. B must remain unchanged, and neither session may show a real `CONFIRMED` state.
-4. Run mismatch, aisle, partial-failure and stale scenarios. Confirm the separate statuses, conservative match/adjacency results and next-step guidance. Wait 60 seconds; expired evidence must become `UNKNOWN`.
-5. Reset to manual mode. Tick A's checklist; B and both observed statuses must remain unchanged. Reload the panel; checklist entries must not persist.
-6. Open the packaged fictional page. Bind A in a normal tab and send a fictional observation. Confirm only A updates. Reload/close that tab; A must become `UNKNOWN`.
-7. Without incognito opt-in, attempt B binding in a normal tab: it must fail. If browser policy permits, explicitly opt in, open the packaged fixture URL in an incognito window, bind B and send a fictional observation. Record actual `tabId`, `windowId`, `incognito` and role provenance only; never record identity/account data. B cannot bind in a normal window and A cannot bind in incognito.
-8. Inspect Side Panel behaviour separately in each window; record missing/unsupported placement honestly. Do not infer account isolation or live-site support from fictional events.
-9. Revoke incognito permission and verify B evidence disappears; rebind explicitly if permission is later restored. Stop the extension worker through Chrome's extension service-worker tools, reopen the panel, and verify both statuses reset without any repeated action.
-10. Inspect extension permissions, network activity and storage: only `sidePanel`, no external requests or persistent session/checklist data. Record actual outcomes and any browser limitation in `docs/feasibility.md`.
+| Proef                                                  | Verwacht gedrag                                                                                                                   |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| Extensie laden en werkbalkicoon klikken                | Echte Chrome Side Panel opent; assistent is standaard, simulatie is apart                                                         |
+| Plan zonder zaal                                       | Geldige voorlopige planning; voorstellingmatch blijft UNKNOWN                                                                     |
+| Ongeldige datum, lege film/locatie/tijd                | Geen geldig opgeslagen plan of sterke match                                                                                       |
+| A/B eigen invoer bewaren                               | Alleen expliciete eigen film-/stoelgegevens; geen accountgegevens                                                                 |
+| Alleen A door vijf stappen                             | A zelf gemeld afgerond, B onvoltooid; partiële melding, geen websitebevestiging                                                   |
+| Andere tijd/zaal in B                                  | Geen doorgang langs voorstellingcontrole; foutpad vraagt eigen vergelijking                                                       |
+| Opeenvolgende stoelnummers                             | Alleen ongeverifieerde nummervergelijking, geen echte buur-/beschikbaarheidsclaim                                                 |
+| Uitloggen/mismatch/onzekere uitkomst melden            | Alleen die persoon moet opnieuw controleren; geen retry/rollback                                                                  |
+| Wijzigen eigen details / opnieuw plannen               | Eigen controles / beide controles vervallen zoals vooraf aangegeven                                                               |
+| Plan tijdens polling bewerken                          | Onopgeslagen invoer blijft staan; focus en cursor blijven bruikbaar                                                               |
+| Tab/Shift+Tab/Enter op 320px                           | Labels, knoppen, uitklappen en focus bruikbaar; geen horizontale overflow                                                         |
+| Expliciete normale context A                           | Alleen browsermetadata gekoppeld, geen account of sitewaarneming                                                                  |
+| B zonder incognitotoegang of normaal venster           | Koppeling geweigerd; bruikbare handmatige route blijft beschikbaar                                                                |
+| Expliciete incognito-opt-in, neutrale tab B            | Alleen als Chrome het toestaat: aparte tab-/venster-/incognitometadata zichtbaar in normaal paneel                                |
+| Navigatie/sluiten/vervangen/verplaatsen gekoppelde tab | Koppeling en eerdere eigen controles van die persoon vervallen                                                                    |
+| Incognitotoegang intrekken                             | B-koppeling/progressie vervalt; een workerreload mag alle tijdelijke gegevens wissen                                              |
+| 15 minuten zonder nieuwe eigen controle                | Eigen voortgang vervalt; plan en stoelwensen blijven ongeverifieerde invoer                                                       |
+| Worker stoppen / browser herstarten                    | Geen herstel van voortgang, geen acties opnieuw uitvoeren, opnieuw plannen                                                        |
+| Geen Chrome-runtime                                    | Lokale handmatige assistent werkt zonder browserkoppeling; herladen wist alles                                                    |
+| Fictieve simulatie / pakketpagina                      | SIMULATION, nooit echte bevestiging; echte metadata voor reguliere fixture A; B als verpakte incognitopagina is NO-GO in spanning |
+| Rechten/netwerk/opslag inspecteren                     | Alleen sidePanel-permissie, geen hostrechten of automatische externe requests, geen persistente plan-/incognitogegevens           |
 
-The smallest separate G0 step is a human review of current Vue terms and allowed interaction scope, followed only by expressly permitted, read-only manual observation. G1 mocks never establish G0, successful bookings, two-account isolation or actual seat availability.
+Automatische echte-extensietests openen het Side Panel vanuit een expliciete klik en controleren echte browserzenders. Een tweede test schakelt via de normale Chrome-instellingen in een eigen wegwerpprofiel expliciet incognitotoegang in/uit, koppelt neutrale Chrome-contexten en stopt de worker via testinstrumentatie. Dit wijzigt geen beheerd browserbeleid en gebruikt geen productiepagina. Leg PASS alleen vast als die test werkelijk in die omgeving heeft gedraaid.
+
+Voor G0 is de volgende menselijke stap: actuele publieke Vue-voorwaarden/help beoordelen en toestemming/scope vastleggen, daarna alleen een toegestane handmatige observatie van de benodigde velden. Geen G0-GO uit fixturetests, publieke marketingtekst of Chrome-contextmetadata afleiden.

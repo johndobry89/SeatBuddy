@@ -1,15 +1,24 @@
+import {
+  manualCommandSchema,
+  manualStateSchema,
+  browserContextSchema,
+} from '../core/manual-assistant';
 import { z } from 'zod';
 import { observationSchema, roleSchema, scenarioSchema } from '../core/types';
 
 // Strict schemas reject extra fields (including claimed tab IDs, credentials and live evidence).
 export const panelCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('GET_STATE') }),
+  z.strictObject({ type: z.literal('GET_CONTEXTS') }),
   z.strictObject({ type: z.literal('RESET') }),
+  z.strictObject({ type: z.literal('MANUAL_MODE') }),
+  ...manualCommandSchema.options,
   z.strictObject({ type: z.literal('DEMO_STEP'), role: roleSchema }),
   z.strictObject({ type: z.literal('DEMO'), scenario: scenarioSchema }),
 ]);
 export const fixtureCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('BIND'), role: roleSchema }),
+  z.strictObject({ type: z.literal('UNBIND') }),
   z.strictObject({
     type: z.literal('OBSERVE'),
     observation: observationSchema,
@@ -39,6 +48,8 @@ const sessionSchema = z.strictObject({
   evidence: z.enum(['NONE', 'SIMULATION']),
 });
 export const snapshotSchema = z.strictObject({
+  manual: manualStateSchema,
+  contexts: z.array(browserContextSchema).max(100),
   mode: z.enum(['MANUAL', 'DEMO', 'FIXTURE']),
   sessions: z.strictObject({ A: sessionSchema, B: sessionSchema }),
   match: z.enum(['MATCH', 'MISMATCH', 'UNKNOWN']),
@@ -48,9 +59,17 @@ export const snapshotSchema = z.strictObject({
 });
 export const panelReplySchema = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true), state: snapshotSchema }),
-  z.strictObject({ ok: z.literal(false), error: z.string() }),
+  z.strictObject({
+    ok: z.literal(false),
+    error: z.string(),
+    code: z.literal('BROWSER_UNAVAILABLE').optional(),
+  }),
 ]);
 export const fixtureReplySchema = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true) }),
-  z.strictObject({ ok: z.literal(false), error: z.string() }),
+  z.strictObject({
+    ok: z.literal(false),
+    error: z.string(),
+    code: z.literal('BROWSER_UNAVAILABLE').optional(),
+  }),
 ]);

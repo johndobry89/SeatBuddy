@@ -1,4 +1,4 @@
-name: Mock extension checks
+name: Companion checks and Windows test build
 on:
   push:
   pull_request:
@@ -16,13 +16,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: npm run package
       - run: npm exec playwright install -- --with-deps chromium
       - run: npm run test:ui
-      - run: npm run test:e2e
+      - run: HEADED=1 xvfb-run -a npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: mock-extension-and-results
+          name: seatmates-windows-test
           path: |
-            dist/
-            test-results/
+            build/*-windows-test.zip
+            build/*-windows-test.zip.sha256
