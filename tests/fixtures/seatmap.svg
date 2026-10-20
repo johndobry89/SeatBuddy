@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" data-seatmates-screening-fixture="v1" data-cinema="Fictief Filmhuis" data-movie="De maan van papier" data-date="2030-04-12" data-time="19:30" data-hall="Zaal 2">
+<title>Uitsluitend fictieve geometrie, geen beschikbaarheidsbewijs</title>
+<rect x="10" y="10" width="20" height="20" data-fictional-seat="" data-label="F10" data-row="F" data-section="links" data-category="STANDARD" data-position="4" aria-pressed="true" />
+<rect x="70" y="10" width="20" height="20" data-fictional-seat="" data-label="F11" data-row="F" data-section="rechts" data-category="STANDARD" data-position="5" aria-pressed="false" />
+</svg>

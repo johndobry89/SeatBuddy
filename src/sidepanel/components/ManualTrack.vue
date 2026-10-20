@@ -1,0 +1,298 @@
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import type { Snapshot } from '../../background/coordinator';
+import { type Role } from '../../core/types';
+import {
+  manualSteps,
+  stepLabels,
+  recoveryText,
+} from '../../core/manual-assistant';
+import type { PanelCommand } from '../../privacy/protocol';
+import ShowtimeFields from './ShowtimeFields.vue';
+const props = defineProps<{
+  role: Role;
+  state: Snapshot;
+  busy: boolean;
+  offline: boolean;
+}>();
+const emit = defineEmits<{ command: [command: PanelCommand] }>();
+const track = computed(() => props.state.manual.tracks[props.role]);
+const detailsOpen = ref(false);
+const empty = { movie: null, cinema: null, date: null, time: null, hall: null };
+const showtime = ref({
+  ...(track.value.reportedShowtime ?? props.state.manual.plan ?? empty),
+});
+const seat = ref({ ...track.value.seat });
+const selectedContext = ref('');
+const contextFeedback = ref('');
+async function focusSelected() {
+  const choice = choices.value.find(
+    (value) => value.tabId === Number(selectedContext.value),
+  );
+  if (!choice) return;
+  try {
+    await chrome.windows.update(choice.windowId, { focused: true });
+    contextFeedback.value =
+      'Gekozen venster getoond. Dit heeft nog geen koppeling gemaakt.';
+  } catch {
+    contextFeedback.value =
+      'Venster kon niet worden getoond. Controleer de context zelf of werk handmatig.';
+  }
+}
+watch(
+  () =>
+    JSON.stringify({
+      plan: props.state.manual.plan,
+      showtime: track.value.reportedShowtime,
+      seat: track.value.seat,
+    }),
+  () => {
+    showtime.value = {
+      ...(track.value.reportedShowtime ?? props.state.manual.plan ?? empty),
+    };
+    seat.value = { ...track.value.seat };
+  },
+);
+const next = computed(() => manualSteps[track.value.completed.length]);
+const choices = computed(() =>
+  props.state.contexts.filter(
+    (context) => context.incognito === (props.role === 'B'),
+  ),
+);
+function saveDetails() {
+  emit('command', {
+    type: 'MANUAL_DETAILS',
+    role: props.role,
+    showtime: showtime.value,
+    seat: seat.value,
+  });
+}
+</script>
+<template>
+  <article class="track" :aria-labelledby="`account-${role}`">
+    <div class="track-heading">
+      <span class="role-mark">{{ role }}</span>
+      <div>
+        <h3 :id="`account-${role}`">Account {{ role }}</h3>
+        <p>
+          {{
+            role === 'A'
+              ? 'Eigen account · normaal venster'
+              : 'Eigen account · incognito of handmatig apart'
+          }}
+        </p>
+      </div>
+    </div>
+    <p class="status" :data-testid="`manual-status-${role}`">
+      {{
+        track.completed.includes('DONE')
+          ? 'Zelf gemeld afgerond'
+          : track.problem
+            ? 'Opnieuw controleren'
+            : track.completed.length
+              ? 'Bezig — eigen controles'
+              : 'Nog niet gecontroleerd'
+      }}
+    </p>
+    <p class="source">Bron: MANUAL / eigen invoer. Websitebewijs: UNKNOWN.</p>
+    <p v-if="track.reviewedAt" class="source">
+      Laatste eigen controle:
+      {{ new Date(track.reviewedAt).toLocaleTimeString('nl-NL') }} · vervalt na
+      15 minuten.
+    </p>
+    <p v-if="track.problem" role="status" class="notice">
+      {{ recoveryText[track.problem] }}
+    </p>
+    <p v-if="track.context" class="context-note">
+      Chrome-context gekoppeld: venster {{ track.context.windowId }}, tab
+      {{ track.context.tabId }},
+      {{ track.context.incognito ? 'incognito' : 'normaal' }}. Dit koppelt geen
+      account en leest geen Vue-pagina.
+    </p>
+    <p v-else class="context-note">
+      Geen browsercontext gekoppeld. Volg de stappen zelf in een apart eigen
+      venster; de assistent blijft bruikbaar.
+    </p>
+    <details>
+      <summary>Browsercontext kiezen of loskoppelen</summary>
+      <p>
+        Maak het juiste venster zelf actief. Kies hieronder de actieve tab van
+        dat venster. Alleen tab-/vensternummers en incognitostatus worden
+        gelezen, geen titels of URL’s.
+      </p>
+      <button
+        class="secondary"
+        :disabled="offline || busy"
+        @click="emit('command', { type: 'GET_CONTEXTS' })"
+      >
+        Vensterlijst ophalen / vernieuwen
+      </button>
+      <label :for="`context-${role}`">Actieve context {{ role }}</label>
+      <select :id="`context-${role}`" v-model="selectedContext">
+        <option value="">Kies een venster</option>
+        <option
+          v-for="context in choices"
+          :key="context.tabId"
+          :value="String(context.tabId)"
+        >
+          Venster {{ context.windowId }} · tab {{ context.tabId }} ·
+          {{ context.incognito ? 'incognito' : 'normaal' }}
+        </option>
+      </select>
+      <button
+        class="text-button"
+        :disabled="offline || busy || !selectedContext"
+        @click="focusSelected"
+      >
+        Toon gekozen venster
+      </button>
+      <p v-if="contextFeedback" role="status">{{ contextFeedback }}</p>
+      <button
+        class="secondary"
+        :disabled="offline || busy || !selectedContext"
+        @click="
+          emit('command', {
+            type: 'BIND_CONTEXT',
+            role,
+            tabId: Number(selectedContext),
+          })
+        "
+      >
+        Koppel context {{ role }}
+      </button>
+      <button
+        class="text-button"
+        :disabled="busy || !track.context"
+        @click="emit('command', { type: 'UNBIND', role })"
+      >
+        Koppeling {{ role }} losmaken
+      </button>
+      <p v-if="role === 'B' && !state.incognitoAllowed">
+        Chrome geeft geen incognitotoegang. Zet die alleen zelf aan als je de
+        proef wilt doen; anders werk je handmatig, bijvoorbeeld in een apart
+        profiel.
+      </p>
+    </details>
+    <details
+      :open="detailsOpen"
+      @toggle="detailsOpen = ($event.target as HTMLDetailsElement).open"
+    >
+      <summary>Voorstelling en stoel voor {{ role }} controleren</summary>
+      <p>
+        Deze velden zijn uit het plan overgenomen. Vergelijk ze zelf met Vue. Ze
+        zijn geen automatische waarneming.
+      </p>
+      <form @submit.prevent="saveDetails">
+        <ShowtimeFields v-model="showtime" :prefix="`reported-${role}`" />
+        <div class="seat-fields">
+          <label :for="`row-${role}`"
+            >Gewenste rij {{ role
+            }}<input
+              :id="`row-${role}`"
+              v-model="seat.row"
+              maxlength="12"
+              autocomplete="off" /></label
+          ><label :for="`seat-${role}`"
+            >Stoelnummer {{ role
+            }}<input
+              :id="`seat-${role}`"
+              v-model="seat.number"
+              inputmode="numeric"
+              pattern="[0-9]{0,3}"
+              maxlength="3"
+              autocomplete="off"
+          /></label>
+        </div>
+        <button class="secondary" :disabled="busy">
+          Bewaar eigen invoer {{ role }}
+        </button>
+      </form>
+      <p>
+        Wijzigen van de invoer wist de eerdere controles van alleen deze
+        persoon.
+      </p>
+    </details>
+    <p>
+      Gewenst: {{ track.seat.row || '?' }}{{ track.seat.number || '?' }} ·
+      beschikbaarheid en gangpad UNKNOWN.
+    </p>
+    <p class="source">
+      {{ track.completed.length }}/5 eigen controles — geen waargenomen
+      bevestiging.
+    </p>
+    <details>
+      <summary>Alle eigen stappen bekijken</summary>
+      <ol class="progress">
+        <li
+          v-for="step in manualSteps"
+          :key="step"
+          :class="{ checked: track.completed.includes(step) }"
+        >
+          {{ stepLabels[step] }}
+          <span v-if="track.completed.includes(step)" class="source"
+            >— zelf gemeld</span
+          >
+        </li>
+      </ol>
+    </details>
+    <div class="next-action">
+      <p>
+        <strong>Volgende eigen stap {{ role }}</strong>
+      </p>
+      <p v-if="next">
+        {{ stepLabels[next] }}. Open en controleer de officiële website zelf.
+      </p>
+      <p v-else>
+        Je meldt dat je zelf hebt afgerond. Controleer de echte bevestiging op
+        Vue; de extensie heeft die niet waargenomen.
+      </p>
+      <button
+        v-if="next"
+        :disabled="busy || !state.manual.plan"
+        @click="emit('command', { type: 'ACKNOWLEDGE', role, step: next })"
+      >
+        {{ stepLabels[next] }} — {{ role }}
+      </button>
+    </div>
+    <details>
+      <summary>Probleem of opnieuw beginnen</summary>
+      <div class="actions">
+        <button
+          class="secondary"
+          :disabled="busy"
+          @click="
+            emit('command', { type: 'REPORT_PROBLEM', role, problem: 'LOGOUT' })
+          "
+        >
+          Ik ben uitgelogd — {{ role }}</button
+        ><button
+          class="secondary"
+          :disabled="busy"
+          @click="
+            emit('command', {
+              type: 'REPORT_PROBLEM',
+              role,
+              problem: 'MISMATCH',
+            })
+          "
+        >
+          Voorstelling wijkt af — {{ role }}</button
+        ><button
+          class="secondary"
+          :disabled="busy"
+          @click="
+            emit('command', { type: 'REPORT_PROBLEM', role, problem: 'FAILED' })
+          "
+        >
+          Uitkomst onzeker / mislukt — {{ role }}</button
+        ><button
+          class="text-button"
+          :disabled="busy"
+          @click="emit('command', { type: 'RESET_TRACK', role })"
+        >
+          Begin {{ role }} opnieuw
+        </button>
+      </div>
+    </details>
+  </article>
+</template>

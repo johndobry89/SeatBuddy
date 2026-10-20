@@ -1,217 +1,213 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
-import type { Snapshot } from '../background/coordinator';
-import { roles, type Scenario } from '../core/types';
-import { panelReplySchema, type PanelCommand } from '../privacy/protocol';
-import { liveDetection } from '../adapters/vue-cinemas';
-
-const state = ref<Snapshot | null>(null);
-const error = ref('');
-const busy = ref(false);
-const scenario = ref<Scenario>('matching');
-const checks = ref<Record<string, boolean>>({});
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useCompanion } from './use-companion';
+import { roles, type Showtime } from '../core/types';
+import { manualSummary, planningSchema } from '../core/manual-assistant';
+import ShowtimeFields from './components/ShowtimeFields.vue';
+import ManualTrack from './components/ManualTrack.vue';
+import SimulationPanel from './components/SimulationPanel.vue';
+const { snapshot, offline, error, busy, command } = useCompanion();
+const view = ref<'manual' | 'simulation'>('manual');
+const plan = ref<Showtime>({
+  movie: null,
+  cinema: null,
+  date: null,
+  time: null,
+  hall: null,
+});
+const formError = ref('');
+watch(
+  () => snapshot.value?.manual.plan,
+  (current, previous) => {
+    if (previous && !current)
+      plan.value = {
+        movie: null,
+        cinema: null,
+        date: null,
+        time: null,
+        hall: null,
+      };
+  },
+);
+async function clearAll() {
+  if (await command({ type: 'RESET' })) {
+    plan.value = {
+      movie: null,
+      cinema: null,
+      date: null,
+      time: null,
+      hall: null,
+    };
+    formError.value = '';
+  }
+}
+const heading = ref<HTMLElement | null>(null);
+const summary = computed(() =>
+  snapshot.value ? manualSummary(snapshot.value.manual) : null,
+);
 let timer: ReturnType<typeof setInterval> | undefined;
-const checklist = [
-  'Gebruik een eigen geldig account en eigen pas per persoon.',
-  'Vergelijk film, bioscoop, datum, aanvangstijd en zaal.',
-  'Controleer stoelen, gangpaden, categorie en eventuele kosten zelf.',
-  'Rond uitsluitend zelf en afzonderlijk af op de officiële website.',
-  'Controleer iedere echte bevestiging apart; een vinkje hier bewijst niets.',
-];
-async function command(message: PanelCommand) {
-  if (busy.value) return;
-  busy.value = true;
-  try {
-    const reply: unknown = await chrome.runtime.sendMessage(message);
-    const result = panelReplySchema.parse(reply);
-    if (!result.ok) throw new Error(result.error);
-    state.value = result.state;
-    error.value = '';
-    if (message.type !== 'GET_STATE') checks.value = {};
-  } catch {
-    state.value = null;
-    error.value =
-      'Geen betrouwbare verbinding met de extensie. Status UNKNOWN. Gebruik de handmatige checklist.';
-  } finally {
-    busy.value = false;
+async function changeView(value: typeof view.value) {
+  view.value = value;
+  if (value === 'manual') await command({ type: 'MANUAL_MODE' });
+  await nextTick();
+  if (value === 'manual') heading.value?.focus();
+  else document.getElementById('simulation-title')?.focus();
+}
+async function savePlan() {
+  const parsed = planningSchema.safeParse(plan.value);
+  if (!parsed.success) {
+    formError.value =
+      'Vul een geldige film, bioscoop, datum en tijd in. Laat een onbekende zaal leeg.';
+    return;
+  }
+  if (await command({ type: 'PLAN', plan: parsed.data })) {
+    formError.value = '';
+    await nextTick();
+    document.getElementById('tracks-title')?.focus();
   }
 }
-async function openFixture() {
-  try {
-    await chrome.tabs.create({ url: chrome.runtime.getURL('fixture.html') });
-  } catch {
-    error.value = 'Fictieve testpagina kon niet worden geopend.';
-  }
-}
-onMounted(() => {
-  void command({ type: 'GET_STATE' });
-  timer = setInterval(() => void command({ type: 'GET_STATE' }), 2000);
+onMounted(async () => {
+  await command({ type: 'GET_STATE' });
+  if (snapshot.value?.manual.plan)
+    plan.value = { ...snapshot.value.manual.plan };
+  timer = setInterval(() => {
+    if (view.value === 'manual') void command({ type: 'GET_STATE' });
+  }, 2000);
 });
 onUnmounted(() => clearInterval(timer));
 </script>
-
 <template>
-  <main>
-    <header>
-      <p class="eyebrow">Twee personen · twee onafhankelijke transacties</p>
-      <h1>SeatMates</h1>
-      <p>Een rustige checklist naast je filmavond.</p>
-    </header>
-    <p class="notice">
-      <strong>Alleen lokale simulatie.</strong> Geen live detectie, reservering,
-      betaling of seat hold.
-    </p>
-    <p v-if="error" role="alert" class="error">{{ error }}</p>
-    <p v-if="!state && !error" role="status">Status laden…</p>
-    <section aria-labelledby="demo-title">
-      <h2 id="demo-title">Fictieve demo</h2>
-      <label for="scenario">Scenario</label>
-      <select id="scenario" v-model="scenario">
-        <option value="matching">
-          Zelfde voorstelling, fictieve buurstoelen
-        </option>
-        <option value="mismatch">Verschillende aanvangstijden</option>
-        <option value="partial">
-          Partieel: A simulatie voltooid, B mislukt
-        </option>
-        <option value="aisle">Gangpad tussen F10 en F11</option>
-        <option value="stale">Verlopen waarneming B</option>
-      </select>
-      <div class="actions">
-        <button :disabled="busy" @click="command({ type: 'DEMO', scenario })">
-          Start simulatie
-        </button>
-        <button
-          class="secondary"
-          :disabled="busy"
-          @click="command({ type: 'RESET' })"
-        >
-          Wis sessies / handmatig
-        </button>
-      </div>
-    </section>
-    <section aria-labelledby="sessions-title">
-      <h2 id="sessions-title">A en B afzonderlijk</h2>
-      <p class="eyebrow">
-        {{ state?.mode ?? 'UNKNOWN' }} ·
-        {{
-          state?.mode === 'MANUAL'
-            ? 'Geen sitebewijs'
-            : 'SIMULATION — geen echte boekingsstatus'
-        }}
-      </p>
-      <div class="sessions">
-        <article
-          v-for="role in roles"
-          :key="role"
-          :aria-labelledby="`role-${role}`"
-        >
-          <h3 :id="`role-${role}`">Persoon {{ role }}</h3>
-          <p class="status" :data-testid="`status-${role}`">
-            {{ state?.sessions[role].observation?.status ?? 'UNKNOWN' }}
-          </p>
-          <p>Bron: {{ state?.sessions[role].evidence ?? 'NONE' }}</p>
-          <template v-if="state?.sessions[role].observation">
-            <p>
-              {{ state.sessions[role].observation?.showtime.movie }}<br />{{
-                state.sessions[role].observation?.showtime.cinema
-              }}
-            </p>
-            <p>
-              {{ state.sessions[role].observation?.showtime.date }} ·
-              {{ state.sessions[role].observation?.showtime.time }} ·
-              {{ state.sessions[role].observation?.showtime.hall }}
-            </p>
-            <p>
-              Gewenste fictieve stoel:
-              <strong>{{
-                state.sessions[role].observation?.seat?.label ?? 'UNKNOWN'
-              }}</strong>
-              (niet geboekt)
-            </p>
-          </template>
-          <p v-if="state?.sessions[role].binding">
-            Fictieve tab {{ state.sessions[role].binding?.tabId }} ·
-            {{
-              state.sessions[role].binding?.incognito ? 'incognito' : 'regulier'
-            }}
-          </p>
-          <p v-else>Geen browsertab gekoppeld.</p>
-          <button
-            v-if="state?.mode === 'DEMO'"
-            class="secondary"
-            :disabled="
-              busy ||
-              !['SELECTED', 'REVIEW_REQUIRED'].includes(
-                state.sessions[role].observation?.status ?? '',
-              )
-            "
-            @click="command({ type: 'DEMO_STEP', role })"
-          >
-            Volgende simulatiestap {{ role }}
-          </button>
-        </article>
-      </div>
-      <dl>
-        <dt>Voorstelling</dt>
-        <dd data-testid="match">{{ state?.match ?? 'UNKNOWN' }}</dd>
-        <dt>Buurstoelen (alleen mock)</dt>
-        <dd data-testid="adjacency">{{ state?.adjacency ?? 'UNKNOWN' }}</dd>
-      </dl>
-      <aside aria-live="polite">
-        <strong>Volgende stap</strong>
-        <p>
-          {{
-            state?.nextStep ??
-            'Volg de handmatige checklist; er is geen betrouwbare status.'
-          }}
-        </p>
-      </aside>
-    </section>
-    <section aria-labelledby="manual-title">
-      <h2 id="manual-title">Handmatige fallback</h2>
-      <p>
-        {{ liveDetection().reason }} Deze vinkjes zijn persoonlijke
-        geheugensteuntjes, geen bewijs van een boeking.
-      </p>
-      <fieldset v-for="role in roles" :key="role">
-        <legend>Checklist persoon {{ role }}</legend>
-        <label v-for="(item, index) in checklist" :key="index" class="check">
-          <input v-model="checks[`${role}-${index}`]" type="checkbox" />
-          <span>{{ item }}</span>
-        </label>
-      </fieldset>
-    </section>
-    <section aria-labelledby="spike-title">
-      <h2 id="spike-title">Lokale sessieproef</h2>
-      <p>
-        Incognitotoegang:
-        <strong>{{
-          state?.incognitoAllowed
-            ? 'toegestaan door Chrome'
-            : 'niet beschikbaar / niet toegestaan'
-        }}</strong
-        >. Dit bewijst geen twee echte accounts of uniforme Side Panel-werking.
-      </p>
-      <p>
-        Open de fictieve pagina en kies A in een regulier venster. Voor B: geef
-        de extensie zelf incognitotoegang via de extensie-instellingen en open
-        dezelfde fictieve pagina handmatig in incognito. Kies daar B. Elke
-        koppeling begint met UNKNOWN.
-      </p>
-      <button class="secondary" @click="openFixture">
-        Open fictieve testpagina
+  <div class="app-shell">
+    <nav aria-label="Werkwijze">
+      <button :aria-pressed="view === 'manual'" @click="changeView('manual')">
+        Boekingsassistent</button
+      ><button
+        class="secondary"
+        :aria-pressed="view === 'simulation'"
+        @click="changeView('simulation')"
+      >
+        Simulatie / technische proef
       </button>
-      <p>
-        Alles blijft tijdelijk in het geheugen. Na navigatie, sluiten, herstart
-        of 60 seconden zonder waarneming vervalt de status. Er worden geen
-        acties herhaald.
+    </nav>
+    <main v-if="view === 'manual'">
+      <header>
+        <p class="eyebrow">Zelf plannen · afzonderlijk controleren</p>
+        <h1 ref="heading" tabindex="-1">Samen naar de film</h1>
+        <p class="intro">Eén plan. Twee eigen accounts. Jij houdt de regie.</p>
+      </header>
+      <p class="notice">
+        Deze assistent leest Vue niet en boekt niets.
+        <strong
+          >Eigen vinkjes of meldingen zijn geen websitebevestiging.</strong
+        >
+        Gegevens blijven tijdelijk in het geheugen; sluiten of herstart kan ze
+        wissen.
       </p>
-    </section>
-    <footer>
-      Independent third-party tool. Not affiliated with or endorsed by Vue
-      Cinemas. Reservations remain separate and are only final when
-      independently confirmed by Vue.
-    </footer>
-  </main>
+      <p v-if="offline" class="notice">
+        Alleen lokaal in dit paneel. Browserkoppeling is niet beschikbaar; bij
+        herladen verdwijnt je invoer.
+      </p>
+      <p v-if="error" role="alert" class="error">{{ error }}</p>
+      <section aria-labelledby="plan-title">
+        <h2 id="plan-title">1. Kies jullie voorstelling</h2>
+        <p>
+          Vul alleen filmgegevens in. Geen namen, pasnummers, wachtwoorden of
+          betaalgegevens.
+        </p>
+        <form @submit.prevent="savePlan">
+          <ShowtimeFields v-model="plan" prefix="plan" />
+          <p v-if="formError" role="alert" class="error">{{ formError }}</p>
+          <p v-if="snapshot?.manual.plan" class="source">
+            Opnieuw opslaan wist beide controles en koppelingen. Je begint
+            bewust opnieuw.
+          </p>
+          <button :disabled="busy">Bewaar filmplan</button>
+        </form>
+        <p
+          v-if="snapshot?.manual.plan && !snapshot.manual.plan.hall"
+          class="notice"
+        >
+          Zaal UNKNOWN. Er is nog geen volledige voorstellingmatch; vul de zaal
+          in zodra je die zelf weet.
+        </p>
+      </section>
+      <section v-if="snapshot" aria-labelledby="tracks-title">
+        <h2 id="tracks-title" tabindex="-1">
+          2. Controleer A en B afzonderlijk
+        </h2>
+        <p>
+          Open zelf een normaal venster voor A en een incognitovenster voor B.
+          Als dat niet kan, gebruik je aparte eigen profielen en volg je de
+          handmatige stappen. De extensie bewijst geen accountisolatie.
+        </p>
+        <a
+          href="https://www.vuecinemas.nl/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="site-link"
+          >Open de officiële Vue-website zelf ↗</a
+        >
+        <p class="source">
+          De link opent een gewone pagina in de huidige browsercontext. Hij
+          maakt geen tweede account of incognitovenster aan.
+        </p>
+        <div class="sessions">
+          <ManualTrack
+            v-for="role in roles"
+            :key="role"
+            :role="role"
+            :state="snapshot"
+            :busy="busy"
+            :offline="offline"
+            @command="command"
+          />
+        </div>
+      </section>
+      <section aria-labelledby="comparison-title">
+        <h2 id="comparison-title">3. Vergelijk voor je zelf afrondt</h2>
+        <dl>
+          <dt>Voorstelling volgens eigen controles</dt>
+          <dd data-testid="manual-match">
+            {{ summary?.match ?? 'UNKNOWN' }} — geen sitebewijs
+          </dd>
+          <dt>Gewenste stoelen</dt>
+          <dd data-testid="manual-adjacency">
+            {{
+              summary?.adjacency === 'CONSECUTIVE_UNVERIFIED'
+                ? 'Nummers volgen op elkaar — niet geverifieerd naast elkaar'
+                : summary?.adjacency === 'NOT_CONSECUTIVE'
+                  ? 'Nummers niet opeenvolgend — controleer zelf'
+                  : 'UNKNOWN — zaal, rij of stoel ontbreekt'
+            }}
+          </dd>
+        </dl>
+        <p>
+          Gangpad, stoelcategorie, beschikbaarheid en echte aangrenzendheid zijn
+          niet vastgesteld. Opeenvolgende nummers zijn onvoldoende bewijs.
+        </p>
+        <aside v-if="summary?.partial" role="status" class="notice">
+          Partiële eigen melding: {{ summary.done[0] }} meldt afgerond; de ander
+          is nog niet klaar. Controleer iedere uitkomst apart. Geen automatische
+          herhaling, annulering of rollback.
+        </aside>
+        <aside v-else-if="summary?.done.length === 2" class="notice">
+          Beiden melden zelf afgerond. Werkelijke bevestigingen blijven UNKNOWN
+          totdat jullie die zelf op Vue controleren. De extensie heeft geen
+          bevestiging waargenomen.
+        </aside>
+      </section>
+      <details class="reset-area">
+        <summary>Alle gegevens wissen</summary>
+        <button class="secondary" :disabled="busy" @click="clearAll">
+          Wis alle tijdelijke gegevens
+        </button>
+      </details>
+      <footer>
+        Onafhankelijke assistent, niet verbonden aan of goedgekeurd door Vue
+        Cinemas. Twee afzonderlijke reserveringen; alleen echte afzonderlijke
+        bevestigingen op Vue gelden. Testbuild 0.2.0.
+      </footer>
+    </main>
+    <SimulationPanel v-else />
+  </div>
 </template>

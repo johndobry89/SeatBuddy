@@ -1,3 +1,7 @@
+import {
+  manualCommandSchema,
+  type BrowserContext,
+} from '../core/manual-assistant';
 import { Coordinator } from './coordinator';
 import { bindSession, invalidateTab } from './session-registry';
 import {
@@ -5,7 +9,7 @@ import {
   fixtureCommandSchema,
   panelCommandSchema,
 } from '../privacy/protocol';
-import type { Binding } from '../core/types';
+import { emptySessions, type Binding } from '../core/types';
 
 export interface Sender {
   id?: string | undefined;
@@ -16,6 +20,13 @@ export interface Sender {
     | { id?: number | undefined; windowId: number; incognito: boolean }
     | undefined;
 }
+export function isPanelSender(sender: Sender, extensionId: string) {
+  return (
+    sender.id === extensionId &&
+    sender.url === `chrome-extension://${extensionId}/sidepanel.html` &&
+    (sender.frameId === undefined || sender.frameId === 0)
+  );
+}
 export function routeMessage(
   coordinator: Coordinator,
   raw: unknown,
@@ -23,6 +34,7 @@ export function routeMessage(
   extensionId: string,
   allowed: boolean,
   now: number,
+  contexts?: BrowserContext[],
 ) {
   const reject = () => ({
     ok: false as const,
@@ -30,10 +42,7 @@ export function routeMessage(
   });
   if (sender.id !== extensionId) return reject();
   const base = `chrome-extension://${extensionId}/`;
-  if (
-    sender.url === `${base}sidepanel.html` &&
-    (sender.frameId === undefined || sender.frameId === 0)
-  ) {
+  if (isPanelSender(sender, extensionId)) {
     if (!boundedPayload(raw)) return reject();
     const result = panelCommandSchema.safeParse(raw);
     if (!result.success) return reject();
@@ -42,10 +51,32 @@ export function routeMessage(
       !coordinator.advanceDemo(result.data.role, now)
     )
       return reject();
+    if (
+      result.data.type === 'GET_CONTEXTS' ||
+      result.data.type === 'BIND_CONTEXT'
+    )
+      coordinator.contextChoices = contexts ?? [];
+    const manual = manualCommandSchema.safeParse(raw);
+    if (manual.success) {
+      const error = coordinator.manualCommand(
+        manual.data,
+        now,
+        contexts ?? [],
+        allowed,
+      );
+      if (error) return { ok: false as const, error };
+    }
+    if (result.data.type === 'MANUAL_MODE') {
+      coordinator.mode = 'MANUAL';
+      coordinator.sessions = emptySessions();
+    }
     if (result.data.type === 'RESET') coordinator.reset();
     if (result.data.type === 'DEMO')
       coordinator.demo(result.data.scenario, now);
-    return { ok: true as const, state: coordinator.snapshot(now, allowed) };
+    return {
+      ok: true as const,
+      state: coordinator.snapshot(now, allowed),
+    };
   }
   if (
     sender.url !== `${base}fixture.html` ||
@@ -73,9 +104,13 @@ export function routeMessage(
     invalidateTab(coordinator.sessions, binding.tabId);
     return reject();
   }
+  if (result.data.type === 'UNBIND') {
+    invalidateTab(coordinator.sessions, binding.tabId);
+    return { ok: true as const };
+  }
   if (result.data.type === 'BIND') {
     if (coordinator.mode !== 'FIXTURE') {
-      coordinator.reset();
+      coordinator.sessions = emptySessions();
       coordinator.mode = 'FIXTURE';
     }
     if (!bindSession(coordinator.sessions, result.data.role, binding, allowed))

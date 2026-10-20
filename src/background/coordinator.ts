@@ -1,4 +1,11 @@
 import {
+  emptyManual,
+  applyManual,
+  expireManual,
+  type ManualCommand,
+  type BrowserContext,
+} from '../core/manual-assistant';
+import {
   emptySessions,
   fresh,
   roles,
@@ -15,13 +22,30 @@ import { boundRole } from './session-registry';
 
 export class Coordinator {
   sessions = emptySessions();
+  manual = emptyManual();
+  contextChoices: BrowserContext[] = [];
   mode: Mode = 'MANUAL';
   reset(): void {
     this.sessions = emptySessions();
     this.mode = 'MANUAL';
+    this.manual = emptyManual();
+    this.contextChoices = [];
+  }
+  manualCommand(
+    command: ManualCommand,
+    now: number,
+    contexts: BrowserContext[],
+    allowed: boolean,
+  ) {
+    const error = applyManual(this.manual, command, now, contexts, allowed);
+    if (!error) {
+      this.mode = 'MANUAL';
+      this.sessions = emptySessions();
+    }
+    return error;
   }
   demo(scenario: Scenario, now: number): void {
-    this.reset();
+    this.sessions = emptySessions();
     this.mode = 'DEMO';
     const observations = scenarioObservations(scenario, now);
     for (const role of roles)
@@ -67,7 +91,16 @@ export class Coordinator {
     session.evidence = 'SIMULATION';
     return true;
   }
-  snapshot(now: number, incognitoAllowed: boolean) {
+  snapshot(
+    now: number,
+    incognitoAllowed: boolean,
+    contexts: BrowserContext[] = this.contextChoices,
+  ) {
+    expireManual(this.manual, now, incognitoAllowed);
+    if (!incognitoAllowed)
+      this.contextChoices = this.contextChoices.filter(
+        (context) => !context.incognito,
+      );
     if (!incognitoAllowed && this.mode === 'FIXTURE')
       this.sessions.B = emptySessions().B;
     for (const role of roles)
@@ -97,6 +130,10 @@ export class Coordinator {
                 ? 'Controleer stoelen en gangpad handmatig; aangrenzendheid is niet aangetoond.'
                 : 'Vergelijk A en B afzonderlijk. Dit is alleen een simulatie, geen reservering of seat hold.';
     return structuredClone({
+      manual: this.manual,
+      contexts: contexts.filter(
+        (context) => !context.incognito || incognitoAllowed,
+      ),
       mode: this.mode,
       sessions: this.sessions,
       match,

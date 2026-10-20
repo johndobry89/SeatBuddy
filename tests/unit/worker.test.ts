@@ -30,6 +30,7 @@ async function boot() {
     },
     extension: { isAllowedIncognitoAccess: vi.fn().mockResolvedValue(false) },
     tabs: {
+      query: vi.fn().mockResolvedValue([]),
       onAttached: {
         addListener: vi.fn<(callback: (tabId: number) => void) => void>(),
       },
@@ -115,4 +116,56 @@ it('a new worker module retains no simulation or binding and performs no action 
   expect(reply.ok && reply.state.mode).toBe('MANUAL');
   expect(reply.ok && reply.state.sessions.A.observation).toBeNull();
   expect(second.api.sidePanel.setPanelBehavior).not.toHaveBeenCalled();
+});
+
+it('reduces Chrome metadata and invalidates a context on navigation and consent revocation', async () => {
+  const { api, send } = await boot();
+  api.extension.isAllowedIncognitoAccess.mockResolvedValue(true);
+  api.tabs.query.mockResolvedValue([
+    {
+      id: 7,
+      windowId: 1,
+      incognito: false,
+      title: 'fictional-private-title',
+      url: 'https://example.invalid/never-return',
+    },
+    {
+      id: 8,
+      windowId: 2,
+      incognito: true,
+      title: 'fictional-private-title',
+      url: 'https://example.invalid/never-return',
+    },
+  ]);
+  const snapshot = panelReplySchema.parse(await send({ type: 'GET_CONTEXTS' }));
+  expect(snapshot.ok && snapshot.state.contexts).toEqual([
+    { tabId: 7, windowId: 1, incognito: false },
+    { tabId: 8, windowId: 2, incognito: true },
+  ]);
+  expect(JSON.stringify(snapshot)).not.toContain('fictional-private-title');
+  expect(JSON.stringify(snapshot)).not.toContain('example.invalid');
+  expect(
+    await send({ type: 'BIND_CONTEXT', role: 'A', tabId: 7 }),
+  ).toMatchObject({ ok: true });
+  api.tabs.onUpdated.addListener.mock.calls[0]![0](7, { status: 'loading' });
+  const changed = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  expect(changed.ok && changed.state.manual.tracks.A.context).toBeNull();
+  expect(changed.ok && changed.state.manual.tracks.A.problem).toBe('NAVIGATED');
+  await send({ type: 'BIND_CONTEXT', role: 'B', tabId: 8 });
+  api.extension.isAllowedIncognitoAccess.mockResolvedValue(false);
+  const revoked = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  expect(revoked.ok && revoked.state.manual.tracks.B.context).toBeNull();
+  expect(
+    revoked.ok && revoked.state.contexts.some((context) => context.incognito),
+  ).toBe(false);
+});
+
+it('does not enumerate browser tabs during ordinary status polling or untrusted messages', async () => {
+  const { api, send } = await boot();
+  await send({ type: 'GET_STATE' });
+  await send({ type: 'GET_STATE' });
+  await send({ type: 'GET_CONTEXTS' }, fixture);
+  expect(api.tabs.query).not.toHaveBeenCalled();
+  await send({ type: 'GET_CONTEXTS' });
+  expect(api.tabs.query).toHaveBeenCalledTimes(1);
 });

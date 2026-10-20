@@ -3,7 +3,7 @@ export default defineConfig({
   testDir: './tests/integration',
   workers: 1,
   fullyParallel: false,
-  reporter: 'list',
+  reporter: process.env.CI ? [['list'], ['github']] : 'list',
   timeout: 30_000,
   use: { trace: 'retain-on-failure' },
   projects: [
