@@ -186,16 +186,39 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     async function reopenPanel() {
       // Chrome unloads and re-registers the package after a permission change.
       // Wait for that read-only document readiness; no transaction is replayed.
-      await expect(async () => {
-        if (page.isClosed()) page = await context.newPage();
-        await page.goto(`chrome-extension://${id}/sidepanel.html`);
-        await expect(
-          page.getByRole('heading', {
-            name: 'Samen naar de film',
-            exact: true,
-          }),
-        ).toBeVisible();
-      }).toPass({ timeout: 10_000 });
+      try {
+        await expect(async () => {
+          if (page.isClosed()) page = await context.newPage();
+          await page.goto(`chrome-extension://${id}/sidepanel.html`);
+          await expect(
+            page.getByRole('heading', {
+              name: 'Samen naar de film',
+              exact: true,
+            }),
+          ).toBeVisible();
+        }).toPass({ timeout: 10_000 });
+      } catch (error) {
+        // Only whitelisted status fields from this test's own Chrome settings UI.
+        const status = await settings
+          .locator('extensions-detail-view')
+          .evaluate((element) => {
+            const data: unknown = Reflect.get(element, 'data');
+            if (!data || typeof data !== 'object') return null;
+            return Object.fromEntries(
+              [
+                'id',
+                'state',
+                'incognitoAccess',
+                'disableReasons',
+                'location',
+              ].map((key) => [key, Reflect.get(data, key)]),
+            );
+          });
+        throw new Error(
+          `Chrome package status after consent: ${JSON.stringify(status)}; workers: ${JSON.stringify(context.serviceWorkers().map((value) => value.url()))}`,
+          { cause: error },
+        );
+      }
       expect(
         await page.evaluate(() => chrome.extension.inIncognitoContext),
       ).toBe(false);
