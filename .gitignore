@@ -1,0 +1,26 @@
+# dependencies and generated output
+node_modules/
+dist/
+build/
+coverage/
+.playwright/
+playwright-report/
+test-results/
+.vite/
+.cache/
+*.tsbuildinfo
+
+# secrets and local artifacts
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.log
+.DS_Store
+Thumbs.db
+
+# tools / editors
+.idea/
+.vscode/
