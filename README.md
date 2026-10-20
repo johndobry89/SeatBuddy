@@ -42,7 +42,7 @@ Installeer voor browsertests `npm exec playwright install -- --with-deps chromiu
 
 ## Chrome-, CI- en G0-bewijs
 
-Sprint 01 [Actions-run 39389132288](https://github.com/johndobry89/SeatBuddy/actions/runs/39389132288) heeft **Success** voor head `b2be53ee40d756da1a68b5455d5ab3f81fe36074`, inclusief de toenmalige unpacked-fixture-smoke. Dat is Linux-runnerbewijs, geen Windows- of Vue-bewijs. De beheerde cloudbrowser blokkeert unpacked installatie en incognito; die lokale blokkade blijft apart geregistreerd.
+Sprint 01 [Actions-run 39389132288](https://github.com/johndobry89/SeatBuddy/actions/runs/39389132288) heeft **Success** voor head `b2be53ee40d756da1a68b5455d5ab3f81fe36074`, inclusief de toenmalige unpacked-fixture-smoke. Dat is Linux-runnerbewijs, geen Windows- of Vue-bewijs. Sprint 02 [Actions-run 39395179800](https://github.com/johndobry89/SeatBuddy/actions/runs/39395179800) is eveneens **Success**, met 81 unit/contracttests, vier UI-tests en twee echte-extensietests, inclusief Side Panel-opening, neutrale normale/incognitocontexten, expliciete toestemming en workerherstart. Dit is Linux-bewijs met fictieve data. De beheerde cloudbrowser blokkeert unpacked installatie en incognito; die lokale blokkade blijft apart geregistreerd.
 
 Een verpakte extensiepagina kan bij `incognito: "spanning"` niet als hoofdpagina van een incognitotab laden. Het oude Sprint 01-advies om `fixture.html` in incognito te openen is daarom vervangen. De handmatige contextkoppeling heeft geen verpakte B-pagina nodig. Zie [ADR-003](docs/decisions/ADR-003-manual-first-context-pairing.md).
 

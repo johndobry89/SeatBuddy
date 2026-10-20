@@ -1,7 +1,7 @@
 # Feasibility & evidence register — SeatBuddy / SeatMates
 
 **Updated:** 2026-10-20  
-**Overall state:** G0 live Vue **NOT_RUN / BLOCKED** · Sprint 01 unpacked-fixture smoke **PASS on GitHub runner** · Sprint 02 manual assistant built/tested locally; new actual Chrome smoke **BLOCKED locally**, runner outcome recorded separately below · G2–G5 live gates **NOT_RUN**
+**Overall state:** G0 live Vue **NOT_RUN / BLOCKED** · Sprint 01 unpacked-fixture smoke **PASS on GitHub runner** · Sprint 02 manual assistant built/tested locally; new actual Chrome smoke **PASS on GitHub runner / BLOCKED locally**, with scoped evidence below · G2–G5 live gates **NOT_RUN**
 
 This file is the source of truth for observed practical feasibility. Design assumptions and tests using fixtures do not prove the Vue website or booking flow.
 
@@ -13,26 +13,26 @@ Evidence levels: `DESIGN_REVIEW`, `STATIC_CHECK`, `MOCK_INTEGRATION`, `MANUAL_LI
 
 ## G0 checklist — no live side effects
 
-| ID    | Subject                                                                   | Status                 | Evidence                                                                                  |
-| ----- | ------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
-| G0-01 | Review current Vue terms, authorization boundary and allowed interactions | BLOCKED / INCONCLUSIVE | S02-RESEARCH: official Vue destinations denied by egress proxy; no authorization inferred |
-| G0-02 | Observe current Vue page flow without final checkout action               | NOT_RUN                | —                                                                                         |
-| G0-03 | Identify exact allowed hostnames and page semantics                       | NOT_RUN                | —                                                                                         |
-| G0-04 | Determine DOM/SVG/canvas seat map representation                          | NOT_RUN                | —                                                                                         |
-| G0-05 | Separate account sessions (normal and incognito)                          | NOT_RUN                | —                                                                                         |
-| G0-06 | Test Chrome incognito opt-in / MV3 spanning metadata                      | NOT_RUN                | —                                                                                         |
-| G0-07 | Verify role A/B provenance and Side Panel behavior                        | NOT_RUN                | —                                                                                         |
-| G0-08 | Observe harmless selection vs actual confirmation signals                 | NOT_RUN                | —                                                                                         |
+| ID    | Subject                                                                   | Status                                              | Evidence                                                                                                       |
+| ----- | ------------------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| G0-01 | Review current Vue terms, authorization boundary and allowed interactions | BLOCKED / INCONCLUSIVE                              | S02-RESEARCH: official Vue destinations denied by egress proxy; no authorization inferred                      |
+| G0-02 | Observe current Vue page flow without final checkout action               | NOT_RUN                                             | —                                                                                                              |
+| G0-03 | Identify exact allowed hostnames and page semantics                       | NOT_RUN                                             | —                                                                                                              |
+| G0-04 | Determine DOM/SVG/canvas seat map representation                          | NOT_RUN                                             | —                                                                                                              |
+| G0-05 | Separate account sessions (normal and incognito)                          | NOT_RUN                                             | —                                                                                                              |
+| G0-06 | Test Chrome incognito opt-in / MV3 spanning metadata                      | PASS for neutral Chrome contexts only               | S02-CI; actual Vue accounts/page signals NOT_RUN                                                               |
+| G0-07 | Verify role A/B provenance and Side Panel behavior                        | INCONCLUSIVE for live Vue / incognito Side Panel UX | S02-CI proves regular Side Panel opening, fixture A sender and separate normal/incognito context metadata only |
+| G0-08 | Observe harmless selection vs actual confirmation signals                 | NOT_RUN                                             | —                                                                                                              |
 
 ## G1 engineering (local, fake data only)
 
-| ID    | Subject                                            | Status                              | Evidence                                                                                                                     |
-| ----- | -------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| G1-01 | Working MV3 build and Vue side panel               | PASS (build / extension-page smoke) | S01-CI; actual Side Panel opening added to S02 test, distinct from S01                                                       |
-| G1-02 | Build installable with Load unpacked               | PASS on GitHub runner               | S01-CI; managed cloud remains BLOCKED; Windows NOT_RUN                                                                       |
-| G1-03 | Local mocked A/B roles and statuses                | PASS (MOCK_INTEGRATION)             | S01-LOCAL; not real accounts                                                                                                 |
-| G1-04 | Executed lint/typecheck/unit tests/build           | PASS                                | S01-LOCAL                                                                                                                    |
-| G1-05 | Incognito spanning spike with real Chrome metadata | BLOCKED locally                     | S02 new test requires a permitted disposable browser; packaged incognito fixture route NO-GO by documented platform contract |
+| ID    | Subject                                            | Status                               | Evidence                                                                                        |
+| ----- | -------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| G1-01 | Working MV3 build and Vue side panel               | PASS (Linux CI)                      | S02-CI opens the real Side Panel and verifies generated package/UI; Windows manual test NOT_RUN |
+| G1-02 | Build installable with Load unpacked               | PASS on GitHub runner                | S01-CI; managed cloud remains BLOCKED; Windows NOT_RUN                                          |
+| G1-03 | Local mocked A/B roles and statuses                | PASS (MOCK_INTEGRATION)              | S01-LOCAL; not real accounts                                                                    |
+| G1-04 | Executed lint/typecheck/unit tests/build           | PASS                                 | S01-LOCAL                                                                                       |
+| G1-05 | Incognito spanning spike with real Chrome metadata | PASS on GitHub runner (context-only) | S02-CI; local managed browser BLOCKED; no real account/checkout proof                           |
 
 ## Observation record template
 
@@ -150,4 +150,12 @@ Next minimum human check: on a permitted Windows Chrome profile load the version
 
 ## S02-CI — current branch validation
 
-Pending the pushed branch's Actions run. Do not substitute S01 run 39389132288 or local UI mocks for the new Chrome smoke results. The final run URL, head SHA and conclusion will be recorded after observing them.
+[Run 39395179800](https://github.com/johndobry89/SeatBuddy/actions/runs/39395179800) / [job 118536032655](https://github.com/johndobry89/SeatBuddy/actions/runs/39395179800/job/118536032655) completed **SUCCESS** at full head **`adea93f2ac10491783b105bd7ac5fff76eba12e3`**, rechecked on 2026-10-20 (Europe/Berlin). Duration 1m30s. Environment: `ubuntu-latest`, Node 24, lockfile-pinned Playwright Chromium; the actual extension suite runs **headed under Xvfb**. This is real Chrome API/extension execution with fictional content, evidence class MOCK_INTEGRATION, not a live Vue test.
+
+- PASS: `npm ci`, `npm run check` (81 unit/contract tests, formatting/lint/strict types/build), versioned ZIP packaging, and 4 UI browser tests. The public job's GitHub annotations explicitly report **4 passed** for the UI suite.
+- PASS: **2 actual-extension tests**, explicitly reported as **2 passed** in the public job annotations. The first opens a genuine Side Panel via an explicit fixture button and requires a new browser target, validates real regular-fixture tab/window/document sender provenance, rejects B in normal context, checks lifecycle/manual reset and no host permissions. The second grants incognito via the real Chrome settings UI, pairs genuine normal/incognito `about:blank` tab metadata through the normal controller, revokes consent, verifies access/binding loss, proves a plan existed, stops the actual worker and verifies it is forgotten after restart.
+- PASS: a Windows test ZIP/checksum is generated before browser tests and uploaded as `seatmates-windows-test`; no reports, caches or source are in the runtime ZIP. This does not validate execution on Windows.
+
+Earlier new-run failures were investigated rather than skipped. [Diagnostic run 39393558980](https://github.com/johndobry89/SeatBuddy/actions/runs/39393558980) exposed a headed-browser scrollbar reducing content width and Chrome closing extension documents during a consent change. The test now compares actual scroll/client widths and opens a fresh package document after reload. [Native-status run 39394847288](https://github.com/johndobry89/SeatBuddy/actions/runs/39394847288) showed `state=DISABLED`, `unsupportedDeveloperExtension=true`, `blockedByPolicy=false` after incognito consent: the disposable test profile had not enabled ordinary **Developer mode**. The test now follows the Windows guide by clicking that visible Chrome UI setting, and no longer uses the artificial `--disable-extensions-except` startup restriction. [Current Chromium extension utility source](https://github.com/chromium/chromium/blob/main/chrome/browser/extensions/extension_util.cc), also read on this date, confirms that consent changes reload enabled extensions and that the restrictive command-line switch globally disables extension loading. No managed policy, profile file, package signature, TLS check, runtime host privilege or assertion was overridden to obtain PASS.
+
+**Precise platform conclusion:** one spanning coordinator can query and bind neutral normal/incognito Chrome tab metadata in the tested Linux browser after explicit opt-in. Permission changes may close/reload extension documents and reset memory. Real Side Panel opening in the regular window and actual worker memory reset are now proven in that environment. Uniform incognito Side Panel presentation, Windows behaviour, distinct real logins, current Vue terms, live DOM/seat semantics and actual booking confirmation remain NOT_RUN/unknown. The packaged-incognito-main-frame NO-GO remains unchanged; that unsupported route was not revived or used as proof.
