@@ -139,9 +139,23 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
     expect(failures).toEqual([]);
     expect(external).toEqual([]);
     await page.reload();
+    await page
+      .getByRole('button', { name: 'Simulatie / technische proef' })
+      .click();
     await expect(
       firstChecklist.getByRole('checkbox').first(),
     ).not.toBeChecked();
+    await page
+      .getByRole('button', { name: 'Boekingsassistent', exact: true })
+      .click();
+    await expect(page.getByTestId('manual-status-A')).toHaveText(
+      'Nog niet gecontroleerd',
+    );
+    expect(
+      await worker.evaluate(
+        () => chrome.runtime.getManifest().host_permissions ?? [],
+      ),
+    ).toEqual([]);
   } finally {
     await context.close();
     await rm(profile, { recursive: true, force: true });
@@ -149,6 +163,7 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
 });
 
 test('real Chrome context pairing with explicit incognito opt-in, revocation and worker suspension', async () => {
+  test.setTimeout(60_000);
   const profile = await mkdtemp(join(tmpdir(), 'seatmates-incognito-'));
   const extension = resolve('dist');
   const context = await chromium.launchPersistentContext(profile, {
@@ -169,8 +184,21 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     let page = await context.newPage();
     await page.goto(`chrome-extension://${id}/sidepanel.html`);
     async function reopenPanel() {
-      if (page.isClosed()) page = await context.newPage();
-      await page.goto(`chrome-extension://${id}/sidepanel.html`);
+      // Chrome unloads and re-registers the package after a permission change.
+      // Wait for that read-only document readiness; no transaction is replayed.
+      await expect(async () => {
+        if (page.isClosed()) page = await context.newPage();
+        await page.goto(`chrome-extension://${id}/sidepanel.html`);
+        await expect(
+          page.getByRole('heading', {
+            name: 'Samen naar de film',
+            exact: true,
+          }),
+        ).toBeVisible();
+      }).toPass({ timeout: 10_000 });
+      expect(
+        await page.evaluate(() => chrome.extension.inIncognitoContext),
+      ).toBe(false);
     }
     const initial = panelReplySchema.parse(
       await page.evaluate(() =>
