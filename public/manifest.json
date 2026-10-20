@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "SeatMates — local mock companion",
+  "version": "0.1.0",
+  "description": "Independent mock-only A/B companion with a manual checklist. No live booking integration.",
+  "minimum_chrome_version": "116",
+  "permissions": ["sidePanel"],
+  "incognito": "spanning",
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "Open SeatMates" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'"
+  }
+}
