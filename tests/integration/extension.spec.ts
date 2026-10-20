@@ -65,9 +65,11 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
     await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
     await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
     await page.setViewportSize({ width: 320, height: 900 });
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBe(320);
+    const width = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(width.scroll).toBeLessThanOrEqual(width.client);
     await page.screenshot({
       path: 'test-results/panel-manual.png',
       fullPage: true,
@@ -164,8 +166,12 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
       context.serviceWorkers()[0] ??
       (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
     const id = new URL(worker.url()).host;
-    const page = await context.newPage();
+    let page = await context.newPage();
     await page.goto(`chrome-extension://${id}/sidepanel.html`);
+    async function reopenPanel() {
+      if (page.isClosed()) page = await context.newPage();
+      await page.goto(`chrome-extension://${id}/sidepanel.html`);
+    }
     const initial = panelReplySchema.parse(
       await page.evaluate(() =>
         chrome.runtime.sendMessage({ type: 'GET_STATE' }),
@@ -181,7 +187,7 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     );
     await expect(toggle).toBeVisible();
     await toggle.click();
-    await page.reload();
+    await reopenPanel();
     await expect
       .poll(async () => {
         const value = panelReplySchema.parse(
@@ -239,7 +245,7 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
         incognitoWindowId,
       );
     }
-    await page.reload();
+    await reopenPanel();
     await expect
       .poll(async () => {
         const value = panelReplySchema.parse(

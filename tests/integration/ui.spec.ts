@@ -101,9 +101,11 @@ test('built Vue UI: matching, mismatch, partial outcome, aisle, expiry and manua
     await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
     await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
     await page.setViewportSize({ width: 320, height: 900 });
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBe(320);
+    const width = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(width.scroll).toBeLessThanOrEqual(width.client);
     await page.screenshot({
       path: 'test-results/panel-manual.png',
       fullPage: true,
@@ -239,9 +241,11 @@ test('manual flow: independent reports, keyboard focus, partial recovery and no 
     await expect(page.getByTestId('manual-status-A')).toHaveText(
       'Zelf gemeld afgerond',
     );
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBe(320);
+    const width = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(width.scroll).toBeLessThanOrEqual(width.client);
     await page.screenshot({
       path: 'test-results/sprint02-manual-partial.png',
       fullPage: true,
