@@ -12,11 +12,7 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
     executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
     ignoreDefaultArgs: ['--disable-extensions'],
     headless: process.env.HEADED !== '1',
-    args: [
-      `--disable-extensions-except=${extension}`,
-      `--load-extension=${extension}`,
-      '--no-sandbox',
-    ],
+    args: [`--load-extension=${extension}`, '--no-sandbox'],
   });
   try {
     const worker =
@@ -170,11 +166,7 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
     ignoreDefaultArgs: ['--disable-extensions'],
     headless: process.env.HEADED !== '1',
-    args: [
-      `--disable-extensions-except=${extension}`,
-      `--load-extension=${extension}`,
-      '--no-sandbox',
-    ],
+    args: [`--load-extension=${extension}`, '--no-sandbox'],
   });
   try {
     const worker =
@@ -233,6 +225,23 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     // No policy/profile-file mutation, hidden extension API or real account is used.
     const settings = await context.newPage();
     await settings.goto(`chrome://extensions/?id=${id}`);
+    // Match the documented Windows unpacked-install workflow. Without this
+    // regular UI setting Chrome rejects the package when consent reloads it.
+    const developerMode = settings.locator('extensions-toolbar #devMode');
+    await expect(developerMode).toBeVisible();
+    if (
+      !(await developerMode.evaluate((element) =>
+        Boolean(Reflect.get(element, 'checked')),
+      ))
+    )
+      await developerMode.click();
+    await expect
+      .poll(() =>
+        developerMode.evaluate((element) =>
+          Boolean(Reflect.get(element, 'checked')),
+        ),
+      )
+      .toBe(true);
     const toggle = settings.locator(
       'extensions-detail-view #allow-incognito cr-toggle',
     );
@@ -311,18 +320,22 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
         );
       })
       .toBe(true);
-    await page.evaluate(() =>
-      chrome.runtime.sendMessage({
-        type: 'PLAN',
-        plan: {
-          movie: 'De maan van papier',
-          cinema: 'Fictief Filmhuis',
-          date: '2030-04-12',
-          time: '19:30',
-          hall: 'Zaal 2',
-        },
-      }),
+    const planned = panelReplySchema.parse(
+      await page.evaluate(() =>
+        chrome.runtime.sendMessage({
+          type: 'PLAN',
+          plan: {
+            movie: 'De maan van papier',
+            cinema: 'Fictief Filmhuis',
+            date: '2030-04-12',
+            time: '19:30',
+            hall: 'Zaal 2',
+          },
+        }),
+      ),
     );
+    if (!planned.ok) throw new Error(planned.error);
+    expect(planned.state.manual.plan?.movie).toBe('De maan van papier');
     const cdp = await context.newCDPSession(page);
     let versionId: string | undefined;
     cdp.on('ServiceWorker.workerVersionUpdated', ({ versions }) => {
