@@ -208,12 +208,26 @@ function coreCheck(
         false,
       ) && c.manual.tracks.A.completed.length === 0
     );
-  if (id === 'TOGETHER')
+  if (id === 'TOGETHER') {
+    for (const role of ['A', 'B'] as const)
+      for (const step of manualSteps)
+        if (
+          c.manualCommand({ type: 'ACKNOWLEDGE', role, step }, now, [], false)
+        )
+          return false;
+    const state = c.snapshot(now, false);
     return (
       c.manual.planningMode === 'TOGETHER' &&
       c.manual.tracks.B.reportedShowtime?.movie === plan.movie &&
-      c.manual.tracks.B.completed.length === 0
+      c.manual.tracks.A.completed.length === manualSteps.length &&
+      c.manual.tracks.B.completed.length === manualSteps.length &&
+      state.evidence.A.manual === 'MANUAL_SELF_REPORT' &&
+      state.evidence.B.manual === 'MANUAL_SELF_REPORT' &&
+      state.evidence.A.context === 'UNKNOWN' &&
+      state.evidence.B.context === 'UNKNOWN' &&
+      !JSON.stringify(state).includes('CONFIRMED')
     );
+  }
   if (id === 'PROTOCOL_GUARD')
     return !routeMessage(
       c,
