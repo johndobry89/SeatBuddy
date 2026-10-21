@@ -32,7 +32,11 @@ async function fixture() {
     );
   const manifest = {
     manifest_version: 3,
-    version: '0.5.0',
+    content_security_policy: {
+      extension_pages:
+        "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'",
+    },
+    version: '0.6.0',
     permissions: ['sidePanel', 'storage'],
     icons,
     action: { default_popup: 'popup.html', default_icon: icons },
@@ -41,7 +45,7 @@ async function fixture() {
   };
   await writeFile(
     join(root, 'package.json'),
-    JSON.stringify({ version: '0.5.0' }),
+    JSON.stringify({ version: '0.6.0' }),
   );
   await writeFile(join(root, 'dist/manifest.json'), JSON.stringify(manifest));
   for (const file of [
@@ -51,7 +55,10 @@ async function fixture() {
     'popup.html',
     'assets/panel.js',
   ])
-    await writeFile(join(root, 'dist', file), `fictional runtime ${file}`);
+    await writeFile(
+      join(root, 'dist', file),
+      `/* fictional runtime ${file} */`,
+    );
   // These must never appear in the runtime archive.
   await writeFile(join(root, '.env'), 'FICTIONAL_SECRET=never-package');
   await mkdir(join(root, 'test-results'));
@@ -69,7 +76,7 @@ afterEach(async () => {
 it('produces only deterministic runtime bytes with a root manifest and a correct platform-neutral checksum', async () => {
   const { root } = await fixture();
   const result = await packageRuntime(root);
-  expect(result.name).toBe('seatbuddies-0.5.0-chrome-test.zip');
+  expect(result.name).toBe('seatbuddies-0.6.0-chrome-test.zip');
   expect(await readdir(join(root, 'build'))).toEqual([
     result.name,
     `${result.name}.sha256`,
@@ -149,4 +156,52 @@ it('rejects a missing or incorrectly sized manifest icon', async () => {
     await readFile(join(root, 'dist/icons/icon-32.png')),
   );
   await expect(packageRuntime(root)).rejects.toThrow(/16px icon/);
+});
+it.each([
+  ['assets/unsafe.js', 'fetch("https://fictional.invalid")'],
+  ['assets/unsafe.js', 'globalThis["fetch"]("https://fictional.invalid")'],
+  ['assets/unsafe.js', 'new WebSocket("wss://fictional.invalid")'],
+  [
+    'assets/unsafe.js',
+    'navigator.sendBeacon("https://fictional.invalid", "x")',
+  ],
+  ['assets/unsafe.js', 'import("https://fictional.invalid/remote.js")'],
+  ['assets/unsafe.js', 'eval("fictional()")'],
+  [
+    'sidepanel.html',
+    '<script src="https://fictional.invalid/remote.js"></script>',
+  ],
+  ['assets/unsafe.css', '@import "https://fictional.invalid/theme.css";'],
+])(
+  'audits generated network/remote-code primitives: %s %s',
+  async (file, source) => {
+    const { root } = await fixture();
+    await writeFile(join(root, 'dist', file), source);
+    await expect(packageRuntime(root)).rejects.toThrow();
+  },
+);
+it('rejects generated CSP changes rather than trusting the source manifest', async () => {
+  const { root, manifest } = await fixture();
+  await writeFile(
+    join(root, 'dist/manifest.json'),
+    JSON.stringify({
+      ...manifest,
+      content_security_policy: {
+        extension_pages: "script-src 'self' 'unsafe-eval'",
+      },
+    }),
+  );
+  await expect(packageRuntime(root)).rejects.toThrow(/CSP/);
+});
+
+it('refuses a new generated update URL outside the reviewed manifest contract', async () => {
+  const { root, manifest } = await fixture();
+  await writeFile(
+    join(root, 'dist/manifest.json'),
+    JSON.stringify({
+      ...manifest,
+      update_url: 'https://fictional.invalid/update',
+    }),
+  );
+  await expect(packageRuntime(root)).rejects.toThrow(/manifest field/);
 });

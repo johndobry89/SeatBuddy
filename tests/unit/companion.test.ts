@@ -1,3 +1,4 @@
+import { workflow } from '../helpers/workflow';
 import { afterEach, expect, it, vi } from 'vitest';
 import { useCompanion } from '../../src/sidepanel/use-companion';
 import { Coordinator } from '../../src/background/coordinator';
@@ -24,7 +25,15 @@ it('detects a new worker generation and discards claims without replaying a plan
   const old = new Coordinator();
   const send = runtime(old);
   const ui = useCompanion();
+  await ui.command({ type: 'GET_STATE' });
   await ui.command({ type: 'PLAN', plan });
+  await ui.command({
+    type: 'MANUAL_DETAILS',
+    role: 'A',
+    showtime: plan,
+    seat: { row: 'F', number: '10' },
+  });
+  await ui.command({ type: 'REVIEW_PLAN' });
   await ui.command({ type: 'ACKNOWLEDGE', role: 'A', step: 'ACCOUNT' });
   expect(ui.snapshot.value?.manual.tracks.A.completed).toEqual(['ACCOUNT']);
   const fresh = new Coordinator();
@@ -34,16 +43,21 @@ it('detects a new worker generation and discards claims without replaying a plan
   await ui.command({ type: 'GET_STATE' });
   expect(ui.snapshot.value?.manual.plan).toBeNull();
   expect(ui.lifecycleNotice.value).toContain('opnieuw gestart');
-  expect(send.mock.calls.map(([message]) => message)).toEqual([
-    { type: 'PLAN', plan },
-    { type: 'ACKNOWLEDGE', role: 'A', step: 'ACCOUNT' },
-    { type: 'GET_STATE' },
-  ]);
+  const sent = send.mock.calls.map(([message]) => message);
+  expect(sent[0]).toEqual({ type: 'GET_STATE' });
+  expect(
+    sent
+      .slice(1, -1)
+      .map((value) => (value as ReturnType<typeof workflow>).command.type),
+  ).toEqual(['PLAN', 'MANUAL_DETAILS', 'REVIEW_PLAN', 'ACKNOWLEDGE']);
+  expect(sent.at(-1)).toEqual({ type: 'GET_STATE' });
+  expect(send.mock.calls).toHaveLength(6); // No mutation replay after generation replacement.
 });
 it('recovers only after explicit reset, never merges offline progress or retries the failed command', async () => {
   const worker = new Coordinator();
   const send = runtime(worker);
   const ui = useCompanion();
+  await ui.command({ type: 'GET_STATE' });
   await ui.command({ type: 'PLAN', plan });
   send.mockRejectedValueOnce(new Error('Fictional transport loss'));
   await ui.command({ type: 'ACKNOWLEDGE', role: 'A', step: 'ACCOUNT' });

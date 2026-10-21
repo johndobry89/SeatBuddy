@@ -1,3 +1,5 @@
+import { workflow } from '../helpers/workflow';
+import { manualCommandSchema } from '../../src/core/manual-assistant';
 import { expect, it, vi } from 'vitest';
 import { Coordinator } from '../../src/background/coordinator';
 import { RetainedData } from '../../src/background/retained-data';
@@ -25,7 +27,9 @@ function boot(port = memoryStorage()) {
   const c = new Coordinator();
   const store = new RetainedData(c, port);
   let stale = false;
-  const send = async (raw: unknown, time = now, allowed = false) => {
+  const send = async (input: unknown, time = now, allowed = false) => {
+    const parsed = manualCommandSchema.safeParse(input);
+    const raw = parsed.success ? workflow(c, parsed.data) : input;
     const route = (message: unknown) =>
       routeMessage(c, message, panel, id, allowed, time);
     return store.execute(
@@ -226,7 +230,15 @@ it('session concept survives worker replacement but restores only explicit uncom
   const b = boot();
   await b.send({ type: 'GET_STATE' });
   await b.send({ type: 'PLAN', plan });
+  await b.send({
+    type: 'MANUAL_DETAILS',
+    role: 'A',
+    showtime: plan,
+    seat: { row: 'F', number: '10' },
+  });
+  await b.send({ type: 'REVIEW_PLAN' });
   await b.send({ type: 'ACKNOWLEDGE', role: 'A', step: 'ACCOUNT' });
+  expect(b.c.manual.tracks.A.completed).toEqual(['ACCOUNT']);
   await b.send({ type: 'DRAFT_SAVE', ...b.gate(), plan });
   const stored = savedDraftSchema.parse(b.port.session.values[DRAFT_KEY]);
   expect(stored).toEqual({ version: 1, createdAt: now, plan });

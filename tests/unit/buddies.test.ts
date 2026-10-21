@@ -1,3 +1,4 @@
+import { workflow, seats, review } from '../helpers/workflow';
 import { expect, it } from 'vitest';
 import { Coordinator } from '../../src/background/coordinator';
 import { routeMessage, type Sender } from '../../src/background/message-router';
@@ -104,6 +105,13 @@ it.each(['SELECT', 'REMOVE', 'RENAME', 'CLEAR'] as const)(
     send(c, { kind: 'SELECT', id: first });
     const plan = fictionalObservation('A', now).showtime;
     c.manualCommand({ type: 'PLAN', plan }, now, [], true);
+    c.manualCommand(
+      { type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false },
+      now,
+      [],
+      true,
+    );
+    seats(c.manual, now);
     for (const role of ['A', 'B'] as const) {
       c.manualCommand(
         {
@@ -116,6 +124,7 @@ it.each(['SELECT', 'REMOVE', 'RENAME', 'CLEAR'] as const)(
         [],
         true,
       );
+      review(c.manual, now);
       for (const step of manualSteps)
         c.manualCommand({ type: 'ACKNOWLEDGE', role, step }, now, [], true);
     }
@@ -227,22 +236,26 @@ it('B self-reports require a current buddy epoch, so an old panel cannot attach 
   const first = c.buddy.roster[0]!.id;
   const second = c.buddy.roster[1]!.id;
   send(c, { kind: 'SELECT', id: first });
-  const old = {
-    type: 'B_COMMAND',
-    generation: c.generation,
-    buddyEpoch: c.buddyEpoch,
-    command: { type: 'ACKNOWLEDGE', role: 'B', step: 'ACCOUNT' },
-  };
+  c.manualCommand(
+    { type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false },
+    now,
+    [],
+    true,
+  );
+  seats(c.manual, now);
+  review(c.manual, now);
+  const old = workflow(c, { type: 'ACKNOWLEDGE', role: 'B', step: 'ACCOUNT' });
   send(c, { kind: 'SELECT', id: second });
   expect(routeMessage(c, old, panel, id, true, now)).toMatchObject({
     ok: false,
-    code: 'STALE_BUDDY',
+    code: 'STALE_WORKFLOW',
   });
   expect(routeMessage(c, old.command, panel, id, true, now).ok).toBe(false);
   expect(c.manual.tracks.B.completed).toEqual([]);
+  seats(c.manual, now);
+  review(c.manual, now);
   expect(
-    routeMessage(c, { ...old, buddyEpoch: c.buddyEpoch }, panel, id, true, now)
-      .ok,
+    routeMessage(c, workflow(c, old.command), panel, id, true, now).ok,
   ).toBe(true);
   expect(c.manual.tracks.B.completed).toEqual(['ACCOUNT']);
   expect(c.manual.tracks.A.completed).toEqual([]);

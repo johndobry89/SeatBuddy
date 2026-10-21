@@ -3,7 +3,7 @@ import {
   manualStateSchema,
   browserContextSchema,
 } from '../core/manual-assistant';
-import { z } from 'zod';
+import { z } from './schema';
 import { observationSchema, roleSchema, scenarioSchema } from '../core/types';
 import { roleEvidenceSchema } from '../core/evidence';
 import { retentionStatusSchema } from '../core/retention-status';
@@ -28,6 +28,7 @@ export const replyErrorSchema = z.strictObject({
       'STALE_BUDDY',
       'BUDDY_REVIEW',
       'STORAGE_FAILURE',
+      'STALE_WORKFLOW',
     ])
     .optional(),
 });
@@ -53,6 +54,13 @@ export const fixtureBuddyReplySchema = z.discriminatedUnion('ok', [
 
 // Strict schemas reject extra fields (including claimed tab IDs, credentials and live evidence).
 export const panelCommandSchema = z.discriminatedUnion('type', [
+  z.strictObject({
+    type: z.literal('WORKFLOW'),
+    generation: z.uuid(),
+    revision: z.number().int().nonnegative(),
+    buddyEpoch: z.number().int().nonnegative(),
+    command: manualCommandSchema,
+  }),
   z.strictObject({ type: z.literal('GET_STATE') }),
   z.strictObject({ type: z.literal('GET_CONTEXTS') }),
   z.strictObject({ type: z.literal('RESET') }),

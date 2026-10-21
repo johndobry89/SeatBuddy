@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../privacy/schema';
 import { nicknameSchema } from './buddies';
 import { planningSchema } from './manual-assistant';
 

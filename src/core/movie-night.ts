@@ -1,6 +1,8 @@
 import type { ManualState } from './manual-assistant';
 import {
   manualSteps,
+  activeRoles,
+  preflightIssue,
   stepLabels,
   recoveryText,
   manualSummary,
@@ -14,12 +16,12 @@ export function nextMovieNightStep(state: ManualState) {
       code: 'PLAN',
       text: 'Kies eerst film, bioscoop, datum en tijd. Een buddy kiezen is optioneel.',
     };
-  for (const role of ['A', 'B'] as const) {
+  for (const role of activeRoles(state)) {
     const problem = state.tracks[role].problem;
     if (problem)
       return { code: problem, role, text: `${role}: ${recoveryText[problem]}` };
   }
-  for (const role of ['A', 'B'] as const)
+  for (const role of activeRoles(state))
     if (
       matchShowtimes(state.plan, state.tracks[role].reportedShowtime) ===
       'MISMATCH'
@@ -31,7 +33,7 @@ export function nextMovieNightStep(state: ManualState) {
       };
   if (
     !state.plan.hall ||
-    ['A', 'B'].some(
+    activeRoles(state).some(
       (role) => !state.tracks[role as 'A' | 'B'].reportedShowtime?.hall,
     )
   )
@@ -43,14 +45,26 @@ export function nextMovieNightStep(state: ManualState) {
   if (summary.done.length === 2)
     return {
       code: 'SELF_REPORTED',
-      text: 'Beiden melden zelf afgerond — NOT SITE VERIFIED. Controleer jullie twee echte bevestigingen zelf. De extensie heeft geen websitebevestiging waargenomen.',
+      text: 'Beide zelf gemeld; echte bevestiging op Vue niet geverifieerd — NOT SITE VERIFIED.',
     };
   if (summary.partial)
     return {
       code: 'PARTIAL',
       text: `${summary.done[0]} meldt zelf afgerond; de ander is nog bezig. Controleer iedere uitkomst apart, zonder automatische herhaling of annulering.`,
     };
-  for (const role of ['A', 'B'] as const) {
+  if (!state.review)
+    return {
+      code: 'PREFLIGHT',
+      text:
+        preflightIssue(state) ??
+        'Controleer de filmavond en ga bewust naar de eigen stappen.',
+    };
+  if (state.planningMode === 'SOLO' && summary.done.length === 1)
+    return {
+      code: 'SELF_REPORTED',
+      text: 'Je meldt zelf afgerond; echte bevestiging op Vue niet geverifieerd — NOT SITE VERIFIED.',
+    };
+  for (const role of activeRoles(state)) {
     const track = state.tracks[role];
     if (!track.reportedShowtime)
       return {

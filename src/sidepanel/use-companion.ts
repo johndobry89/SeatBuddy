@@ -78,13 +78,11 @@ export function useCompanion() {
       }
       const manual = manualCommandSchema.safeParse(message);
       const request: PanelCommand =
-        manual.success &&
-        'role' in manual.data &&
-        manual.data.role === 'B' &&
-        snapshot.value
+        manual.success && snapshot.value
           ? {
-              type: 'B_COMMAND',
+              type: 'WORKFLOW',
               generation: snapshot.value.generation,
+              revision: snapshot.value.manual.revision,
               buddyEpoch: snapshot.value.buddyEpoch,
               command: manual.data,
             }
@@ -92,7 +90,7 @@ export function useCompanion() {
       const reply = await send(request);
       if (!reply.ok) {
         if (reply.code === 'BROWSER_UNAVAILABLE') throw new Error(reply.error);
-        if (reply.code === 'STALE_BUDDY') {
+        if (reply.code === 'STALE_BUDDY' || reply.code === 'STALE_WORKFLOW') {
           const current = await send({ type: 'GET_STATE' });
           if (current.ok) snapshot.value = current.state;
         }

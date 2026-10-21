@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../privacy/schema';
 import { roles, roleSchema, showtimeSchema } from './types';
 import { matchShowtimes } from './showtime-matcher';
 
@@ -53,10 +53,19 @@ export const manualTrackSchema = z.strictObject({
 });
 export const manualStateSchema = z.strictObject({
   plan: planningSchema.nullable(),
+  planningMode: z.enum(['SOLO', 'TOGETHER']),
+  revision: z.number().int().nonnegative(),
+  review: z.strictObject({ at: z.number().int().nonnegative() }).nullable(),
   tracks: z.strictObject({ A: manualTrackSchema, B: manualTrackSchema }),
 });
 export type ManualState = z.infer<typeof manualStateSchema>;
 export const manualCommandSchema = z.discriminatedUnion('type', [
+  z.strictObject({
+    type: z.literal('PLANNING_MODE'),
+    mode: z.enum(['SOLO', 'TOGETHER']),
+    resetB: z.boolean(),
+  }),
+  z.strictObject({ type: z.literal('REVIEW_PLAN') }),
   z.strictObject({ type: z.literal('PLAN'), plan: planningSchema }),
   z.strictObject({
     type: z.literal('MANUAL_DETAILS'),
@@ -94,11 +103,62 @@ function emptyTrack(): ManualState['tracks']['A'] {
   };
 }
 export function emptyManual(): ManualState {
-  return { plan: null, tracks: { A: emptyTrack(), B: emptyTrack() } };
+  return {
+    plan: null,
+    planningMode: 'SOLO',
+    revision: 0,
+    review: null,
+    tracks: { A: emptyTrack(), B: emptyTrack() },
+  };
 }
 export function clearProgress(track: ManualState['tracks']['A']) {
   track.completed = [];
   track.reviewedAt = null;
+}
+export function activeRoles(state: ManualState) {
+  return state.planningMode === 'TOGETHER' ? roles : (['A'] as const);
+}
+export function hasBHistory(state: ManualState) {
+  const B = state.tracks.B;
+  return Boolean(
+    B.context ||
+    B.completed.length ||
+    B.seat.row ||
+    B.seat.number ||
+    (B.reportedShowtime &&
+      JSON.stringify(B.reportedShowtime) !== JSON.stringify(state.plan)),
+  );
+}
+export function invalidateReview(state: ManualState) {
+  state.review = null;
+  state.revision++;
+}
+export function preflightIssue(state: ManualState): string | null {
+  if (!state.plan) return 'Bewaar eerst een geldig filmplan.';
+  if (!state.plan.hall)
+    return 'Zaal UNKNOWN. Vul de zaal pas in als je die zelf weet.';
+  for (const role of activeRoles(state)) {
+    const track = state.tracks[role];
+    if (matchShowtimes(state.plan, track.reportedShowtime) !== 'MATCH')
+      return `${role}: voorstelling ontbreekt of wijkt af. Vergelijk ook de zaal.`;
+    if (!track.seat.row || !track.seat.number)
+      return `${role}: bewaar de gewenste rij en stoel in eigen invoer.`;
+    if (track.problem)
+      return `${role}: controleer de eigen invoer opnieuw na het gemelde probleem.`;
+  }
+  return null;
+}
+export function sameFilmNight(
+  left: ManualState['plan'],
+  right: ManualState['plan'],
+) {
+  return (
+    left !== null &&
+    right !== null &&
+    (['movie', 'cinema', 'date', 'time'] as const).every(
+      (key) => left[key] === right[key],
+    )
+  );
 }
 export function applyManual(
   state: ManualState,
@@ -107,26 +167,56 @@ export function applyManual(
   contexts: BrowserContext[] = [],
   incognitoAllowed = false,
 ): string | null {
+  expireManual(state, now, incognitoAllowed);
+  if (command.type === 'PLANNING_MODE') {
+    if (state.planningMode === command.mode)
+      return 'Deze plankeuze is al actief.';
+    if (command.mode === 'SOLO' && hasBHistory(state) && !command.resetB)
+      return 'Bevestig het wissen van uitsluitend B’s lokale invoer, koppeling en controles. Dit annuleert geen boeking.';
+    state.planningMode = command.mode;
+    state.tracks.B = emptyTrack();
+    if (command.mode === 'TOGETHER')
+      state.tracks.B.reportedShowtime = structuredClone(state.plan);
+    invalidateReview(state);
+    return null;
+  }
+  if (command.type === 'REVIEW_PLAN') {
+    const issue = preflightIssue(state);
+    if (issue) return issue;
+    if (state.review) return 'De gegevens zijn al lokaal gecontroleerd.';
+    state.review = { at: now };
+    state.revision++;
+    return null;
+  }
   if (command.type === 'PLAN') {
+    if (state.plan && !sameFilmNight(state.plan, command.plan))
+      state.planningMode = 'SOLO';
+    invalidateReview(state);
     state.plan = structuredClone(command.plan);
     for (const role of roles) {
       state.tracks[role] = emptyTrack();
-      state.tracks[role].reportedShowtime = structuredClone(command.plan);
+      if (role === 'A' || state.planningMode === 'TOGETHER')
+        state.tracks[role].reportedShowtime = structuredClone(command.plan);
     }
     return null;
   }
+  if (command.role === 'B' && state.planningMode !== 'TOGETHER')
+    return 'B is niet actief. Kies eerst bewust Ook met buddy plannen.';
   const track = state.tracks[command.role];
   if (command.type === 'RESET_TRACK') {
+    invalidateReview(state);
     state.tracks[command.role] = emptyTrack();
     state.tracks[command.role].reportedShowtime = structuredClone(state.plan);
     return null;
   }
   if (command.type === 'UNBIND') {
+    invalidateReview(state);
     track.context = null;
     clearProgress(track);
     return null;
   }
   if (command.type === 'REPORT_PROBLEM') {
+    invalidateReview(state);
     clearProgress(track);
     track.problem = command.problem;
     return null;
@@ -144,6 +234,7 @@ export function applyManual(
     const other = command.role === 'A' ? 'B' : 'A';
     if (state.tracks[other].context?.tabId === context.tabId)
       return 'Kies een aparte tab per persoon.';
+    invalidateReview(state);
     track.context = { ...context };
     clearProgress(track);
     track.problem = null;
@@ -151,13 +242,15 @@ export function applyManual(
   }
   if (!state.plan) return 'Sla eerst een geldig filmplan op.';
   if (command.type === 'MANUAL_DETAILS') {
+    invalidateReview(state);
     track.reportedShowtime = structuredClone(command.showtime);
     track.seat = { ...command.seat };
     clearProgress(track);
     track.problem = null;
     return null;
   }
-  expireManual(state, now, incognitoAllowed);
+  if (!state.review)
+    return 'Controleer eerst de filmavond; de lokale review ontbreekt of is vervallen.';
   if (manualSteps[track.completed.length] !== command.step)
     return 'Controleer de stappen opnieuw in de getoonde volgorde.';
   if (
@@ -170,6 +263,7 @@ export function applyManual(
     (!track.seat.row || !track.seat.number)
   )
     return 'Vul eerst de gewenste rij en stoel in; er is geen bewijs van beschikbaarheid.';
+  state.revision++;
   track.completed.push(command.step);
   track.reviewedAt = now;
   track.problem = null;
@@ -180,12 +274,18 @@ export function expireManual(
   now: number,
   allowed: boolean,
 ) {
+  if (
+    state.review &&
+    (state.review.at > now || now - state.review.at >= MANUAL_AGE_MS)
+  )
+    invalidateReview(state);
   for (const role of roles) {
     const track = state.tracks[role];
     if (track.context?.incognito && !allowed) {
       track.context = null;
       clearProgress(track);
       track.problem = 'PERMISSION';
+      invalidateReview(state);
     }
     if (
       track.reviewedAt !== null &&
@@ -193,6 +293,7 @@ export function expireManual(
     ) {
       clearProgress(track);
       track.problem = 'STALE';
+      invalidateReview(state);
     }
   }
 }
@@ -203,6 +304,7 @@ export function invalidateManualTab(
 ) {
   for (const role of roles)
     if (state.tracks[role].context?.tabId === tabId) {
+      invalidateReview(state);
       state.tracks[role].context = null;
       clearProgress(state.tracks[role]);
       state.tracks[role].problem = reason;
@@ -212,10 +314,14 @@ export function manualSummary(state: ManualState) {
   const A = state.tracks.A;
   const B = state.tracks.B;
   const match =
-    A.completed.includes('SHOWTIME') && B.completed.includes('SHOWTIME')
+    state.review &&
+    state.planningMode === 'TOGETHER' &&
+    A.completed.includes('SHOWTIME') &&
+    B.completed.includes('SHOWTIME')
       ? matchShowtimes(A.reportedShowtime, B.reportedShowtime)
       : 'UNKNOWN';
   const adjacency =
+    state.planningMode !== 'TOGETHER' ||
     !state.plan?.hall ||
     !A.seat.row ||
     !B.seat.row ||
@@ -226,10 +332,15 @@ export function manualSummary(state: ManualState) {
           Math.abs(Number(A.seat.number) - Number(B.seat.number)) === 1
         ? 'CONSECUTIVE_UNVERIFIED'
         : 'NOT_CONSECUTIVE';
-  const done = roles.filter((role) =>
+  const done = activeRoles(state).filter((role) =>
     state.tracks[role].completed.includes('DONE'),
   );
-  return { match, adjacency, done, partial: done.length === 1 };
+  return {
+    match,
+    adjacency,
+    done,
+    partial: state.planningMode === 'TOGETHER' && done.length === 1,
+  };
 }
 export const stepLabels: Record<ManualStep, string> = {
   ACCOUNT: 'Ik gebruik mijn eigen account en geldige pas',

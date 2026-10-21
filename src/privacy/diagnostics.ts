@@ -1,8 +1,17 @@
-import { z } from 'zod';
+import { z } from './schema';
 import type { Snapshot } from '../background/coordinator';
+import { version as buildVersion } from '../../package.json';
+import { problemSchema } from '../core/manual-assistant';
 import { roleEvidenceSchema } from '../core/evidence';
 
 export const diagnosticSchema = z.strictObject({
+  build: z.strictObject({
+    version: z.string().regex(/^\d+\.\d+\.\d+$/),
+    channel: z.literal('TEST'),
+    diagnosticSchema: z.literal(1),
+  }),
+  fixtureAdapter: z.literal('FICTIONAL_V1_ONLY'),
+  failedStep: z.enum(['NONE', 'TRANSPORT', ...problemSchema.options]),
   extensionVersion: z
     .string()
     .regex(/^\d+(\.\d+){1,3}$/)
@@ -55,6 +64,15 @@ export function selfCheck(
   }
   const api = typeof chrome === 'undefined' ? undefined : chrome;
   return diagnosticSchema.parse({
+    build: { version: buildVersion, channel: 'TEST', diagnosticSchema: 1 },
+    fixtureAdapter: 'FICTIONAL_V1_ONLY',
+    failedStep: offline
+      ? 'TRANSPORT'
+      : (state?.manual.tracks.A.problem ??
+        (state?.manual.planningMode === 'TOGETHER'
+          ? state.manual.tracks.B.problem
+          : null) ??
+        'NONE'),
     extensionVersion: version,
     transport: offline ? 'LOCAL_ONLY' : 'EXTENSION',
     mode: state?.mode ?? 'UNKNOWN',
@@ -77,4 +95,9 @@ export function selfCheck(
       ? 'LOCAL_ONLY'
       : (state?.retention.mode ?? 'UNAVAILABLE'),
   });
+}
+
+/** Re-validate even caller-provided reports; never copy arbitrary object fields. */
+export function diagnosticText(report: unknown): string {
+  return JSON.stringify(diagnosticSchema.parse(report), null, 2);
 }

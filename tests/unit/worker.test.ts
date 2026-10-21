@@ -1,3 +1,5 @@
+import { manualCommandSchema } from '../../src/core/manual-assistant';
+import type { Snapshot } from '../../src/background/coordinator';
 import { afterEach, expect, it, vi } from 'vitest';
 import { panelReplySchema, popupReplySchema } from '../../src/privacy/protocol';
 import { fictionalObservation } from '../../src/fixtures/data';
@@ -89,10 +91,30 @@ async function boot(storage?: StoragePort) {
   vi.stubGlobal('chrome', api);
   await import('../../src/background/index');
   const handler = api.runtime.onMessage.addListener.mock.calls[0]![0];
-  const send = (message: unknown, sender = panel) =>
-    new Promise<unknown>((resolve) => {
-      expect(handler(message, sender, resolve)).toBe(true);
+  let current: Snapshot | null = null;
+  const send = (input: unknown, sender = panel) => {
+    const parsed = manualCommandSchema.safeParse(input);
+    const message =
+      parsed.success && sender === panel && current
+        ? {
+            type: 'WORKFLOW',
+            generation: current.generation,
+            revision: current.manual.revision,
+            buddyEpoch: current.buddyEpoch,
+            command: parsed.data,
+          }
+        : input;
+    return new Promise<unknown>((resolve) => {
+      expect(
+        handler(message, sender, (reply) => {
+          const parsedReply = panelReplySchema.safeParse(reply);
+          if (parsedReply.success && parsedReply.data.ok)
+            current = parsedReply.data.state;
+          resolve(reply);
+        }),
+      ).toBe(true);
     });
+  };
   return { api, send };
 }
 afterEach(() => vi.unstubAllGlobals());
@@ -239,12 +261,10 @@ it('reduces Chrome metadata and invalidates a context on navigation and consent 
     changed.ok && changed.state.contexts.some((value) => value.tabId === 7),
   ).toBe(false);
   if (!changed.ok) throw new Error(changed.error);
-  await send({
-    type: 'B_COMMAND',
-    generation: changed.state.generation,
-    buddyEpoch: changed.state.buddyEpoch,
-    command: { type: 'BIND_CONTEXT', role: 'B', tabId: 8 },
-  });
+  await send({ type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false });
+  expect(
+    await send({ type: 'BIND_CONTEXT', role: 'B', tabId: 8 }),
+  ).toMatchObject({ ok: true });
   api.extension.isAllowedIncognitoAccess.mockResolvedValue(false);
   const revoked = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
   expect(revoked.ok && revoked.state.manual.tracks.B.context).toBeNull();
@@ -265,6 +285,7 @@ it('does not enumerate browser tabs during ordinary status polling or untrusted 
 
 it('a reset invalidates a command still awaiting Chrome permission instead of resurrecting old input', async () => {
   const { api, send } = await boot();
+  await send({ type: 'GET_STATE' });
   let finish: ((allowed: boolean) => void) | undefined;
   api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
     new Promise<boolean>((resolve) => {
@@ -284,6 +305,7 @@ it('a reset invalidates a command still awaiting Chrome permission instead of re
 
 it('an untrusted reset cannot cancel a legitimate pending panel command', async () => {
   const { api, send } = await boot();
+  await send({ type: 'GET_STATE' });
   let finish: ((allowed: boolean) => void) | undefined;
   api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
     new Promise<boolean>((resolve) => {
@@ -322,6 +344,7 @@ it('rejects an in-flight popup mutation after reset without enumerating tabs', a
     await send({ type: 'BUDDY_READ' }, popup),
   );
   if (!initial.ok) throw new Error(initial.error);
+  await send({ type: 'GET_STATE' });
   let finish: ((allowed: boolean) => void) | undefined;
   api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
     new Promise<boolean>((resolve) => {
@@ -371,8 +394,9 @@ it('a new worker refuses an old popup generation instead of restoring its roster
   ).toMatchObject({ ok: false, code: 'STALE_BUDDY' });
 });
 
-it('a selected buddy change cancels pending B acknowledgement but preserves pending A acknowledgement', async () => {
+it('a selected buddy change rejects pending acknowledgements requiring old review while preserving A’s earlier check', async () => {
   const { api, send } = await boot();
+  await send({ type: 'GET_STATE' });
   await send({
     type: 'PLAN',
     plan: fictionalObservation('A', Date.now()).showtime,
@@ -395,6 +419,19 @@ it('a selected buddy change cancels pending B acknowledgement but preserves pend
     await send({ type: 'BUDDY_READ' }, popup),
   );
   if (!roster.ok) throw new Error(roster.error);
+  await send({ type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false });
+  const fakePlan = fictionalObservation('A', Date.now()).showtime;
+  for (const role of ['A', 'B'] as const)
+    await send({
+      type: 'MANUAL_DETAILS',
+      role,
+      showtime: fakePlan,
+      seat: { row: 'F', number: role === 'A' ? '10' : '11' },
+    });
+  await send({ type: 'REVIEW_PLAN' });
+  expect(
+    await send({ type: 'ACKNOWLEDGE', role: 'A', step: 'ACCOUNT' }),
+  ).toMatchObject({ ok: true });
   const state = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
   if (!state.ok) throw new Error(state.error);
   let finishA: ((allowed: boolean) => void) | undefined;
@@ -405,7 +442,8 @@ it('a selected buddy change cancels pending B acknowledgement but preserves pend
     }),
   );
   const B = send({
-    type: 'B_COMMAND',
+    type: 'WORKFLOW',
+    revision: state.state.manual.revision,
     generation: state.state.generation,
     buddyEpoch: state.state.buddyEpoch,
     command: { type: 'ACKNOWLEDGE', role: 'B', step: 'ACCOUNT' },
@@ -415,7 +453,7 @@ it('a selected buddy change cancels pending B acknowledgement but preserves pend
       finishA = done;
     }),
   );
-  const A = send({ type: 'ACKNOWLEDGE', role: 'A', step: 'ACCOUNT' });
+  const A = send({ type: 'ACKNOWLEDGE', role: 'A', step: 'SHOWTIME' });
   await send(
     {
       type: 'BUDDY_MUTATE',
@@ -429,10 +467,76 @@ it('a selected buddy change cancels pending B acknowledgement but preserves pend
   finishB?.(false);
   finishA?.(false);
   expect(await B).toMatchObject({ ok: false });
-  expect(await A).toMatchObject({ ok: true });
+  expect(await A).toMatchObject({ ok: false, code: 'STALE_WORKFLOW' });
   const current = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
   expect(current.ok && current.state.manual.tracks.B.completed).toEqual([]);
   expect(current.ok && current.state.manual.tracks.A.completed).toEqual([
     'ACCOUNT',
   ]);
+});
+
+it('serializes two equal workflow revisions: one mode toggle succeeds and its duplicate cannot reset B again', async () => {
+  const { send } = await boot(memoryStorage());
+  const initial = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  if (!initial.ok) throw new Error(initial.error);
+  const command = {
+    type: 'WORKFLOW',
+    generation: initial.state.generation,
+    revision: initial.state.manual.revision,
+    buddyEpoch: initial.state.buddyEpoch,
+    command: { type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false },
+  };
+  const [first, second] = await Promise.all([send(command), send(command)]);
+  expect(first).toMatchObject({ ok: true });
+  expect(second).toMatchObject({ ok: false, code: 'STALE_WORKFLOW' });
+  const current = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  expect(current.ok && current.state.manual.planningMode).toBe('TOGETHER');
+  expect(current.ok && current.state.manual.review).toBeNull();
+});
+
+it('a B edit delayed in Chrome cannot revive after mode off/on and popup cannot send the workflow envelope', async () => {
+  const { api, send } = await boot(memoryStorage());
+  await send({ type: 'GET_STATE' });
+  await send({ type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false });
+  await send({
+    type: 'PLAN',
+    plan: fictionalObservation('A', Date.now()).showtime,
+  });
+  const before = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  if (!before.ok) throw new Error(before.error);
+  let finish: ((allowed: boolean) => void) | undefined;
+  api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
+    new Promise<boolean>((resolve) => {
+      finish = resolve;
+    }),
+  );
+  const pending = send({
+    type: 'MANUAL_DETAILS',
+    role: 'B',
+    showtime: before.state.manual.plan,
+    seat: { row: 'X', number: '99' },
+  });
+  await send({ type: 'PLANNING_MODE', mode: 'SOLO', resetB: true });
+  await send({ type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false });
+  finish?.(false);
+  expect(await pending).toMatchObject({ ok: false });
+  const current = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  expect(current.ok && current.state.manual.tracks.B.seat).toEqual({
+    row: '',
+    number: '',
+  });
+  const calls = api.extension.isAllowedIncognitoAccess.mock.calls.length;
+  expect(
+    await send(
+      {
+        type: 'WORKFLOW',
+        generation: before.state.generation,
+        revision: before.state.manual.revision,
+        buddyEpoch: before.state.buddyEpoch,
+        command: { type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false },
+      },
+      popup,
+    ),
+  ).toMatchObject({ ok: false });
+  expect(api.extension.isAllowedIncognitoAccess).toHaveBeenCalledTimes(calls);
 });

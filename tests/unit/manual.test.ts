@@ -1,3 +1,4 @@
+import { review, seats } from '../helpers/workflow';
 import { describe, expect, it } from 'vitest';
 import {
   applyManual,
@@ -19,6 +20,15 @@ const plan = fictionalObservation('A', now).showtime;
 function ready() {
   const state = emptyManual();
   expect(applyManual(state, { type: 'PLAN', plan }, now)).toBeNull();
+  expect(
+    applyManual(
+      state,
+      { type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false },
+      now,
+    ),
+  ).toBeNull();
+  seats(state, now);
+  review(state, now);
   return state;
 }
 function details(state: ManualState, role: Role) {
@@ -31,10 +41,15 @@ function details(state: ManualState, role: Role) {
       seat: { row: 'F', number: role === 'A' ? '10' : '11' },
     },
     now,
+    [],
+    true,
   );
 }
 function finish(state: ManualState, role: Role) {
   details(state, role);
+  const other = role === 'A' ? 'B' : 'A';
+  if (state.tracks[other].problem) details(state, other);
+  review(state, now);
   for (const step of manualSteps)
     expect(
       applyManual(state, { type: 'ACKNOWLEDGE', role, step }, now, [], true),
