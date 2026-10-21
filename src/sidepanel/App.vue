@@ -10,13 +10,28 @@ import DiagnosticsPanel from './components/DiagnosticsPanel.vue';
 import { version } from '../../package.json';
 import BrandHeader from '../components/BrandHeader.vue';
 import BuddyManager from '../components/BuddyManager.vue';
+import RetentionControls from '../components/RetentionControls.vue';
+import MovieNightHQ from './components/MovieNightHQ.vue';
+import { draftPlanSchema } from '../core/retained-data';
 import { selectedBuddy } from '../core/buddies';
 import { selfCheck } from '../privacy/diagnostics';
-const { snapshot, offline, error, busy, lifecycleNotice, command, reconnect } =
-  useCompanion();
+const {
+  snapshot,
+  offline,
+  error,
+  busy,
+  lifecycleNotice,
+  command,
+  reconnect,
+  restoredDraft,
+} = useCompanion();
 const buddyView = computed(() =>
   snapshot.value
-    ? { ...snapshot.value.buddy, generation: snapshot.value.generation }
+    ? {
+        ...snapshot.value.buddy,
+        generation: snapshot.value.generation,
+        retention: snapshot.value.retention,
+      }
     : null,
 );
 const activeBuddy = computed(() =>
@@ -35,6 +50,38 @@ const plan = ref<Showtime>({
   hall: null,
 });
 const formError = ref('');
+const concept = ref(false);
+const draftFeedback = ref('');
+watch(restoredDraft, (value) => {
+  if (value) {
+    plan.value = { ...value };
+    concept.value = true;
+    draftFeedback.value =
+      'Concept, opnieuw controleren. Alleen invoervelden hersteld; bewaar het filmplan na eigen controle.';
+  }
+});
+async function draftAction(
+  type: 'DRAFT_SAVE' | 'DRAFT_RESTORE' | 'DRAFT_DELETE',
+) {
+  if (!snapshot.value || offline.value) return;
+  const gate = {
+    generation: snapshot.value.generation,
+    revision: snapshot.value.buddy.revision,
+  };
+  if (type === 'DRAFT_SAVE') {
+    const parsed = draftPlanSchema.safeParse(plan.value);
+    if (!parsed.success) {
+      draftFeedback.value =
+        'Vul alleen geldige filmgegevens in; geen accountgegevens, links of pasnummers.';
+      return;
+    }
+    if (await command({ type, ...gate, plan: parsed.data }))
+      draftFeedback.value =
+        'Alleen filmplan-concept tijdelijk bewaard, maximaal 4 uur. Geen stoelen, buddy’s, controles of boekingsstatus.';
+  } else if ((await command({ type, ...gate })) && type === 'DRAFT_DELETE')
+    draftFeedback.value =
+      'Opgeslagen concept verwijderd; je huidige invoer blijft staan.';
+}
 watch(
   () => `${snapshot.value?.generation}:${snapshot.value?.resetVersion}`,
   (current, previous) => {
@@ -47,6 +94,8 @@ watch(
         hall: null,
       };
       formError.value = '';
+      concept.value = false;
+      draftFeedback.value = '';
     }
   },
 );
@@ -95,6 +144,7 @@ async function savePlan() {
     return;
   }
   if (await command({ type: 'PLAN', plan: parsed.data })) {
+    concept.value = false;
     formError.value = '';
     await nextTick();
     document.getElementById('tracks-title')?.focus();
@@ -138,8 +188,9 @@ onUnmounted(() => clearInterval(timer));
         <strong
           >Eigen vinkjes of meldingen zijn geen websitebevestiging.</strong
         >
-        Gegevens blijven tijdelijk in het geheugen; sluiten of herstart kan ze
-        wissen.
+        Controles blijven alleen in geheugen. Bijnamen onthouden en een
+        tijdelijk filmplan-concept vragen elk een bewuste keuze; geen
+        boekingsstatus wordt opgeslagen.
       </p>
       <p v-if="offline" class="notice">
         Alleen lokaal in dit paneel. Browserkoppeling is niet beschikbaar; bij
@@ -158,12 +209,40 @@ onUnmounted(() => clearInterval(timer));
         {{ lifecycleNotice }}
       </p>
       <p v-if="error" role="alert" class="error">{{ error }}</p>
+      <MovieNightHQ v-if="snapshot" :state="snapshot" />
+      <details class="tutorial">
+        <summary>Probeer SeatBuddies in 90 seconden</summary>
+        <ol>
+          <li>
+            Vul De maan van papier, Fictief Filmhuis, 12 april 2030, 19:30, Zaal
+            2 in en bewaar het plan.
+          </li>
+          <li>
+            Vul A F10 en B F11 in; doorloop zelf de vijf stappen van A. B moet
+            zelfstandig blijven.
+          </li>
+          <li>
+            Vergelijk bovenaan: A's eigen melding is geen websitebewijs,
+            opeenvolgende stoelen zijn niet bewezen aangrenzend. Alles blijft
+            fictief.
+          </li>
+        </ol>
+        <p class="source">
+          Geen account, ticket of checkout nodig. Een buddy kiezen is optioneel.
+        </p>
+      </details>
       <details class="panel-buddies">
         <summary>Buddy kiezen of beheren</summary>
         <BuddyManager
           :state="buddyView"
           :busy="busy"
           :disabled="offline"
+          prefix="panel"
+          @command="command"
+        />
+        <RetentionControls
+          :state="buddyView"
+          :busy="busy || offline"
           prefix="panel"
           @command="command"
         />
@@ -175,6 +254,11 @@ onUnmounted(() => clearInterval(timer));
           betaalgegevens.
         </p>
         <form @submit.prevent="savePlan">
+          <p v-if="concept" class="notice" role="status">
+            Concept, opnieuw controleren — alleen invoervelden. Een bestaand
+            plan en eigen controles komen niet uit dit concept. Bewaar pas na
+            eigen controle.
+          </p>
           <ShowtimeFields v-model="plan" prefix="plan" />
           <p v-if="formError" role="alert" class="error">{{ formError }}</p>
           <p v-if="snapshot?.manual.plan" class="source">
@@ -183,6 +267,45 @@ onUnmounted(() => clearInterval(timer));
           </p>
           <button :disabled="busy">Bewaar filmplan</button>
         </form>
+        <details class="draft-controls">
+          <summary>Filmplan-concept veilig bewaren of herstellen</summary>
+          <p class="source">
+            Alleen film, bioscoop, datum, tijd en zaal. Nooit automatisch.
+            Maximaal 4 uur in Chrome-sessieopslag; workerstop kan dit bewaren,
+            browserherstart/extensie-update/reload wist het. Herstellen vult
+            alleen dit formulier, zonder plan of controles te activeren.
+          </p>
+          <div class="actions">
+            <button
+              type="button"
+              class="secondary"
+              :disabled="busy || offline || !snapshot?.retention.draftSupported"
+              @click="draftAction('DRAFT_SAVE')"
+            >
+              Bewaar tijdelijk filmplan-concept
+            </button>
+            <button
+              type="button"
+              class="secondary"
+              :disabled="busy || offline || !snapshot?.retention.draftExpiresAt"
+              @click="draftAction('DRAFT_RESTORE')"
+            >
+              Herstel concept
+            </button>
+            <button
+              type="button"
+              class="secondary"
+              :disabled="busy || offline || !snapshot?.retention.draftExpiresAt"
+              @click="draftAction('DRAFT_DELETE')"
+            >
+              Verwijder concept
+            </button>
+          </div>
+          <p v-if="!snapshot?.retention.draftSupported" class="source">
+            Conceptopslag niet beschikbaar; handmatig plannen werkt wel.
+          </p>
+          <p v-if="draftFeedback" role="status">{{ draftFeedback }}</p>
+        </details>
         <p
           v-if="snapshot?.manual.plan && !snapshot.manual.plan.hall"
           class="notice"
@@ -259,6 +382,10 @@ onUnmounted(() => clearInterval(timer));
       </section>
       <details class="reset-area">
         <summary>Alle gegevens wissen</summary>
+        <p>
+          Wist ook opgeslagen buddies en het tijdelijke concept, zonder echte
+          boeking te annuleren.
+        </p>
         <button class="secondary" :disabled="busy" @click="clearAll">
           Wis alle tijdelijke gegevens
         </button>

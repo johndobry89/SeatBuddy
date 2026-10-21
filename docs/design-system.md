@@ -1,4 +1,4 @@
-# SeatBuddies — visuele afspraken 0.4.0-test
+# SeatBuddies — visuele afspraken 0.5.0-test
 
 Twee originele, vereenvoudigde bioscoopstoelen vormen het merk: eigen crimson silhouetten, één warme gouden armleuning en een charcoal ondergrond. Geen Vue-/Netflix-logo, externe merkasset, webfont of glow. De naam en beschrijvende tekst vormen het compacte woordmerk; naam-/merkrechten voor publicatie zijn nog niet beoordeeld.
 
@@ -25,3 +25,9 @@ Daadwerkelijk gemaakte en bekeken, geschoonde rendererbeelden (fictieve data, tr
 ![SeatBuddies-popup met fictieve buddy](images/seatbuddies-popup.png)
 
 ![Widget uitsluitend op de fictieve pakketpagina](images/seatbuddies-widget.png)
+
+## Movie Night HQ
+
+Het Filmavond-overzicht is de eerste hoofdkaart: eigen voorstelling, twee compacte onafhankelijke trajecten, één rustige gouden vervolgstap en twee schematische eigen stoelcodes. Geen officiële plattegrond of beschikbaarheidskleur. CONSECUTIVE_UNVERIFIED blijft expliciet ongeverifieerd; een afgeronde eigen melding blijft NOT SITE VERIFIED. Plan → Twee eigen controles → Samen controleren ordent de bestaande vijf eigen stappen.
+
+Privacy staat bij buddybeheer, standaard uit, met volledige uitleg en een door Chrome bevestigde checkbox. Conceptopslag staat afzonderlijk onder een details-element: expliciet bewaren/herstellen/wissen, geen achtergrondautosave. Herstelde invoer heeft een opvallend Concept, opnieuw controleren-label. Bron-/fout-/empty-/onbeschikbaarheidsteksten zijn producttaal; protocolcodes staan alleen waar ze bewijs verduidelijken.

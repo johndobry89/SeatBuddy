@@ -15,14 +15,14 @@ export const diagnosticSchema = z.strictObject({
     sidePanelOpen: z.boolean(),
     contextQuery: z.boolean(),
   }),
-  permissionScope: z.enum(['SIDE_PANEL_ONLY', 'UNEXPECTED', 'UNKNOWN']),
+  permissionScope: z.enum(['SIDE_PANEL_AND_STORAGE', 'UNEXPECTED', 'UNKNOWN']),
   incognitoConsent: z.enum(['ALLOWED', 'NOT_ALLOWED', 'UNKNOWN']),
   evidence: z
     .strictObject({ A: roleEvidenceSchema, B: roleEvidenceSchema })
     .nullable(),
   realVueConfirmation: z.literal('NOT_IMPLEMENTED'),
   productionAdapter: z.literal('DISABLED_G0'),
-  persistence: z.literal('MEMORY_ONLY'),
+  persistence: z.enum(['TEMPORARY', 'REMEMBERED', 'UNAVAILABLE', 'LOCAL_ONLY']),
 });
 export type Diagnostic = z.infer<typeof diagnosticSchema>;
 
@@ -41,12 +41,13 @@ export function selfCheck(
     if (parsed.success) version = parsed.data;
     scope =
       manifest.manifest_version === 3 &&
-      JSON.stringify(manifest.permissions) === JSON.stringify(['sidePanel']) &&
+      JSON.stringify(manifest.permissions) ===
+        JSON.stringify(['sidePanel', 'storage']) &&
       !manifest.host_permissions?.length &&
       !manifest.optional_host_permissions?.length &&
       !manifest.optional_permissions?.length &&
       !manifest.content_scripts?.length
-        ? 'SIDE_PANEL_ONLY'
+        ? 'SIDE_PANEL_AND_STORAGE'
         : 'UNEXPECTED';
   } catch {
     // An ordinary local preview has no extension manifest.
@@ -72,6 +73,8 @@ export function selfCheck(
     evidence: state?.evidence ?? null,
     realVueConfirmation: 'NOT_IMPLEMENTED',
     productionAdapter: 'DISABLED_G0',
-    persistence: 'MEMORY_ONLY',
+    persistence: offline
+      ? 'LOCAL_ONLY'
+      : (state?.retention.mode ?? 'UNAVAILABLE'),
   });
 }

@@ -100,8 +100,9 @@ function cancel() {
 <template>
   <div class="buddy-manager">
     <p class="privacy-note">
-      Optioneel: alleen een tijdelijke bijnaam. Geen account, pas of abonnement
-      wordt gekoppeld. Bij workerherstart verdwijnt de lijst.
+      Optioneel: alleen een bijnaam. Geen account, pas of abonnement wordt
+      gekoppeld. Zonder expliciet onthouden verdwijnt de lijst bij
+      workerherstart. Gekozen buddy en controles worden nooit hersteld.
     </p>
     <p v-if="disabled" class="notice">
       Buddybeheer vraagt een browserverbinding. Je kunt de handmatige

@@ -148,7 +148,10 @@ export function routeMessage(
     return reject();
   }
   if (result.data.type === 'GET_BUDDY') {
-    const buddy = selectedBuddy(coordinator.buddy);
+    const buddy =
+      coordinator.retention.mode === 'TEMPORARY'
+        ? selectedBuddy(coordinator.buddy)
+        : null;
     return {
       ok: true as const,
       buddy: buddy ? { nickname: buddy.nickname, demo: buddy.demo } : null,

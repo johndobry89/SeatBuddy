@@ -65,3 +65,21 @@ Een geslaagde macOS-build/unit/UI-job valideert geen menselijke Side Panel-bedie
 | Iconen/pakket                            | Originele SVG en reproduceerbare PNG’s, action/default_popup correct, runtime-only ZIP/checksum      |
 
 Menselijke Mac-QA volgt na de bouw. Native Chrome-tests en renderer-transportdoubles blijven afzonderlijke bewijssoorten; de bestaande baselineproeven blijven ingeschakeld. Zie het haalbaarheidsregister voor feitelijke resultaten.
+
+## Sprint 05 — nickname-retentie en Movie Night HQ
+
+Gebruik uitsluitend fictieve data, na de bouw. Bewijs workerstop, extensiereload en browserherstart apart; zie Mac-/Windows-gids en ADR-006.
+
+| Proef                                                         | Verwacht                                                                                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Default / expliciete opt-in                                   | Geen records vóór toestemming; daarna alleen gevalideerde nickname/opaque ID, max. 12                                    |
+| Workerstop                                                    | Alleen opt-in namen en geldig expliciet concept kunnen blijven; selectie/plan/stoelen/controles/bindings leeg            |
+| Disable / vergeten / individuele / clear-all                  | Opgeslagen records bijgewerkt/verwijderd, wisfouten zichtbaar; geen schijnsucces                                         |
+| Onbekend/incognito document                                   | Geen gedeelde/onthouden read/write/reset; normale lokale handmatige fallback                                             |
+| Draft bewaren/herstellen                                      | Alleen vijf filmvelden, max. 4 uur; herstel slechts ongecommitteerd formulier, geen status/PLAN                          |
+| Toekomstig/verlopen/corrupt/extra velden                      | Weigeren en verwijderen zonder bewijsherstel of gevoelige logging                                                        |
+| Gelijktijdig hernoemen / oude generatie                       | Geserialiseerd; stale writes geweigerd, geen automatische retry; expliciete revocatie mag oude rosterrevisie overstemmen |
+| Polling/popup/openen                                          | Onopgeslagen velden blijven; bevestigde buddywissel wist B, A blijft                                                     |
+| HQ next step / mismatch / stale / logout / partiële meldingen | Eén veilige vervolgstap, behoud vijf onafhankelijke checks, nooit websitebevestiging                                     |
+| Stoelen / keyboard / 320px                                    | CONSECUTIVE_UNVERIFIED zonder echte kaart/hold; semantische labels/focus, geen horizontale overflow                      |
+| Browserherstart/reload                                        | Session-concept weg, alleen opt-in local-lijst blijft; menselijke OS-proef apart                                         |

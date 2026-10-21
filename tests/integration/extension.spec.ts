@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { panelReplySchema } from '../../src/privacy/protocol';
+import { savedDraftSchema } from '../../src/core/retained-data';
 
 // The real built MV3 package runs with system Chromium. No production sites are opened.
 test('unpacked MV3: independent simulations, fixture provenance, fallback and navigation invalidation', async () => {
@@ -32,10 +33,10 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
       .click();
     await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).click();
     await expect(page.getByTestId('diagnostic-report')).toContainText(
-      'SIDE_PANEL_ONLY',
+      'SIDE_PANEL_AND_STORAGE',
     );
     await expect(page.getByTestId('diagnostic-report')).toContainText(
-      '"extensionVersion": "0.4.0"',
+      '"extensionVersion": "0.5.0"',
     );
     await expect(page.getByTestId('diagnostic-report')).toContainText(
       'NOT_IMPLEMENTED',
@@ -424,7 +425,7 @@ test('real action popup shares one buddy with the panel and opens a native Side 
     const cdp = await context.newCDPSession(neutral);
     const manifest = await worker.evaluate(() => chrome.runtime.getManifest());
     expect(manifest.action?.default_popup).toBe('popup.html');
-    expect(manifest.permissions).toEqual(['sidePanel']);
+    expect(manifest.permissions).toEqual(['sidePanel', 'storage']);
     for (const size of [16, 32, 48, 128])
       expect(manifest.icons?.[size]).toBe(`icons/icon-${size}.png`);
     const popupReady = context.waitForEvent('page', {
@@ -508,5 +509,324 @@ test('real action popup shares one buddy with the panel and opens a native Side 
     if (previousAttachment === undefined)
       delete process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
     else process.env.PW_CHROMIUM_ATTACH_TO_OTHER = previousAttachment;
+  }
+});
+
+test('Chrome local/session storage: opt-in nickname survives a real worker stop, draft restores no proof, disabling deletes records', async () => {
+  const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-retention-'));
+  const context = await chromium.launchPersistentContext(profile, {
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    ignoreDefaultArgs: ['--disable-extensions'],
+    headless: process.env.HEADED !== '1',
+    args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
+  });
+  try {
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
+    const id = new URL(worker.url()).host;
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+    await panel.getByText('Buddy kiezen of beheren', { exact: true }).click();
+    const remember = panel.getByRole('checkbox', {
+      name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+    });
+    await expect(remember).toBeEnabled();
+    await expect(remember).not.toBeChecked();
+    await panel.getByLabel('Bijnaam toevoegen').fill('Filmmaatje');
+    await panel
+      .getByRole('button', { name: 'Voeg buddy toe', exact: true })
+      .click();
+    expect(await panel.evaluate(() => chrome.storage.local.get(null))).toEqual(
+      {},
+    );
+    await remember.click();
+    await expect(remember).toBeChecked();
+    const saved = await panel.evaluate(() => chrome.storage.local.get(null));
+    const rosterKey = 'seatbuddies.roster.v1';
+    const draftKey = 'seatbuddies.draft.v1';
+    expect(Object.keys(saved)).toEqual([rosterKey]);
+    expect(saved[rosterKey]).toMatchObject({
+      version: 1,
+      roster: [{ nickname: 'Filmmaatje' }],
+    });
+    await panel
+      .getByRole('button', { name: 'Kies Filmmaatje', exact: true })
+      .click();
+    await panel
+      .getByRole('button', { name: 'Bevestig wijziging en wis B', exact: true })
+      .click();
+    await expect(panel.getByTestId('panel-selection')).toContainText(
+      'Ik + Filmmaatje',
+    );
+    for (const [field, value] of Object.entries({
+      movie: 'De maan van papier',
+      cinema: 'Fictief Filmhuis',
+      date: '2030-04-12',
+      time: '19:30',
+      hall: 'Zaal 2',
+    }))
+      await panel.locator(`#plan-${field}`).fill(value);
+    await panel
+      .getByRole('button', { name: 'Bewaar filmplan', exact: true })
+      .click();
+    await panel
+      .getByRole('button', {
+        name: 'Ik gebruik mijn eigen account en geldige pas — A',
+        exact: true,
+      })
+      .click();
+    await panel
+      .getByText('Filmplan-concept veilig bewaren of herstellen', {
+        exact: true,
+      })
+      .click();
+    await panel
+      .getByRole('button', {
+        name: 'Bewaar tijdelijk filmplan-concept',
+        exact: true,
+      })
+      .click();
+    const session = await panel.evaluate(() =>
+      chrome.storage.session.get(null),
+    );
+    expect(Object.keys(session)).toEqual([draftKey]);
+    const draftRecord = savedDraftSchema.parse(session[draftKey]);
+    expect(Object.keys(draftRecord).sort()).toEqual([
+      'createdAt',
+      'plan',
+      'version',
+    ]);
+    expect(Object.keys(draftRecord.plan).sort()).toEqual([
+      'cinema',
+      'date',
+      'hall',
+      'movie',
+      'time',
+    ]);
+    const fixture = await context.newPage();
+    await fixture.goto(`chrome-extension://${id}/fixture.html`);
+    expect(
+      await fixture.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'GET_BUDDY' }),
+      ),
+    ).toEqual({ ok: true, buddy: null });
+    expect(
+      await fixture.evaluate(() =>
+        chrome.runtime.sendMessage({
+          type: 'REMEMBER_BUDDIES',
+          enabled: false,
+          generation: crypto.randomUUID(),
+          revision: 0,
+        }),
+      ),
+    ).toMatchObject({ ok: false });
+    const before = panelReplySchema.parse(
+      await panel.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+      ),
+    );
+    if (!before.ok) throw new Error(before.error);
+    const cdp = await context.newCDPSession(panel);
+    let versionId: string | undefined;
+    cdp.on('ServiceWorker.workerVersionUpdated', ({ versions }) => {
+      const version = versions.find(
+        (value) =>
+          value.scriptURL === `chrome-extension://${id}/background.js` &&
+          value.runningStatus === 'running',
+      );
+      if (version) versionId = version.versionId;
+    });
+    await cdp.send('ServiceWorker.enable');
+    await expect.poll(() => versionId).toBeTruthy();
+    await cdp.send('ServiceWorker.stopWorker', { versionId: versionId! });
+    const after = panelReplySchema.parse(
+      await panel.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+      ),
+    );
+    if (!after.ok) throw new Error(after.error);
+    expect(after.state.generation).not.toBe(before.state.generation);
+    expect(after.state.buddy.roster[0]?.nickname).toBe('Filmmaatje');
+    expect(after.state.buddy.selectedId).toBeNull();
+    expect(after.state.manual.plan).toBeNull();
+    for (const role of ['A', 'B'] as const) {
+      expect(after.state.manual.tracks[role].completed).toEqual([]);
+      expect(after.state.manual.tracks[role].context).toBeNull();
+      expect(after.state.manual.tracks[role].seat).toEqual({
+        row: '',
+        number: '',
+      });
+      expect(after.state.sessions[role].observation).toBeNull();
+    }
+    await expect(panel.locator('#plan-movie')).toHaveValue('');
+    await panel
+      .getByRole('button', { name: 'Herstel concept', exact: true })
+      .click();
+    await expect(panel.locator('#plan-movie')).toHaveValue(
+      'De maan van papier',
+    );
+    await expect(panel.getByTestId('hq-next')).toHaveAttribute(
+      'data-step',
+      'PLAN',
+    );
+    await expect(panel.getByTestId('hq-A')).toContainText('0/5');
+    await remember.click();
+    await expect(remember).not.toBeChecked();
+    expect(await panel.evaluate(() => chrome.storage.local.get(null))).toEqual(
+      {},
+    );
+    expect(
+      await panel.evaluate(() => chrome.storage.session.get(null)),
+    ).toEqual({});
+    // A reload of an ordinary popup document reads the same worker and never re-enables consent.
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${id}/popup.html`);
+    await expect(
+      popup.getByRole('checkbox', {
+        name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+      }),
+    ).not.toBeChecked();
+    await popup.reload();
+    await expect(
+      popup.getByRole('checkbox', {
+        name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+      }),
+    ).not.toBeChecked();
+  } finally {
+    await context.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+test('spanning Chrome: a real incognito popup cannot read remembered names, change consent or save a draft', async () => {
+  test.setTimeout(60_000);
+  const previous = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
+  process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
+  const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-private-popup-'));
+  const context = await chromium.launchPersistentContext(profile, {
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    ignoreDefaultArgs: ['--disable-extensions'],
+    headless: process.env.HEADED !== '1',
+    args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
+  });
+  try {
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
+    const id = new URL(worker.url()).host;
+    const settings = await context.newPage();
+    await settings.goto(`chrome://extensions/?id=${id}`);
+    const developer = settings.locator('extensions-toolbar #devMode');
+    await expect(developer).toBeVisible();
+    if (
+      !(await developer.evaluate((element) =>
+        Boolean(Reflect.get(element, 'checked')),
+      ))
+    )
+      await developer.click();
+    const toggle = settings.locator(
+      'extensions-detail-view #allow-incognito cr-toggle',
+    );
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+    const panel = await context.newPage();
+    await expect(async () => {
+      await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+      await expect(
+        panel.getByRole('heading', { name: 'Samen naar de film', exact: true }),
+      ).toBeVisible();
+      const state = panelReplySchema.parse(
+        await panel.evaluate(() =>
+          chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+        ),
+      );
+      expect(state.ok && state.state.incognitoAllowed).toBe(true);
+    }).toPass({ timeout: 10_000 });
+    await panel.getByText('Buddy kiezen of beheren', { exact: true }).click();
+    await panel.getByLabel('Bijnaam toevoegen').fill('Filmmaatje');
+    await panel
+      .getByRole('button', { name: 'Voeg buddy toe', exact: true })
+      .click();
+    await panel
+      .getByRole('checkbox', {
+        name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+      })
+      .click();
+    await expect(panel.getByTestId('retention-status')).toContainText(
+      'niet standaard versleuteld',
+    );
+    const before = await panel.evaluate(() => chrome.storage.local.get(null));
+    const normal = panelReplySchema.parse(
+      await panel.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+      ),
+    );
+    if (!normal.ok) throw new Error(normal.error);
+    const windowId = await panel.evaluate(
+      async () =>
+        (await chrome.windows.create({ incognito: true, url: 'about:blank' }))
+          ?.id,
+    );
+    if (windowId === undefined)
+      throw new Error('Isolated incognito window missing');
+    const popupReady = context.waitForEvent('page', {
+      predicate: (page) => page.url() === `chrome-extension://${id}/popup.html`,
+    });
+    await panel.evaluate(
+      (windowId) => chrome.action.openPopup({ windowId }),
+      windowId,
+    );
+    const popup = await popupReady;
+    await expect(popup.getByRole('alert')).toContainText('normaal venster');
+    await expect(
+      popup.getByRole('checkbox', {
+        name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+      }),
+    ).toBeDisabled();
+    const gate = {
+      generation: normal.state.generation,
+      revision: normal.state.buddy.revision,
+    };
+    for (const command of [
+      { type: 'BUDDY_READ' },
+      { type: 'REMEMBER_BUDDIES', ...gate, enabled: false },
+      {
+        type: 'DRAFT_SAVE',
+        ...gate,
+        plan: {
+          movie: 'Fictieve privéfilm',
+          cinema: 'Fictief Filmhuis',
+          date: '2030-04-12',
+          time: '19:30',
+          hall: 'Zaal 2',
+        },
+      },
+    ]) {
+      const response: unknown = await popup.evaluate(
+        (command) => chrome.runtime.sendMessage(command),
+        command,
+      );
+      expect(response).toMatchObject({
+        ok: false,
+        code: 'BROWSER_UNAVAILABLE',
+      });
+      expect(JSON.stringify(response)).not.toContain('Filmmaatje');
+    }
+    expect(await panel.evaluate(() => chrome.storage.local.get(null))).toEqual(
+      before,
+    );
+    expect(
+      await panel.evaluate(() => chrome.storage.session.get(null)),
+    ).toEqual({});
+    await panel.evaluate(
+      (windowId) => chrome.windows.remove(windowId),
+      windowId,
+    );
+  } finally {
+    await context.close();
+    await rm(profile, { recursive: true, force: true });
+    if (previous === undefined) delete process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
+    else process.env.PW_CHROMIUM_ATTACH_TO_OTHER = previous;
   }
 });

@@ -3,6 +3,7 @@ import { sendRuntime } from '../chrome/messaging';
 import { Coordinator, type Snapshot } from '../background/coordinator';
 import { panelReplySchema, type PanelCommand } from '../privacy/protocol';
 import { manualCommandSchema } from '../core/manual-assistant';
+import type { Showtime } from '../core/types';
 
 async function send(message: PanelCommand) {
   return panelReplySchema.parse(await sendRuntime(message));
@@ -13,12 +14,14 @@ export function useCompanion() {
   const error = ref('');
   const busy = ref(false);
   const lifecycleNotice = ref('');
+  const restoredDraft = ref<Showtime | null>(null);
   const local = new Coordinator();
   function disconnect() {
     offline.value = true;
     local.reset();
     snapshot.value = local.snapshot(Date.now(), false);
     lifecycleNotice.value = '';
+    restoredDraft.value = null;
     error.value =
       'Browserverbinding niet beschikbaar. Status UNKNOWN; eerdere voortgang is vervallen. De assistent werkt nu alleen tijdelijk in dit paneel.';
   }
@@ -99,10 +102,15 @@ export function useCompanion() {
       if (
         snapshot.value &&
         snapshot.value.generation !== reply.state.generation
-      )
+      ) {
+        restoredDraft.value = null;
         lifecycleNotice.value =
-          'Chrome-coördinator opnieuw gestart. Eerdere voortgang en koppelingen zijn vervallen; controleer je filmplan en A/B-stappen opnieuw. Er is niets automatisch uitgevoerd.';
+          'Chrome-coördinator opnieuw gestart. Eerdere voortgang en koppelingen zijn vervallen; controleer je filmplan en A/B-stappen opnieuw. Alleen bewust onthouden bijnamen kunnen terugkomen. Er is niets automatisch uitgevoerd.';
+      }
       snapshot.value = reply.state;
+      if (reply.restoredDraft) restoredDraft.value = { ...reply.restoredDraft };
+      if (message.type === 'PLAN' || message.type === 'RESET')
+        restoredDraft.value = null;
       if (message.type === 'PLAN' || message.type === 'RESET')
         lifecycleNotice.value = '';
       if (message.type !== 'GET_STATE') error.value = '';
@@ -122,5 +130,6 @@ export function useCompanion() {
     lifecycleNotice,
     command,
     reconnect,
+    restoredDraft,
   };
 }

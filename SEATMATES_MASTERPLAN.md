@@ -5,7 +5,7 @@
 | Documentcontrole | Waarde |
 | --- | --- |
 | Document-ID | `SEATMATES.MASTERPLAN.v0.2` |
-| Productversie | **0.4.0-test — buddy-popup + handmatige assistent; G0 live open** |
+| Productversie | **0.5.0-test — Filmavond-overzicht, expliciet onthouden en veilig conceptherstel; G0 live open** |
 | Datum | Ontwerp 20 oktober 2026; implementatiestatus bijgewerkt 21 oktober 2026 |
 | Project | SeatBuddies (voorheen SeatMates; naam-/merkrechten niet onderzocht) |
 | Productdoel | Twee geldige Vue Movie Pass-houders begeleiden naar dezelfde voorstelling en waar mogelijk aangrenzende stoelen |
@@ -20,7 +20,7 @@
 | Agentinstructies | Root [`AGENTS.md`](AGENTS.md): **AGENTS2.0 / KDB Development Standard, SeatMates-profiel** |
 | Feitelijke onderzoeksstatus | [`docs/feasibility.md`](docs/feasibility.md) |
 
-**Naam en optionele labels:** het huidige product heet SeatBuddies; SeatMates in historische ontwerpvoorbeelden/code is de eerdere werknaam. Korte, optionele buddybijnamen zijn uitsluitend tijdelijke eigen weergavelabels; geen accountidentiteit, opslag of pasvalidatie. De popup heeft daarvoor een smal protocol zonder A/B-/incognitodata; een buddywissel wist B na bewuste bevestiging en laat A zelfstandig. Zie ADR-005.
+**Naam en optionele labels:** het huidige product heet SeatBuddies; SeatMates in historische ontwerpvoorbeelden/code is de eerdere werknaam. Optionele buddybijnamen zijn eigen weergavelabels, geen accountidentiteit of pasvalidatie. Standaard tijdelijk; uitsluitend na expliciete toestemming mag de nickname/ID-lijst lokaal worden onthouden. Een afzonderlijke bewaaractie kan alleen filmplan-conceptvelden maximaal vier uur in Chrome-sessieopslag zetten. Nooit selectie, A/B-bewijs, stoelen of incognitodata bewaren/herstellen. De popup heeft een smal protocol zonder A/B-/incognitodata; een buddywissel wist B na bevestiging en laat A zelfstandig. Zie ADR-005 en de nauw begrensde opslaguitzondering ADR-006; historische geen-opslagtekst hieronder is niet de actuele opt-inbeslissing.
 
 **Implementatiestand 21 oktober 2026:** de handmatige assistent en fictieve tests zijn gebouwd; bronlabels onderscheiden SIMULATION, MANUAL_SELF_REPORT, BROWSER_CONTEXT_ONLY en UNKNOWN. Echte Vue-bevestiging is NOT_IMPLEMENTED. De historische ontwerpvoorbeelden hieronder zijn geen actuele live API’s of bewijs. Alle uitgevoerde platformresultaten staan in feasibility.
 
@@ -98,6 +98,7 @@ SeatMates helpt twee legitieme, afzonderlijk ingelogde gebruikers dezelfde voors
 - `ADR-003`: handmatige assistent en uitsluitend Chrome-contextmetadata; geen account-/sitebewijs — [`docs/decisions/ADR-003-manual-first-context-pairing.md`](docs/decisions/ADR-003-manual-first-context-pairing.md).
 - `ADR-004`: expliciet herverbinden, vluchtige workergeneratie en gereduceerde diagnostiek — [`docs/decisions/ADR-004-explicit-reconnection.md`](docs/decisions/ADR-004-explicit-reconnection.md).
 - `ADR-005`: tijdelijke buddybijnamen, begrensde popup en bewuste B-reset — [`docs/decisions/ADR-005-buddy-manager-popup.md`](docs/decisions/ADR-005-buddy-manager-popup.md).
+- `ADR-006`: expliciet lokaal onthouden van nickname/ID en herstel van uitsluitend ongecommitteerde filmplan-conceptvelden — [`docs/decisions/ADR-006-explicit-local-retention.md`](docs/decisions/ADR-006-explicit-local-retention.md).
 - Een besluit mag wijzigen als de feiten veranderen; leg motivatie, impact, bewijs en vervangende ADR vast.
 
 ---
