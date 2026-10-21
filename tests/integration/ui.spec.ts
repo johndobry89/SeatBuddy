@@ -300,6 +300,7 @@ test('missing runtime keeps a usable local manual planner without claiming Chrom
     await page.locator('#plan-time').fill('19:30');
     await page.getByRole('button', { name: 'Bewaar filmplan' }).click();
     await expect(page.getByTestId('hq-next')).toBeVisible();
+    await expect(page.getByTestId('hq-next')).toContainText('Zaal UNKNOWN');
     await page
       .getByRole('button', {
         name: 'Ik gebruik mijn eigen account en geldige pas — A',
