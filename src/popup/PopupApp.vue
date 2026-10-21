@@ -3,6 +3,7 @@ import { onMounted, onUnmounted } from 'vue';
 import BrandHeader from '../components/BrandHeader.vue';
 import BuddyManager from '../components/BuddyManager.vue';
 import RetentionControls from '../components/RetentionControls.vue';
+import NormalWindowButton from '../components/NormalWindowButton.vue';
 import { useBuddies } from './use-buddies';
 import { usePanelLauncher } from '../chrome/use-panel-launcher';
 import { version } from '../../package.json';
@@ -27,6 +28,7 @@ onUnmounted(() => clearInterval(timer));
     <p v-if="notice" class="notice">{{ notice }}</p>
     <div class="popup-launch">
       <button @click="launcher.open">Open boekingsassistent</button>
+      <NormalWindowButton v-if="error" />
       <p v-if="launcher.error.value" role="alert" class="error">
         {{ launcher.error.value }}
       </p>

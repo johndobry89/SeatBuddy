@@ -12,6 +12,7 @@ import BrandHeader from '../components/BrandHeader.vue';
 import BuddyManager from '../components/BuddyManager.vue';
 import RetentionControls from '../components/RetentionControls.vue';
 import MovieNightHQ from './components/MovieNightHQ.vue';
+import NormalWindowButton from '../components/NormalWindowButton.vue';
 import { draftPlanSchema } from '../core/retained-data';
 import { selectedBuddy } from '../core/buddies';
 import { selfCheck } from '../privacy/diagnostics';
@@ -205,6 +206,7 @@ onUnmounted(() => clearInterval(timer));
       >
         Verbind opnieuw en wis tijdelijke gegevens
       </button>
+      <NormalWindowButton v-if="offline" />
       <p v-if="lifecycleNotice" role="status" class="notice">
         {{ lifecycleNotice }}
       </p>

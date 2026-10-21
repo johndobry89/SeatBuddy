@@ -12,6 +12,7 @@ import {
 } from '../privacy/protocol';
 import { emptySessions, type Binding } from '../core/types';
 import { selectedBuddy } from '../core/buddies';
+import { hasUiNonce } from '../chrome/ui-document';
 
 export interface Sender {
   id?: string | undefined;
@@ -25,15 +26,24 @@ export interface Sender {
 export function isPanelSender(sender: Sender, extensionId: string) {
   return (
     sender.id === extensionId &&
-    sender.url === `chrome-extension://${extensionId}/sidepanel.html` &&
+    matchesUiUrl(
+      sender.url,
+      `chrome-extension://${extensionId}/sidepanel.html`,
+    ) &&
     (sender.frameId === undefined || sender.frameId === 0)
   );
 }
 export function isPopupSender(sender: Sender, extensionId: string) {
   return (
     sender.id === extensionId &&
-    sender.url === `chrome-extension://${extensionId}/popup.html` &&
+    matchesUiUrl(sender.url, `chrome-extension://${extensionId}/popup.html`) &&
     (sender.frameId === undefined || sender.frameId === 0)
+  );
+}
+function matchesUiUrl(actual: string | undefined, expected: string) {
+  return (
+    actual === expected ||
+    (actual?.split('#')[0] === expected && hasUiNonce(actual))
   );
 }
 export function routeMessage(
