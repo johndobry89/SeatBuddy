@@ -276,3 +276,48 @@ it('initial seat entry is atomic, does not acknowledge anything, and cannot acti
       applyManual(state, { type: 'ACKNOWLEDGE', role: 'A', step }, 1_000_000),
     ).toBeNull();
 });
+
+it.each([
+  { host_permissions: '' },
+  { optional_permissions: null },
+  { content_scripts: {} },
+])(
+  'adversarial review: malformed privilege field cannot receive PASS: %j',
+  async (change) => {
+    const env = environment();
+    env.capabilities = () => ({
+      extension: true,
+      manifest: { ...manifest, ...change },
+      sidePanel: true,
+      storage: true,
+    });
+    const report = await runLocalSelfTest(new AbortController().signal, env);
+    expect(
+      report.checks.find((check) => check.id === 'CHROME_MANIFEST')?.status,
+    ).toBe('FAIL');
+  },
+);
+it('adversarial review: contradictory PASS/failure-code summaries are refused', async () => {
+  const report = await runLocalSelfTest(
+    new AbortController().signal,
+    environment(),
+  );
+  expect(
+    localTestReportSchema.safeParse({
+      ...report,
+      checks: report.checks.map((check, index) =>
+        index ? check : { ...check, code: 'CORE_MISMATCH' },
+      ),
+    }).success,
+  ).toBe(false);
+});
+it('an already cancelled self-test does not even read capability metadata', async () => {
+  const env = environment();
+  env.capabilities = vi.fn(env.capabilities);
+  const controller = new AbortController();
+  controller.abort();
+  await expect(runLocalSelfTest(controller.signal, env)).rejects.toMatchObject({
+    name: 'AbortError',
+  });
+  expect(env.capabilities).not.toHaveBeenCalled();
+});

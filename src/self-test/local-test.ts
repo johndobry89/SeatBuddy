@@ -44,7 +44,25 @@ export const localTestReportSchema = z
   .refine(
     (report) =>
       new Set(report.checks.map((check) => check.id)).size === testIds.length,
+  )
+  .refine(
+    (report) =>
+      report.checks.every((check) =>
+        check.status === 'PASS'
+          ? check.code === 'OK'
+          : check.status === 'NOT_TESTED'
+            ? ['DOM_UNAVAILABLE', 'CAPABILITY_UNAVAILABLE'].includes(check.code)
+            : [
+                'CORE_MISMATCH',
+                'CAPABILITY_UNAVAILABLE',
+                'MANIFEST_MISMATCH',
+              ].includes(check.code),
+      ) &&
+      (report.checks.find((check) => check.id === 'CHROME_MANIFEST')?.status !==
+        'PASS' ||
+        report.extensionVersion !== null),
   );
+
 export type LocalTestReport = z.infer<typeof localTestReportSchema>;
 type TestId = (typeof testIds)[number];
 export const testLabels: Record<TestId, string> = {
@@ -245,6 +263,7 @@ function coreCheck(
       c.manual.tracks.B.completed.length === 0 &&
       c.manual.tracks.B.reportedShowtime === null
     );
+  if (id !== 'PARTIAL_TRUTH') return false;
   c.manualCommand(
     { type: 'REPORT_PROBLEM', role: 'B', problem: 'FAILED' },
     now,
@@ -280,6 +299,7 @@ export async function runLocalSelfTest(
   signal: AbortSignal,
   environment: LocalTestEnvironment = browserTestEnvironment(),
 ): Promise<LocalTestReport> {
+  if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
   const checks: LocalTestReport['checks'] = [];
   let capability: ReturnType<LocalTestEnvironment['capabilities']> | null =
     null;
@@ -294,36 +314,21 @@ export async function runLocalSelfTest(
     await breathe(signal);
     if (id === 'CHROME_MANIFEST') {
       const parsed = z
-        .strictObject({
+        .object({
           manifest_version: z.literal(3),
-          version: diagnosticSchema.shape.extensionVersion,
+          version: diagnosticSchema.shape.extensionVersion.refine(
+            (version) => version !== null,
+          ),
           permissions: z.tuple([z.literal('sidePanel'), z.literal('storage')]),
+          host_permissions: z.array(z.never()).optional(),
+          optional_host_permissions: z.array(z.never()).optional(),
+          optional_permissions: z.array(z.never()).optional(),
+          content_scripts: z.array(z.never()).optional(),
+          web_accessible_resources: z.array(z.never()).optional(),
+          externally_connectable: z.never().optional(),
         })
-        .safeParse(
-          capability?.manifest && typeof capability.manifest === 'object'
-            ? {
-                manifest_version: Reflect.get(
-                  capability.manifest,
-                  'manifest_version',
-                ),
-                version: Reflect.get(capability.manifest, 'version'),
-                permissions: Reflect.get(capability.manifest, 'permissions'),
-              }
-            : null,
-        );
-      // Check the actual manifest's other privilege fields without exporting it.
-      const manifest = capability?.manifest;
-      const safe =
-        parsed.success &&
-        parsed.data.version !== null &&
-        !!manifest &&
-        typeof manifest === 'object' &&
-        [
-          'host_permissions',
-          'optional_host_permissions',
-          'optional_permissions',
-          'content_scripts',
-        ].every((key) => !Reflect.get(manifest, key)?.length);
+        .safeParse(capability?.manifest);
+      const safe = parsed.success;
       extensionVersion = parsed.success ? parsed.data.version : null;
       checks.push({
         id,
@@ -353,7 +358,10 @@ export async function runLocalSelfTest(
             : present
               ? 'PASS'
               : 'NOT_TESTED',
-        code: present ? 'OK' : 'CAPABILITY_UNAVAILABLE',
+        code:
+          !capabilityFailed && capability?.extension && present
+            ? 'OK'
+            : 'CAPABILITY_UNAVAILABLE',
       });
     } else {
       try {

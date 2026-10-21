@@ -261,6 +261,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     await expect(page.locator('#plan-movie')).toHaveValue('');
     await plan();
     control.unavailable = false;
+    await page.locator('#plan-movie').fill('Te wissen lokaal concept');
     const reconnect = page.getByRole('button', {
       name: 'Verbind opnieuw en wis tijdelijke gegevens',
     });
@@ -1592,6 +1593,51 @@ test('unsaved film and A input survive technical view changes and worker replace
       })
       .click();
     await expect(page.locator('#plan-movie')).toHaveValue('');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('review regression: a buddy switch clears uncommitted initial B seats while preserving A', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const worker = new Coordinator();
+    worker.buddyCommand({
+      type: 'BUDDY_MUTATE',
+      generation: worker.generation,
+      revision: 0,
+      resetB: false,
+      action: { kind: 'DEMO' },
+    });
+    const control: MockControl = { worker, unavailable: false };
+    const page = await browser.newPage();
+    const popup = await browser.newPage();
+    await attachMockTransport(page, worker, control);
+    await attachMockTransport(popup, worker, control);
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await popup.goto('http://127.0.0.1:4173/popup.html');
+    await popup
+      .getByRole('button', { name: 'Kies Sanne', exact: true })
+      .click();
+    await popup
+      .getByRole('button', { name: 'Bevestig wijziging en wis B', exact: true })
+      .click();
+    await expect(page.getByTestId('panel-selection')).toContainText('Sanne');
+    await page
+      .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
+      .click();
+    await page.locator('#plan-row-A').fill('K');
+    await page.locator('#plan-row-B').fill('X');
+    await popup.getByRole('button', { name: 'Kies Mark', exact: true }).click();
+    await popup
+      .getByRole('button', { name: 'Bevestig wijziging en wis B', exact: true })
+      .click();
+    await expect(page.getByTestId('panel-buddy')).toContainText('Ik + Mark');
+    await expect(page.locator('#plan-row-A')).toHaveValue('K');
+    await expect(page.locator('#plan-row-B')).toHaveValue('');
   } finally {
     await browser.close();
   }

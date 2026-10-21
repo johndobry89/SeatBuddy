@@ -67,6 +67,7 @@ watch(
   () => {
     pendingSolo.value = false;
     dirty.value.B = false;
+    initialSeats.value.B = { row: '', number: '' };
   },
 );
 async function chooseMode(mode: 'SOLO' | 'TOGETHER', confirmed = false) {
@@ -198,6 +199,14 @@ watch(snapshot, (current, previous) => {
     discardVersion.value++;
   }
 });
+async function reconnectAndClear() {
+  if (await reconnect()) {
+    clearForm();
+    discardVersion.value++;
+    await nextTick();
+    heading.value?.focus();
+  }
+}
 async function clearAll() {
   if (await command({ type: 'RESET' })) {
     clearForm();
@@ -299,7 +308,7 @@ onUnmounted(() => clearInterval(timer));
         v-if="offline"
         class="secondary"
         :disabled="busy"
-        @click="reconnect"
+        @click="reconnectAndClear"
       >
         Verbind opnieuw en wis tijdelijke gegevens
       </button>
