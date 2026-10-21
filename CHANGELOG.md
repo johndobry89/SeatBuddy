@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0-test — 21 oktober 2026 (Sprint 06, Projector Ready)
+
+- Expliciet solo/samen plannen, onafhankelijk van nickname; nieuwe andere filmavond en worker/reset beginnen solo. Bevestigd uitschakelen wist B inclusief onopgeslagen velden, behoudt A en annuleert niets.
+- Werkende preflight met bronlabels, voorstelling/zaal/stoelen/UNKNOWN, hergebruikte formulieren en lokale review vóór geordende eigen stappen. Wijzigingen, expiry/contextverlies/consent/buddywisseling maken review ongeldig.
+- WORKFLOW-generatie/revisie/B-epoch weigert replay, oude panelen en vertraagde mode-/buddycommando’s na async Chrome/storage. Geen nieuwe permissie of opslagveld (ADR-007).
+- Partiële herstelkaart met twee onafhankelijke bron-/leeftijdstatussen en menselijke eerste-reservering/tweede-accountinstructies. Beide afgerond blijft uitsluitend zelf gemeld en niet geverifieerd.
+- Exacte technische diagnosepreview en expliciete klembordactie met echte succes-/weigeringfeedback en selecteerbare fallback; aparte lege GitHub-issue-link, geen upload. Stabiele live announcer, focus/320px/reduced-motion/toetsenbordregressies.
+- Gewijzigd fictief schema wist oude fixturewaarneming en toont UNKNOWN/handmatig verder. Gegenereerde runtime-audit op rechten/CSP/remote bronnen/netwerkprimitieven; schema-interpreter zonder JIT.
+- Uitgebreide unit/UI/native Chrome-tests, Linux/macOS Intel CI en platformneutrale 0.6.0-test-ZIP/checksum. Werkelijke resultaten in feasibility; menselijke Mac/VoiceOver/arm64 nog niet uitgevoerd. G0 live Vue blijft NOT PASSED.
+
 ## 0.5.0-test — 21 oktober 2026 (Sprint 05, Movie Night HQ)
 
 - Filmavond-overzicht met eigen voorstelling, onafhankelijke A/B-minikaarten, bron-/leeftijdlabels, één getypeerde vervolgstap en conservatieve stoelvisualisatie. Vijf eigen stappen, mismatch/expiry/partiële uitkomsten blijven behouden.
