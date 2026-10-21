@@ -31,6 +31,7 @@ function requestChange(event: Event, state: BuddyView | null) {
         :id="`${prefix}-remember`"
         type="checkbox"
         :checked="state?.retention.mode === 'REMEMBERED'"
+        :indeterminate="state?.retention.mode === 'UNAVAILABLE'"
         :aria-describedby="`${prefix}-retention-info`"
         @change="requestChange($event, state)"
       />

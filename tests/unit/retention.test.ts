@@ -330,3 +330,18 @@ it('reports unconfirmed deletion instead of claiming success, and can delete a c
   expect((await next.send({ type: 'RESET' })).ok).toBe(true);
   expect(next.port.session.values).toEqual({});
 });
+
+it('does not claim local deletion when a session write fails while local access is unavailable', async () => {
+  const b = boot();
+  vi.spyOn(b.port.local, 'setAccessLevel').mockRejectedValue(
+    new Error('Unavailable local area'),
+  );
+  vi.spyOn(b.port.session, 'set').mockRejectedValue(
+    new Error('Unavailable session write'),
+  );
+  await b.send({ type: 'GET_STATE' });
+  const result = await b.send({ type: 'DRAFT_SAVE', ...b.gate(), plan });
+  expect(result.ok).toBe(false);
+  expect(b.c.retention.notice).toContain('verwijderen niet bevestigd');
+  expect(b.c.retention.notice).not.toContain('concept verwijderd');
+});

@@ -43,7 +43,7 @@ export function isPopupSender(sender: Sender, extensionId: string) {
 function matchesUiUrl(actual: string | undefined, expected: string) {
   return (
     actual === expected ||
-    (actual?.split('#')[0] === expected && hasUiNonce(actual))
+    (actual?.split(/[?#]/)[0] === expected && hasUiNonce(actual))
   );
 }
 export function routeMessage(

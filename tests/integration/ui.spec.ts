@@ -752,6 +752,10 @@ test('Movie Night HQ: explicit remembered buddies, worker reset and draft-only r
     expect(port.local.values[ROSTER_KEY]).toBeTruthy();
     await popup.reload();
     await expect(remember).toBeChecked();
+    await popup.screenshot({
+      path: 'test-results/seatbuddies-remembered-popup.png',
+      fullPage: true,
+    });
     await panel.goto('http://127.0.0.1:4173/sidepanel.html');
     await expect(panel.getByTestId('hq-next')).toHaveAttribute(
       'data-step',
@@ -877,6 +881,74 @@ test('Movie Night HQ: explicit remembered buddies, worker reset and draft-only r
     await expect(remember).not.toBeChecked();
     expect(port.local.values).toEqual({});
     expect(port.session.values).toEqual({});
+  } finally {
+    await browser.close();
+  }
+});
+
+test('unavailable retention is visibly unknown and disabled while temporary buddies and manual planning remain usable', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const port = memoryStorage();
+    port.local.setAccessLevel = async () => {
+      throw new Error('Fictional unsupported storage');
+    };
+    const worker = new Coordinator();
+    const control: MockControl = {
+      unavailable: false,
+      worker,
+      retained: new RetainedData(worker, port),
+    };
+    const popup = await browser.newPage({
+      viewport: { width: 320, height: 900 },
+    });
+    const panel = await browser.newPage({
+      viewport: { width: 320, height: 900 },
+    });
+    await attachMockTransport(popup, worker, control);
+    await attachMockTransport(panel, worker, control);
+    await popup.goto('http://127.0.0.1:4173/popup.html');
+    const consent = popup.getByRole('checkbox', {
+      name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+    });
+    await expect(consent).toBeDisabled();
+    await expect
+      .poll(() =>
+        consent.evaluate((input) => (input as HTMLInputElement).indeterminate),
+      )
+      .toBe(true);
+    await expect(popup.getByTestId('retention-status')).toContainText(
+      'verwijderen niet bevestigd',
+    );
+    await popup.getByLabel('Bijnaam toevoegen').fill('Filmmaatje');
+    await popup
+      .getByRole('button', { name: 'Voeg buddy toe', exact: true })
+      .click();
+    await expect(
+      popup.getByRole('button', { name: 'Kies Filmmaatje', exact: true }),
+    ).toBeVisible();
+    expect(port.local.values).toEqual({});
+    expect(port.local.calls).toEqual([]);
+    await panel.goto('http://127.0.0.1:4173/sidepanel.html');
+    for (const [field, value] of Object.entries({
+      movie: 'De maan van papier',
+      cinema: 'Fictief Filmhuis',
+      date: '2030-04-12',
+      time: '19:30',
+      hall: 'Zaal 2',
+    }))
+      await panel.locator(`#plan-${field}`).fill(value);
+    await panel
+      .getByRole('button', { name: 'Bewaar filmplan', exact: true })
+      .click();
+    await expect(panel.getByTestId('hq-next')).toHaveAttribute(
+      'data-step',
+      'ACCOUNT',
+    );
+    expect(port.local.values).toEqual({});
   } finally {
     await browser.close();
   }

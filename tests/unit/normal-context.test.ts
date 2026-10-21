@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { isNormalDocument } from '../../src/background/normal-context';
 const url =
-  'chrome-extension://scope-test/popup.html#sb-doc=1e21a3f0-4e37-45bd-98b2-d8c91af8ae3d';
+  'chrome-extension://scope-test/popup.html?sb_doc=1e21a3f0-4e37-45bd-98b2-d8c91af8ae3d';
 const native = {
   documentId: 'live-chrome-document',
   documentUrl: url,
@@ -31,7 +31,7 @@ it('accepts only a unique live nonce-bound native popup while Chrome forbids all
 it('rejects missing/forged/ambiguous native metadata, stale documents and incognito even when the spanning process flag would be false', async () => {
   const api = chromeApi();
   expect(
-    await isNormalDocument({ url: url.split('#')[0]!, id: 'scope-test' }),
+    await isNormalDocument({ url: url.split('?')[0]!, id: 'scope-test' }),
   ).toBe(false);
   for (const contexts of [
     [],

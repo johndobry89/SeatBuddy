@@ -27,7 +27,7 @@ export async function isNormalDocument(sender: Sender): Promise<boolean> {
         !hasUiNonce(sender.url) ||
         !context.documentId ||
         context.contextType !==
-          (sender.url.split('#')[0]?.endsWith('/popup.html')
+          (sender.url.split(/[?#]/)[0]?.endsWith('/popup.html')
             ? 'POPUP'
             : 'SIDE_PANEL') ||
         sender.tab

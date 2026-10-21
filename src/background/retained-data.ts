@@ -273,7 +273,9 @@ export class RetainedData {
       })
       .catch(async () => {
         try {
-          if (this.c.retention.available) await this.forget();
+          if (!this.c.retention.available)
+            throw new Error('Deletion cannot be verified');
+          await this.forget();
           this.c.retention.notice =
             'Opslaan mislukt; opgeslagen buddies/concept verwijderd. Wijzigingen zijn alleen tijdelijk. Controleer de actuele lijst.';
         } catch {

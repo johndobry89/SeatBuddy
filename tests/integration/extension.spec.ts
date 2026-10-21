@@ -446,7 +446,7 @@ test('real action popup shares one buddy with the panel and opens a native Side 
       expect(manifest.icons?.[size]).toBe(`icons/icon-${size}.png`);
     const popupReady = context.waitForEvent('page', {
       predicate: (page) =>
-        page.url().split('#')[0] === `chrome-extension://${id}/popup.html`,
+        page.url().split(/[?#]/)[0] === `chrome-extension://${id}/popup.html`,
       timeout: 10_000,
     });
     // Native action opening in this modern test browser, not a popup.html tab.
@@ -467,7 +467,7 @@ test('real action popup shares one buddy with the panel and opens a native Side 
     expect(
       (await cdp.send('Target.getTargets')).targetInfos.some(
         (target) =>
-          target.url.split('#')[0] === `chrome-extension://${id}/popup.html`,
+          target.url.split(/[?#]/)[0] === `chrome-extension://${id}/popup.html`,
       ),
     ).toBe(true);
     await expect(
@@ -520,7 +520,7 @@ test('real action popup shares one buddy with the panel and opens a native Side 
       .poll(async () =>
         (await cdp.send('Target.getTargets')).targetInfos.some(
           (target) =>
-            target.url.split('#')[0] ===
+            target.url.split(/[?#]/)[0] ===
               `chrome-extension://${id}/sidepanel.html` &&
             !before.includes(target.targetId),
         ),
@@ -532,7 +532,7 @@ test('real action popup shares one buddy with the panel and opens a native Side 
           .pages()
           .some(
             (page) =>
-              page.url().split('#')[0] ===
+              page.url().split(/[?#]/)[0] ===
               `chrome-extension://${id}/sidepanel.html`,
           ),
       )
@@ -541,7 +541,7 @@ test('real action popup shares one buddy with the panel and opens a native Side 
       .pages()
       .find(
         (page) =>
-          page.url().split('#')[0] ===
+          page.url().split(/[?#]/)[0] ===
           `chrome-extension://${id}/sidepanel.html`,
       )!;
     await expect(panel.getByTestId('panel-buddy')).toContainText('Ik + Sanne');
@@ -827,7 +827,7 @@ test('spanning Chrome: a real incognito popup cannot read remembered names, chan
       throw new Error('Isolated incognito window missing');
     const popupReady = context.waitForEvent('page', {
       predicate: (page) =>
-        page.url().split('#')[0] === `chrome-extension://${id}/popup.html`,
+        page.url().split(/[?#]/)[0] === `chrome-extension://${id}/popup.html`,
     });
     await panel.evaluate(
       (windowId) => chrome.action.openPopup({ windowId }),
@@ -882,6 +882,32 @@ test('spanning Chrome: a real incognito popup cannot read remembered names, chan
     expect(
       await panel.evaluate(() => chrome.storage.session.get(null)),
     ).toEqual({});
+    const recoveredPage = context.waitForEvent('page', {
+      predicate: (page) =>
+        page.url().split(/[?#]/)[0] ===
+        `chrome-extension://${id}/sidepanel.html`,
+    });
+    await popup
+      .getByRole('button', {
+        name: 'Open assistent in normaal venster',
+        exact: true,
+      })
+      .click();
+    const recovered = await recoveredPage;
+    await expect(
+      recovered.getByRole('heading', {
+        name: 'Filmavond-overzicht',
+        exact: true,
+      }),
+    ).toBeVisible();
+    const recoveredState = panelReplySchema.parse(
+      await recovered.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+      ),
+    );
+    expect(
+      recoveredState.ok && recoveredState.state.buddy.roster[0]?.nickname,
+    ).toBe('Filmmaatje');
     await panel.evaluate(
       (windowId) => chrome.windows.remove(windowId),
       windowId,

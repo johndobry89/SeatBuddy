@@ -15,6 +15,7 @@ export function useBuddies() {
       const result = popupReplySchema.parse(await sendRuntime(message));
       if (!result.ok) {
         error.value = result.error;
+        if (result.code === 'BROWSER_UNAVAILABLE') state.value = null;
         // Refresh only. Never retry the mutation on stale/new-worker state.
         if (result.code === 'STALE_BUDDY') {
           const current = popupReplySchema.parse(

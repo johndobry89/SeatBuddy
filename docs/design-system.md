@@ -24,7 +24,9 @@ Daadwerkelijk gemaakte en bekeken, geschoonde rendererbeelden (fictieve data, tr
 
 ![SeatBuddies-popup met fictieve buddy](images/seatbuddies-popup.png)
 
-![Widget uitsluitend op de fictieve pakketpagina](images/seatbuddies-widget.png)
+![Filmavond-overzicht met uitsluitend fictieve eigen invoer](images/seatbuddies-hq.png)
+
+Ook het [eerder gemaakte fictieve widgetbeeld](images/seatbuddies-widget.png) blijft beschikbaar als historische rendererreferentie.
 
 ## Movie Night HQ
 
