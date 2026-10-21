@@ -1,5 +1,7 @@
 # Optionele officiële Chrome-agenttools
 
+Huidige productnaam: SeatBuddies 0.4.0. De werkelijk uitgevoerde MCP-proef hieronder hoort bij Sprint 03 en behoudt zijn oorspronkelijke namen/paden. Sprint 04 gebruikt daarnaast Playwright voor de echte native-popup/paneelproef in eigen wegwerpprofielen; zie feasibility.
+
 Gecontroleerd op **21 oktober 2026** tegen de officiële [Modern Web Guidance-bron](https://github.com/GoogleChrome/modern-web-guidance-src), [Chrome Extensions skill](https://github.com/GoogleChrome/modern-web-guidance/tree/main/skills/chrome-extensions), [DevTools MCP README](https://github.com/ChromeDevTools/chrome-devtools-mcp), [CLI-configuratie](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/configuration.md) en [toolreferentie](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md). De gerenderde [Chrome AI-gids](https://developer.chrome.com/docs/extensions/ai/build-with-ai) werd hier door proxy CONNECT 403 geblokkeerd; de opgegeven metadata van 19 mei is niet zelfstandig herbevestigd. Dit zijn ontwikkeltools, geen extensiepermissies of toestemming voor een echte website.
 
 ## Skills: bewuste installatie door de ontwikkelaar

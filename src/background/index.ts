@@ -30,10 +30,18 @@ chrome.runtime.onMessage.addListener(
       coordinator.reset();
     }
     const receivedEpoch = resetEpoch;
+    const receivedBuddyEpoch = coordinator.buddyEpoch;
+    const protectsB =
+      privileged && parsed?.success && parsed.data.type === 'B_COMMAND';
     const obsolete = () => {
-      if (receivedEpoch === resetEpoch) return false;
+      if (
+        receivedEpoch === resetEpoch &&
+        (!protectsB || receivedBuddyEpoch === coordinator.buddyEpoch)
+      )
+        return false;
       sendResponse({
         ok: false,
+        ...(protectsB ? { code: 'STALE_BUDDY' } : {}),
         error:
           'Opdracht vervallen na wissen. Controleer de actuele toestand opnieuw.',
       });
@@ -43,11 +51,25 @@ chrome.runtime.onMessage.addListener(
       .isAllowedIncognitoAccess()
       .then(async (allowed) => {
         if (obsolete()) return;
+        // The authenticated RESET already ran synchronously. Do not erase new
+        // work again if another panel acted while Chrome resolved consent.
+        if (privileged && parsed?.success && parsed.data.type === 'RESET') {
+          sendResponse({
+            ok: true,
+            state: coordinator.snapshot(Date.now(), allowed),
+          });
+          return;
+        }
         let contexts: BrowserContext[] | undefined;
+        const panelCommand = parsed?.success
+          ? parsed.data.type === 'B_COMMAND'
+            ? parsed.data.command
+            : parsed.data
+          : null;
         if (
           privileged &&
-          parsed?.success &&
-          ['GET_CONTEXTS', 'BIND_CONTEXT'].includes(parsed.data.type)
+          panelCommand &&
+          ['GET_CONTEXTS', 'BIND_CONTEXT'].includes(panelCommand.type)
         ) {
           const tabs = await chrome.tabs.query({ active: true });
           contexts = tabs

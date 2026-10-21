@@ -44,6 +44,14 @@ export const panelCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('GET_CONTEXTS') }),
   z.strictObject({ type: z.literal('RESET') }),
   z.strictObject({ type: z.literal('MANUAL_MODE') }),
+  z.strictObject({
+    type: z.literal('B_COMMAND'),
+    generation: z.uuid(),
+    buddyEpoch: z.number().int().nonnegative(),
+    command: manualCommandSchema.refine(
+      (command) => 'role' in command && command.role === 'B',
+    ),
+  }),
   buddyMutationSchema,
   ...manualCommandSchema.options,
   z.strictObject({ type: z.literal('DEMO_STEP'), role: roleSchema }),
@@ -82,6 +90,7 @@ const sessionSchema = z.strictObject({
   evidence: z.enum(['UNKNOWN', 'SIMULATION']),
 });
 export const snapshotSchema = z.strictObject({
+  buddyEpoch: z.number().int().nonnegative(),
   resetVersion: z.number().int().nonnegative(),
   buddy: buddyStateSchema,
   generation: z.uuid(),

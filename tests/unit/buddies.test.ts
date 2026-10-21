@@ -214,3 +214,36 @@ it('fictional widget reads only the selected display label, never roster, IDs or
   expect(JSON.stringify(reply)).not.toContain('Mark');
   expect(JSON.stringify(reply)).not.toContain(c.buddy.selectedId);
 });
+
+it('B self-reports require a current buddy epoch, so an old panel cannot attach its checks to the next buddy', () => {
+  const c = populated();
+  const panel: Sender = {
+    id,
+    url: `chrome-extension://${id}/sidepanel.html`,
+    frameId: 0,
+  };
+  const plan = fictionalObservation('A', now).showtime;
+  c.manualCommand({ type: 'PLAN', plan }, now, [], true);
+  const first = c.buddy.roster[0]!.id;
+  const second = c.buddy.roster[1]!.id;
+  send(c, { kind: 'SELECT', id: first });
+  const old = {
+    type: 'B_COMMAND',
+    generation: c.generation,
+    buddyEpoch: c.buddyEpoch,
+    command: { type: 'ACKNOWLEDGE', role: 'B', step: 'ACCOUNT' },
+  };
+  send(c, { kind: 'SELECT', id: second });
+  expect(routeMessage(c, old, panel, id, true, now)).toMatchObject({
+    ok: false,
+    code: 'STALE_BUDDY',
+  });
+  expect(routeMessage(c, old.command, panel, id, true, now).ok).toBe(false);
+  expect(c.manual.tracks.B.completed).toEqual([]);
+  expect(
+    routeMessage(c, { ...old, buddyEpoch: c.buddyEpoch }, panel, id, true, now)
+      .ok,
+  ).toBe(true);
+  expect(c.manual.tracks.B.completed).toEqual(['ACCOUNT']);
+  expect(c.manual.tracks.A.completed).toEqual([]);
+});

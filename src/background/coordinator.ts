@@ -35,6 +35,7 @@ export class Coordinator {
   mode: Mode = 'MANUAL';
   buddy = emptyBuddies();
   resetVersion = 0;
+  buddyEpoch = 0;
   buddyView() {
     return structuredClone({ ...this.buddy, generation: this.generation });
   }
@@ -60,6 +61,7 @@ export class Coordinator {
     const error = applyBuddy(this.buddy, command.action);
     if (error) return { ok: false as const, error };
     if (affectsB) {
+      this.buddyEpoch++;
       this.manual.tracks.B = emptyManual().tracks.B;
       this.manual.tracks.B.problem = 'BUDDY_CHANGED';
       this.sessions.B = emptySessions().B;
@@ -67,6 +69,7 @@ export class Coordinator {
     return { ok: true as const };
   }
   reset(): void {
+    this.buddyEpoch++;
     this.resetVersion++;
     this.buddy = emptyBuddies(this.buddy.revision + 1);
     this.sessions = emptySessions();
@@ -175,6 +178,7 @@ export class Coordinator {
     return structuredClone({
       generation: this.generation,
       resetVersion: this.resetVersion,
+      buddyEpoch: this.buddyEpoch,
       buddy: this.buddy,
       evidence: {
         A: roleEvidence(this.manual, this.sessions, 'A'),

@@ -296,9 +296,23 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     ] as const) {
       const result = panelReplySchema.parse(
         await page.evaluate(
-          ({ role, tabId }) =>
-            chrome.runtime.sendMessage({ type: 'BIND_CONTEXT', role, tabId }),
-          { role, tabId },
+          ({ role, tabId, generation, buddyEpoch }) =>
+            chrome.runtime.sendMessage(
+              role === 'B'
+                ? {
+                    type: 'B_COMMAND',
+                    generation,
+                    buddyEpoch,
+                    command: { type: 'BIND_CONTEXT', role, tabId },
+                  }
+                : { type: 'BIND_CONTEXT', role, tabId },
+            ),
+          {
+            role,
+            tabId,
+            generation: snapshot.state.generation,
+            buddyEpoch: snapshot.state.buddyEpoch,
+          },
         ),
       );
       expect(

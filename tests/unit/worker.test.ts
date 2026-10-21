@@ -159,7 +159,13 @@ it('reduces Chrome metadata and invalidates a context on navigation and consent 
   expect(
     changed.ok && changed.state.contexts.some((value) => value.tabId === 7),
   ).toBe(false);
-  await send({ type: 'BIND_CONTEXT', role: 'B', tabId: 8 });
+  if (!changed.ok) throw new Error(changed.error);
+  await send({
+    type: 'B_COMMAND',
+    generation: changed.state.generation,
+    buddyEpoch: changed.state.buddyEpoch,
+    command: { type: 'BIND_CONTEXT', role: 'B', tabId: 8 },
+  });
   api.extension.isAllowedIncognitoAccess.mockResolvedValue(false);
   const revoked = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
   expect(revoked.ok && revoked.state.manual.tracks.B.context).toBeNull();
@@ -284,4 +290,70 @@ it('a new worker refuses an old popup generation instead of restoring its roster
       popup,
     ),
   ).toMatchObject({ ok: false, code: 'STALE_BUDDY' });
+});
+
+it('a selected buddy change cancels pending B acknowledgement but preserves pending A acknowledgement', async () => {
+  const { api, send } = await boot();
+  await send({
+    type: 'PLAN',
+    plan: fictionalObservation('A', Date.now()).showtime,
+  });
+  const buddy = popupReplySchema.parse(
+    await send({ type: 'BUDDY_READ' }, popup),
+  );
+  if (!buddy.ok) throw new Error(buddy.error);
+  await send(
+    {
+      type: 'BUDDY_MUTATE',
+      generation: buddy.buddy.generation,
+      revision: buddy.buddy.revision,
+      action: { kind: 'DEMO' },
+      resetB: false,
+    },
+    popup,
+  );
+  const roster = popupReplySchema.parse(
+    await send({ type: 'BUDDY_READ' }, popup),
+  );
+  if (!roster.ok) throw new Error(roster.error);
+  const state = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  if (!state.ok) throw new Error(state.error);
+  let finishA: ((allowed: boolean) => void) | undefined;
+  let finishB: ((allowed: boolean) => void) | undefined;
+  api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
+    new Promise<boolean>((done) => {
+      finishB = done;
+    }),
+  );
+  const B = send({
+    type: 'B_COMMAND',
+    generation: state.state.generation,
+    buddyEpoch: state.state.buddyEpoch,
+    command: { type: 'ACKNOWLEDGE', role: 'B', step: 'ACCOUNT' },
+  });
+  api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
+    new Promise<boolean>((done) => {
+      finishA = done;
+    }),
+  );
+  const A = send({ type: 'ACKNOWLEDGE', role: 'A', step: 'ACCOUNT' });
+  await send(
+    {
+      type: 'BUDDY_MUTATE',
+      generation: roster.buddy.generation,
+      revision: roster.buddy.revision,
+      action: { kind: 'SELECT', id: roster.buddy.roster[0]!.id },
+      resetB: true,
+    },
+    popup,
+  );
+  finishB?.(false);
+  finishA?.(false);
+  expect(await B).toMatchObject({ ok: false });
+  expect(await A).toMatchObject({ ok: true });
+  const current = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  expect(current.ok && current.state.manual.tracks.B.completed).toEqual([]);
+  expect(current.ok && current.state.manual.tracks.A.completed).toEqual([
+    'ACCOUNT',
+  ]);
 });

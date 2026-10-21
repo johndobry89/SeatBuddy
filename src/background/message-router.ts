@@ -66,6 +66,17 @@ export function routeMessage(
     if (!boundedPayload(raw)) return reject();
     const result = panelCommandSchema.safeParse(raw);
     if (!result.success) return reject();
+    if (
+      result.data.type === 'B_COMMAND' &&
+      (result.data.generation !== coordinator.generation ||
+        result.data.buddyEpoch !== coordinator.buddyEpoch)
+    )
+      return {
+        ok: false as const,
+        code: 'STALE_BUDDY' as const,
+        error:
+          'De buddycontext van B is gewijzigd. Controleer B bewust opnieuw; de oude opdracht is vervallen.',
+      };
     if (result.data.type === 'BUDDY_MUTATE') {
       const outcome = coordinator.buddyCommand(result.data);
       if (!outcome.ok) return outcome;
@@ -80,8 +91,16 @@ export function routeMessage(
       result.data.type === 'BIND_CONTEXT'
     )
       coordinator.contextChoices = contexts ?? [];
-    const manual = manualCommandSchema.safeParse(raw);
+    const manual = manualCommandSchema.safeParse(
+      result.data.type === 'B_COMMAND' ? result.data.command : raw,
+    );
     if (manual.success) {
+      if (
+        'role' in manual.data &&
+        manual.data.role === 'B' &&
+        result.data.type !== 'B_COMMAND'
+      )
+        return reject();
       const error = coordinator.manualCommand(
         manual.data,
         now,

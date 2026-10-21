@@ -1,4 +1,4 @@
-# Sprint 03 — handmatige Chrome-proef op Mac en Windows
+# Sprint 04 — handmatige Chrome-proef op Mac en Windows
 
 Gebruik alleen fictieve film-/stoelgegevens en neutrale tabs. Geen echte accounts, live checkoutacties of aankoop. Noteer per stap datum/tijd/tijdzone, OS, Chrome-versie, commit, extensieversie en de werkelijk geziene uitkomst. Installatie: [Mac-testgids](macos-test-guide.md) of [Windows-testgids](windows-test-guide.md). Bewijs vastleggen: [QA-formulier](qa-evidence-template.md).
 
@@ -45,3 +45,23 @@ Voor G0 is de volgende menselijke stap: actuele publieke Vue-voorwaarden/help be
 | Runtime-ZIP                               | Platformneutrale naam; manifest aan root; checksum/bytes kloppen; geen broncode, .env, logs, caches of symlinks      |
 
 Een geslaagde macOS-build/unit/UI-job valideert geen menselijke Side Panel-bediening, incognito of VoiceOver op Mac. De echte extensieproeven draaien afzonderlijk op Linux. Gebruik de G0-gids voor toegestane echte observaties; die volgen niet automatisch uit deze matrix.
+
+## Buddy-popup en fictieve widget (0.4.0)
+
+| Proef                                    | Verwacht gedrag                                                                                      |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Toolbaricoon                             | Echte SeatBuddies-popup met logo en buddykeuze, geen stilzwijgend paneel                             |
+| Popupknop                                | Native Side Panel na een expliciete klik; nuttige fout bij ontbrekende/geblokkeerde API              |
+| Lijst begint leeg / fictieve voorbeelden | Geen impliciete profielaanmaak; Sanne/Mark alleen expliciet DEMO                                     |
+| Add/rename/remove/select                 | Gevalideerde korte bijnamen, maximaal twaalf, één geselecteerd ID, geen accountbewijs                |
+| Dubbel/ongeldig nicknameveld             | Duidelijke fout, geen ongeldige invoer/accountvelden naar coördinator                                |
+| Popup naar paneel                        | Zelfde tijdelijke selectie, zichtbaar Ik + buddy; popup ziet geen A/B- of incognitometadata          |
+| Buddy wijzigen/rename/remove met B-werk  | Eerst bevestigen; annuleren behoudt alles; bevestigen wist alleen B (ook conceptvelden/contextkeuze) |
+| A-invoer tijdens buddywissel             | Eigen A-checks en onopgeslagen A-velden blijven staan                                                |
+| Verouderde popupmutatie                  | Generatie/revisie/resetbarrière weigert, geen automatische mutation retry                            |
+| Volledig wissen/workerrestart            | Nicknames, selectie, plan en conceptvelden verdwijnen; nooit herstel/replay                          |
+| Geen buddy / offline                     | Volledige handmatige assistent blijft bruikbaar; offline geen fictief gedeeld buddybeheer            |
+| Fictieve widgetstap/herplaatsen          | Eén Vue-kaart, demo-labels, beperkte naamweergave; unmount stopt polling, geen productie-injectie    |
+| Iconen/pakket                            | Originele SVG en reproduceerbare PNG’s, action/default_popup correct, runtime-only ZIP/checksum      |
+
+Menselijke Mac-QA volgt na de bouw. Native Chrome-tests en renderer-transportdoubles blijven afzonderlijke bewijssoorten; de bestaande baselineproeven blijven ingeschakeld. Zie het haalbaarheidsregister voor feitelijke resultaten.

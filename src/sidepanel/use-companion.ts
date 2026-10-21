@@ -73,9 +73,26 @@ export function useCompanion() {
         error.value = '';
         return true;
       }
-      const reply = await send(message);
+      const manual = manualCommandSchema.safeParse(message);
+      const request: PanelCommand =
+        manual.success &&
+        'role' in manual.data &&
+        manual.data.role === 'B' &&
+        snapshot.value
+          ? {
+              type: 'B_COMMAND',
+              generation: snapshot.value.generation,
+              buddyEpoch: snapshot.value.buddyEpoch,
+              command: manual.data,
+            }
+          : message;
+      const reply = await send(request);
       if (!reply.ok) {
         if (reply.code === 'BROWSER_UNAVAILABLE') throw new Error(reply.error);
+        if (reply.code === 'STALE_BUDDY') {
+          const current = await send({ type: 'GET_STATE' });
+          if (current.ok) snapshot.value = current.state;
+        }
         error.value = reply.error;
         return false;
       }
