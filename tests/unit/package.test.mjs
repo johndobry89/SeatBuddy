@@ -32,8 +32,8 @@ async function fixture() {
     );
   const manifest = {
     manifest_version: 3,
-    version: '0.4.0',
-    permissions: ['sidePanel'],
+    version: '0.5.0',
+    permissions: ['sidePanel', 'storage'],
     icons,
     action: { default_popup: 'popup.html', default_icon: icons },
     background: { service_worker: 'background.js' },
@@ -41,7 +41,7 @@ async function fixture() {
   };
   await writeFile(
     join(root, 'package.json'),
-    JSON.stringify({ version: '0.4.0' }),
+    JSON.stringify({ version: '0.5.0' }),
   );
   await writeFile(join(root, 'dist/manifest.json'), JSON.stringify(manifest));
   for (const file of [
@@ -69,7 +69,7 @@ afterEach(async () => {
 it('produces only deterministic runtime bytes with a root manifest and a correct platform-neutral checksum', async () => {
   const { root } = await fixture();
   const result = await packageRuntime(root);
-  expect(result.name).toBe('seatbuddies-0.4.0-chrome-test.zip');
+  expect(result.name).toBe('seatbuddies-0.5.0-chrome-test.zip');
   expect(await readdir(join(root, 'build'))).toEqual([
     result.name,
     `${result.name}.sha256`,

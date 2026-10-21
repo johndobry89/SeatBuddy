@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { retentionStatusSchema } from './retention-status';
 
 export const nicknameSchema = z
   .string()
@@ -45,6 +46,7 @@ export const buddyMutationSchema = z.strictObject({
 });
 export const buddyViewSchema = buddyStateSchema.extend({
   generation: z.uuid(),
+  retention: retentionStatusSchema,
 });
 export type BuddyState = z.infer<typeof buddyStateSchema>;
 export type BuddyAction = z.infer<typeof buddyActionSchema>;

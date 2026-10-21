@@ -77,6 +77,31 @@ async function act(kind: 'BIND' | 'OBSERVE') {
     <CompanionWidget v-if="showWidget" :step="fixtureStep" />
     <p class="eyebrow">SIMULATION · uitsluitend fictieve gegevens</p>
     <h1>Lokale testpagina</h1>
+    <section class="fake-cinema" aria-label="Fictief bioscoopscherm">
+      <p class="eyebrow">DEMO · NIET GEBOEKT · GEEN VUE INTEGRATIE</p>
+      <h2>{{ fixtureStep }}</h2>
+      <p v-if="fixtureStep === 'Fictieve voorstelling'">
+        De maan van papier — één filmavond, twee zelfstandige trajecten.
+      </p>
+      <p v-else-if="fixtureStep === 'Fictieve stoelen'">
+        F10 · F11 — uitsluitend getypte voorbeeldnummers. Geen plattegrond of
+        beschikbaarheidsbewijs.
+      </p>
+      <p v-else>
+        Alleen een fictief overzicht. Geen betaling, boeking of bevestiging.
+      </p>
+      <details>
+        <summary>Probeer SeatBuddies in 90 seconden</summary>
+        <ol>
+          <li>Open het echte Side Panel met de widgetknop.</li>
+          <li>Bewaar zelf dit fictieve filmplan; vul A F10 en B F11 in.</li>
+          <li>
+            Doorloop A’s vijf eigen controles; controleer dat B onafhankelijk
+            blijft en stoelnummervergelijking geen boekingsbewijs geeft.
+          </li>
+        </ol>
+      </details>
+    </section>
     <p>
       De maan van papier · Fictief Filmhuis · 12 april 2030 · 19:30 · Zaal 2.
     </p>

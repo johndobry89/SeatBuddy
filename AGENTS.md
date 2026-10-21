@@ -22,7 +22,7 @@ Ontwerpdoel: GPT-6.1 Sol met High of Extra High thinking
 - **Toestemming op minimale scope:** alleen aantoonbaar noodzakelijke Chrome-permissies, toegestane Vue-hosts en door de gebruiker aangewezen tabbladen. Incognitotoegang is expliciete browsertoestemming en wordt nooit impliciet verondersteld.
 - **Onafhankelijk:** geen officiële Vue-integratie, geen Vue-branding en geen suggestie van affiliatie of goedkeuring.
 
-Optionele korte, door de gebruiker zelf opgegeven buddybijnamen zijn in Sprint 04 expliciet toegestaan als tijdelijke weergavelabels, niet als account- of persoonsidentificatie. Geen persistente opslag, doorgifte naar buiten of opname in diagnostiek. [ADR-005](docs/decisions/ADR-005-buddy-manager-popup.md) beschrijft de beperkte popupgrens en bewuste B-reset; overige invarianten blijven ongewijzigd.
+Optionele korte, door de gebruiker zelf opgegeven buddybijnamen zijn weergavelabels, geen account- of persoonsidentificatie. Standaard tijdelijk. Sprint 05 staat uitsluitend na expliciete opt-in een schema-begrensde lijst van bijnaam + opaque ID in `storage.local` toe, en na een afzonderlijke bewaaractie uitsluitend filmplan-conceptvelden maximaal vier uur in `storage.session`. Geen selectie, stoelen, controles, accountgegevens, bevestigingen of incognitodata opslaan/herstellen; geen doorgifte naar buiten of bijnamen in diagnostiek. Alleen aantoonbaar normale, vertrouwde popup/paneelcontexten mogen opslag gebruiken, na `TRUSTED_CONTEXTS`-restrictie. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) beschrijft toestemming, schema's, scope, wissen en herstel; [ADR-005](docs/decisions/ADR-005-buddy-manager-popup.md) blijft gelden voor popupgrenzen en bewuste B-reset. Overige invarianten blijven ongewijzigd.
 
 ### Bewijstaal
 

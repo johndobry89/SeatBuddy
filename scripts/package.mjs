@@ -13,7 +13,8 @@ export async function packageRuntime(root) {
   if (manifest.version !== pkg.version || manifest.manifest_version !== 3)
     throw new Error('Package/manifest version mismatch');
   if (
-    JSON.stringify(manifest.permissions) !== JSON.stringify(['sidePanel']) ||
+    JSON.stringify(manifest.permissions) !==
+      JSON.stringify(['sidePanel', 'storage']) ||
     manifest.host_permissions?.length ||
     manifest.optional_host_permissions?.length ||
     manifest.optional_permissions?.length ||

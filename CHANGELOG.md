@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0-test — 21 oktober 2026 (Sprint 05, Movie Night HQ)
+
+- Filmavond-overzicht met eigen voorstelling, onafhankelijke A/B-minikaarten, bron-/leeftijdlabels, één getypeerde vervolgstap en conservatieve stoelvisualisatie. Vijf eigen stappen, mismatch/expiry/partiële uitkomsten blijven behouden.
+- Expliciete opt-in voor maximaal twaalf gevalideerde nickname/ID-paren op dit apparaat; standaard tijdelijk. Geen selectie, accountdata, stoelen of controles opgeslagen. Disable/vergeten/individueel/clear-all wissen werken met zichtbare Chrome-resultaten.
+- Afzonderlijke expliciete filmplan-conceptopslag in Chrome-sessiegeheugen, maximaal vier uur. Alleen ongecommitteerde filmvelden na zelf herstellen, nooit statusherstel of autosave/auto-PLAN.
+- Storage als enige extra permissie naast sidePanel. TRUSTED_CONTEXTS vóór gebruik; Chrome-document/venstercontrole weigert incognito/onbekende gedeelde toegang. Geserialiseerde hydratatie/schrijfacties en generatie/revisiegates, veilige fout-/wisafhandeling en privacy-ADR-006.
+- Fictieve 90-secondenproef en dynamisch bioscoopscherm; geen onthouden nickname op de fixture. Nieuwe unit/UI/native-Chrome-regressies; Linux en macOS Intel CI behouden. Werkelijke uitslagen in feasibility; menselijke Mac-test volgt na levering.
+- Nieuwe 0.5.0 runtime-ZIP/checksum, bijgewerkte Mac/Windows-handleidingen, privacy-/Storeconcept en designsysteem. G0 live Vue blijft NOT PASSED; geen checkout, betaling of echte reservering.
+
 ## 0.4.0-test — 21 oktober 2026 (Sprint 04, SeatBuddies)
 
 - Nieuwe publieke naam SeatBuddies, oorspronkelijk SVG-stoelenmerk, reproduceerbare 16/32/48/128px PNG-iconen en toegankelijk charcoal/crimson/cream/goud-thema. Geen externe fonts of merkassets.

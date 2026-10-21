@@ -20,6 +20,7 @@ import { adjacent } from '../core/seats';
 import { scenarioObservations } from '../fixtures/data';
 import { boundRole } from './session-registry';
 import { roleEvidence } from '../core/evidence';
+import { emptyRetention } from '../core/retention-status';
 import {
   applyBuddy,
   changesSelectedBuddy,
@@ -36,8 +37,13 @@ export class Coordinator {
   buddy = emptyBuddies();
   resetVersion = 0;
   buddyEpoch = 0;
+  retention = emptyRetention();
   buddyView() {
-    return structuredClone({ ...this.buddy, generation: this.generation });
+    return structuredClone({
+      ...this.buddy,
+      generation: this.generation,
+      retention: this.retention,
+    });
   }
   buddyCommand(command: BuddyMutation) {
     if (
@@ -180,6 +186,7 @@ export class Coordinator {
       resetVersion: this.resetVersion,
       buddyEpoch: this.buddyEpoch,
       buddy: this.buddy,
+      retention: this.retention,
       evidence: {
         A: roleEvidence(this.manual, this.sessions, 'A'),
         B: roleEvidence(this.manual, this.sessions, 'B'),

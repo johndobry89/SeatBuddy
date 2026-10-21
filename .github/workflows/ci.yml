@@ -1,4 +1,4 @@
-name: Companion checks and Chrome test build
+name: SeatBuddies Movie Night HQ checks and Chrome test build
 on:
   push:
   pull_request:
@@ -24,8 +24,13 @@ jobs:
       - run: npm run package
       - if: runner.os == 'Linux'
         run: npm exec playwright install -- --with-deps chromium
-      - if: runner.os == 'macOS'
-        run: npm exec playwright install -- chromium
+      - name: Install Chromium on macOS
+        if: runner.os == 'macOS'
+        run: |
+          if ! npm exec playwright install -- chromium; then
+            echo "::warning::Chromium installation failed; retrying this idempotent download once."
+            npm exec playwright install -- chromium
+          fi
       - run: npm run test:ui
       - if: runner.os == 'Linux'
         run: HEADED=1 xvfb-run -a npm run test:e2e

@@ -1,6 +1,9 @@
 import { chromium, expect, test, type Page } from '@playwright/test';
 import { Coordinator } from '../../src/background/coordinator';
 import { routeMessage } from '../../src/background/message-router';
+import { RetainedData } from '../../src/background/retained-data';
+import { memoryStorage } from '../helpers/storage';
+import { ROSTER_KEY, DRAFT_KEY } from '../../src/core/retained-data';
 
 // A transport double only: the built Vue UI talks to the real router + coordinator in Node.
 // This does not validate Chrome extension APIs, incognito or Side Panel placement.
@@ -10,6 +13,7 @@ interface MockControl {
   panelDenied?: boolean;
   launches?: { windowId: number; gesture: boolean }[];
   widgetReads?: number;
+  retained?: RetainedData;
 }
 async function attachMockTransport(
   page: Page,
@@ -38,20 +42,37 @@ async function attachMockTransport(
       raw.type === 'GET_STATE'
     )
       reads++;
-    return routeMessage(
-      control.worker,
-      raw,
-      {
-        id: 'fictional-extension',
-        url: `chrome-extension://fictional-extension/${new URL(page.url()).pathname.split('/').pop()}`,
-        frameId: 0,
-        documentId: 'fictional-doc',
-        tab: { id: 7, windowId: 1, incognito: false },
-      },
-      'fictional-extension',
-      false,
-      Date.now(),
-    );
+    const sender = {
+      id: 'fictional-extension',
+      url: `chrome-extension://fictional-extension/${new URL(page.url()).pathname.split('/').pop()}`,
+      frameId: 0,
+      documentId: 'fictional-doc',
+      tab: { id: 7, windowId: 1, incognito: false },
+    };
+    const route = (message: unknown) =>
+      routeMessage(
+        control.worker,
+        message,
+        sender,
+        'fictional-extension',
+        false,
+        Date.now(),
+      );
+    return control.retained
+      ? control.retained.execute(
+          raw,
+          Date.now(),
+          false,
+          () => route(raw),
+          () =>
+            route({
+              type: page.url().includes('popup.html')
+                ? 'BUDDY_READ'
+                : 'GET_STATE',
+            }),
+          () => false,
+        )
+      : route(raw);
   });
   await page.exposeFunction(
     'mockPanelOpen',
@@ -76,8 +97,8 @@ async function attachMockTransport(
         runtime: {
           getManifest: () => ({
             manifest_version: 3,
-            version: '0.4.0',
-            permissions: ['sidePanel'],
+            version: '0.5.0',
+            permissions: ['sidePanel', 'storage'],
           }),
           sendMessage: (message: unknown) => {
             const bridge = Reflect.get(globalThis, 'mockRuntimeSend') as (
@@ -215,9 +236,9 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).focus();
     await page.keyboard.press('Enter');
     const report = page.getByTestId('diagnostic-report');
-    await expect(report).toContainText('"extensionVersion": "0.4.0"');
+    await expect(report).toContainText('"extensionVersion": "0.5.0"');
     await expect(report).toContainText('NOT_IMPLEMENTED');
-    await expect(report).toContainText('SIDE_PANEL_ONLY');
+    await expect(report).toContainText('SIDE_PANEL_AND_STORAGE');
     await expect(report).not.toContainText('De maan van papier');
     await page
       .getByRole('button', { name: 'Wis diagnostische momentopname' })
@@ -278,9 +299,8 @@ test('missing runtime keeps a usable local manual planner without claiming Chrom
     await page.locator('#plan-date').fill('2030-04-12');
     await page.locator('#plan-time').fill('19:30');
     await page.getByRole('button', { name: 'Bewaar filmplan' }).click();
-    await expect(
-      page.getByText('Zaal UNKNOWN.', { exact: false }),
-    ).toBeVisible();
+    await expect(page.getByTestId('hq-next')).toBeVisible();
+    await expect(page.getByTestId('hq-next')).toContainText('Zaal UNKNOWN');
     await page
       .getByRole('button', {
         name: 'Ik gebruik mijn eigen account en geldige pas — A',
@@ -688,6 +708,248 @@ test('fictional widget follows local Vue steps, unmounts cleanly and reports a d
       client: document.documentElement.clientWidth,
     }));
     expect(width.scroll).toBeLessThanOrEqual(width.client);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Movie Night HQ: explicit remembered buddies, worker reset and draft-only restore never resurrect A/B proof', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const port = memoryStorage();
+    const worker = new Coordinator();
+    const control: MockControl = {
+      unavailable: false,
+      worker,
+      retained: new RetainedData(worker, port),
+    };
+    const popup = await browser.newPage({
+      viewport: { width: 320, height: 900 },
+    });
+    const panel = await browser.newPage({
+      viewport: { width: 320, height: 900 },
+    });
+    await attachMockTransport(popup, worker, control);
+    await attachMockTransport(panel, worker, control);
+    await popup.goto('http://127.0.0.1:4173/popup.html');
+    const remember = popup.getByRole('checkbox', {
+      name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+    });
+    await expect(remember).not.toBeChecked();
+    await popup.getByLabel('Bijnaam toevoegen').fill('Filmmaatje');
+    await popup
+      .getByRole('button', { name: 'Voeg buddy toe', exact: true })
+      .click();
+    expect(port.local.values).toEqual({});
+    await remember.focus();
+    await popup.keyboard.press('Space');
+    await expect(remember).toBeChecked();
+    await expect(popup.getByTestId('retention-status')).toContainText(
+      'niet standaard versleuteld',
+    );
+    expect(port.local.values[ROSTER_KEY]).toBeTruthy();
+    await popup.reload();
+    await expect(remember).toBeChecked();
+    await popup.screenshot({
+      path: 'test-results/seatbuddies-remembered-popup.png',
+      fullPage: true,
+    });
+    await panel.goto('http://127.0.0.1:4173/sidepanel.html');
+    await expect(panel.getByTestId('hq-next')).toHaveAttribute(
+      'data-step',
+      'PLAN',
+    );
+    for (const [field, value] of Object.entries({
+      movie: 'De maan van papier',
+      cinema: 'Fictief Filmhuis',
+      date: '2030-04-12',
+      time: '19:30',
+      hall: 'Zaal 2',
+    }))
+      await panel.locator(`#plan-${field}`).fill(value);
+    await panel
+      .getByRole('button', { name: 'Bewaar filmplan', exact: true })
+      .click();
+    await expect(panel.getByTestId('hq-next')).toHaveAttribute(
+      'data-step',
+      'ACCOUNT',
+    );
+    await panel
+      .getByRole('button', {
+        name: 'Ik gebruik mijn eigen account en geldige pas — A',
+        exact: true,
+      })
+      .click();
+    await expect(panel.getByTestId('hq-A')).toContainText('1/5');
+    await expect(panel.getByTestId('hq-B')).toContainText('0/5');
+    await panel.locator('#plan-movie').fill('Onopgeslagen fictieve invoer');
+    await popup
+      .getByRole('button', { name: 'Hernoem Filmmaatje', exact: true })
+      .click();
+    await popup.getByLabel('Nieuwe bijnaam').fill('Avondbuddy');
+    await popup
+      .getByRole('button', { name: 'Bewaar bijnaam', exact: true })
+      .click();
+    await expect(
+      panel.locator('.panel-buddies').getByRole('button', {
+        name: 'Kies Avondbuddy',
+        exact: true,
+        includeHidden: true,
+      }),
+    ).toHaveCount(1);
+    await expect(panel.locator('#plan-movie')).toHaveValue(
+      'Onopgeslagen fictieve invoer',
+    );
+    await panel.locator('#plan-movie').fill('De maan van papier');
+    await panel
+      .getByText('Filmplan-concept veilig bewaren of herstellen', {
+        exact: true,
+      })
+      .click();
+    await panel
+      .getByRole('button', {
+        name: 'Bewaar tijdelijk filmplan-concept',
+        exact: true,
+      })
+      .click();
+    await expect(
+      panel.getByRole('button', { name: 'Herstel concept', exact: true }),
+    ).toBeEnabled();
+    expect(port.session.values[DRAFT_KEY]).toBeTruthy();
+    control.worker = new Coordinator();
+    control.retained = new RetainedData(control.worker, port);
+    await expect(panel.locator('#plan-movie')).toHaveValue('');
+    await expect(
+      popup.getByRole('button', { name: 'Kies Avondbuddy', exact: true }),
+    ).toBeVisible();
+    await expect(panel.getByTestId('hq-A')).toContainText('0/5');
+    await expect(panel.getByTestId('hq-B')).toContainText('0/5');
+    await panel
+      .getByRole('button', { name: 'Herstel concept', exact: true })
+      .focus();
+    await panel.keyboard.press('Enter');
+    await expect(panel.locator('#plan-movie')).toHaveValue(
+      'De maan van papier',
+    );
+    await expect(
+      panel.getByText('Concept, opnieuw controleren', { exact: false }).first(),
+    ).toBeVisible();
+    await expect(panel.getByTestId('hq-next')).toHaveAttribute(
+      'data-step',
+      'PLAN',
+    );
+    expect(control.worker.manual.plan).toBeNull();
+    expect(control.worker.manual.tracks.A.completed).toEqual([]);
+    await panel
+      .getByRole('button', { name: 'Bewaar filmplan', exact: true })
+      .click();
+    await expect(panel.getByTestId('hq-next')).toHaveAttribute(
+      'data-step',
+      'ACCOUNT',
+    );
+    for (const role of ['A', 'B']) {
+      await panel
+        .getByText(`Voorstelling en stoel voor ${role} controleren`, {
+          exact: true,
+        })
+        .click();
+      await panel.locator(`#row-${role}`).fill('F');
+      await panel.locator(`#seat-${role}`).fill(role === 'A' ? '10' : '11');
+      await panel
+        .getByRole('button', {
+          name: `Bewaar eigen invoer ${role}`,
+          exact: true,
+        })
+        .click();
+    }
+    await expect(panel.getByTestId('hq-seats')).toContainText(
+      'CONSECUTIVE_UNVERIFIED',
+    );
+    await panel
+      .locator('.movie-night-hq')
+      .screenshot({ path: 'test-results/seatbuddies-hq.png' });
+    const size = await panel.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(size.scroll).toBeLessThanOrEqual(size.client);
+    await popup
+      .getByRole('button', { name: 'Vergeet opgeslagen buddies', exact: true })
+      .click();
+    await expect(remember).not.toBeChecked();
+    expect(port.local.values).toEqual({});
+    expect(port.session.values).toEqual({});
+  } finally {
+    await browser.close();
+  }
+});
+
+test('unavailable retention is visibly unknown and disabled while temporary buddies and manual planning remain usable', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const port = memoryStorage();
+    port.local.setAccessLevel = async () => {
+      throw new Error('Fictional unsupported storage');
+    };
+    const worker = new Coordinator();
+    const control: MockControl = {
+      unavailable: false,
+      worker,
+      retained: new RetainedData(worker, port),
+    };
+    const popup = await browser.newPage({
+      viewport: { width: 320, height: 900 },
+    });
+    const panel = await browser.newPage({
+      viewport: { width: 320, height: 900 },
+    });
+    await attachMockTransport(popup, worker, control);
+    await attachMockTransport(panel, worker, control);
+    await popup.goto('http://127.0.0.1:4173/popup.html');
+    const consent = popup.getByRole('checkbox', {
+      name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+    });
+    await expect(consent).toBeDisabled();
+    await expect
+      .poll(() =>
+        consent.evaluate((input) => (input as HTMLInputElement).indeterminate),
+      )
+      .toBe(true);
+    await expect(popup.getByTestId('retention-status')).toContainText(
+      'verwijderen niet bevestigd',
+    );
+    await popup.getByLabel('Bijnaam toevoegen').fill('Filmmaatje');
+    await popup
+      .getByRole('button', { name: 'Voeg buddy toe', exact: true })
+      .click();
+    await expect(
+      popup.getByRole('button', { name: 'Kies Filmmaatje', exact: true }),
+    ).toBeVisible();
+    expect(port.local.values).toEqual({});
+    expect(port.local.calls).toEqual([]);
+    await panel.goto('http://127.0.0.1:4173/sidepanel.html');
+    for (const [field, value] of Object.entries({
+      movie: 'De maan van papier',
+      cinema: 'Fictief Filmhuis',
+      date: '2030-04-12',
+      time: '19:30',
+      hall: 'Zaal 2',
+    }))
+      await panel.locator(`#plan-${field}`).fill(value);
+    await panel
+      .getByRole('button', { name: 'Bewaar filmplan', exact: true })
+      .click();
+    await expect(panel.getByTestId('hq-next')).toHaveAttribute(
+      'data-step',
+      'ACCOUNT',
+    );
+    expect(port.local.values).toEqual({});
   } finally {
     await browser.close();
   }

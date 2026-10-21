@@ -2,6 +2,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { panelReplySchema, popupReplySchema } from '../../src/privacy/protocol';
 import { fictionalObservation } from '../../src/fixtures/data';
 import type { Sender } from '../../src/background/message-router';
+import type { StoragePort } from '../../src/background/retained-data';
+import { memoryStorage } from '../helpers/storage';
 
 type Listener = (
   message: unknown,
@@ -11,6 +13,7 @@ type Listener = (
 const panel: Sender = {
   id: 'worker-test',
   url: 'chrome-extension://worker-test/sidepanel.html',
+  documentId: 'panel-doc',
   frameId: 0,
 };
 const fixture: Sender = {
@@ -23,15 +26,38 @@ const fixture: Sender = {
 const popup: Sender = {
   id: 'worker-test',
   url: 'chrome-extension://worker-test/popup.html',
+  documentId: 'popup-doc',
   frameId: 0,
 };
-async function boot() {
+async function boot(storage?: StoragePort) {
   vi.resetModules();
   const api = {
+    storage,
     runtime: {
       id: 'worker-test',
+      getContexts: vi
+        .fn()
+        .mockImplementation(
+          async ({ documentIds }: { documentIds: string[] }) => [
+            {
+              documentId: documentIds[0],
+              documentUrl:
+                documentIds[0] === 'popup-doc' ? popup.url : panel.url,
+              contextType:
+                documentIds[0] === 'popup-doc' ? 'POPUP' : 'SIDE_PANEL',
+              frameId: 0,
+              windowId: 1,
+              incognito: false,
+            },
+          ],
+        ),
       onMessage: { addListener: vi.fn<(listener: Listener) => void>() },
       onInstalled: { addListener: vi.fn<(callback: () => void) => void>() },
+    },
+    windows: {
+      get: vi
+        .fn()
+        .mockImplementation(async (id: number) => ({ id, incognito: false })),
     },
     extension: { isAllowedIncognitoAccess: vi.fn().mockResolvedValue(false) },
     tabs: {
@@ -70,6 +96,59 @@ async function boot() {
   return { api, send };
 }
 afterEach(() => vi.unstubAllGlobals());
+it('rejects incognito, unknown, mismatched-document and lying-window contexts before storage or shared mutation', async () => {
+  for (const kind of ['incognito', 'missing', 'document', 'window'] as const) {
+    const storage = memoryStorage();
+    const { api, send } = await boot(storage);
+    if (kind === 'missing') api.runtime.getContexts.mockResolvedValue([]);
+    if (kind === 'incognito')
+      api.runtime.getContexts.mockResolvedValue([
+        {
+          documentId: 'panel-doc',
+          documentUrl: panel.url,
+          contextType: 'SIDE_PANEL',
+          frameId: 0,
+          windowId: 1,
+          incognito: true,
+        },
+      ]);
+    if (kind === 'document')
+      api.runtime.getContexts.mockResolvedValue([
+        {
+          documentId: 'other',
+          documentUrl: panel.url,
+          contextType: 'SIDE_PANEL',
+          frameId: 0,
+          windowId: 1,
+          incognito: false,
+        },
+      ]);
+    if (kind === 'window')
+      api.windows.get.mockResolvedValue({ id: 1, incognito: true });
+    expect(await send({ type: 'GET_STATE' })).toMatchObject({
+      ok: false,
+      code: 'BROWSER_UNAVAILABLE',
+    });
+    expect(api.extension.isAllowedIncognitoAccess).not.toHaveBeenCalled();
+    expect(storage.local.calls).toEqual([]);
+    expect(storage.session.calls).toEqual([]);
+  }
+});
+it('popup and fixture cannot write a film draft through an otherwise valid storage command', async () => {
+  const { send } = await boot();
+  for (const sender of [popup, fixture])
+    expect(
+      await send(
+        {
+          type: 'DRAFT_SAVE',
+          generation: crypto.randomUUID(),
+          revision: 0,
+          plan: fictionalObservation('A', Date.now()).showtime,
+        },
+        sender,
+      ),
+    ).toMatchObject({ ok: false });
+});
 it('wires async Chrome messages, read-only panel behavior and fail-closed browser errors', async () => {
   const { api, send } = await boot();
   api.runtime.onInstalled.addListener.mock.calls[0]![0]();

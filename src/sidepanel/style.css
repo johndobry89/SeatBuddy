@@ -438,3 +438,70 @@ details button {
     scroll-behavior: auto !important;
   }
 }
+.retention-controls {
+  margin-top: 1rem;
+}
+.retention-controls .check-label {
+  display: flex;
+  gap: 0.65rem;
+  align-items: start;
+}
+.retention-controls input[type='checkbox'] {
+  width: auto;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+.movie-night-hq {
+  border-top: 3px solid var(--gold, #f4c36b);
+}
+.journey-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.journey-grid article {
+  background: #0b0b0d;
+  padding: 0.65rem;
+  border-radius: 0.5rem;
+  min-width: 0;
+}
+.journey-grid h3 {
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+.journey-grid p {
+  font-size: 0.8rem;
+}
+.next-action {
+  margin: 1rem 0;
+  padding-left: 0.8rem;
+  border-left: 3px solid #f4c36b;
+}
+.seat-pair {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+}
+.seat-pair span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 4rem;
+  padding: 0.4rem;
+  background: #15161b;
+  border: 1px solid #c7c1b9;
+  border-bottom: 5px solid #b81738;
+  border-radius: 0.7rem 0.7rem 0.3rem 0.3rem;
+}
+.seat-pair strong {
+  font-size: 1.1rem;
+}
+.tutorial li {
+  margin-bottom: 0.5rem;
+}
+.draft-controls {
+  margin-top: 1rem;
+}
+.fake-cinema {
+  border: 1px solid #f4c36b;
+}

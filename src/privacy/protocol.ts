@@ -6,6 +6,12 @@ import {
 import { z } from 'zod';
 import { observationSchema, roleSchema, scenarioSchema } from '../core/types';
 import { roleEvidenceSchema } from '../core/evidence';
+import { retentionStatusSchema } from '../core/retention-status';
+import {
+  rememberCommandSchema,
+  draftCommandSchema,
+  draftPlanSchema,
+} from '../core/retained-data';
 import {
   buddyMutationSchema,
   buddyStateSchema,
@@ -17,13 +23,20 @@ export const replyErrorSchema = z.strictObject({
   ok: z.literal(false),
   error: z.string(),
   code: z
-    .enum(['BROWSER_UNAVAILABLE', 'STALE_BUDDY', 'BUDDY_REVIEW'])
+    .enum([
+      'BROWSER_UNAVAILABLE',
+      'STALE_BUDDY',
+      'BUDDY_REVIEW',
+      'STORAGE_FAILURE',
+    ])
     .optional(),
 });
 export const popupCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('BUDDY_READ') }),
   buddyMutationSchema,
+  rememberCommandSchema,
 ]);
+export type PopupCommand = z.infer<typeof popupCommandSchema>;
 export const popupReplySchema = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true), buddy: buddyViewSchema }),
   replyErrorSchema,
@@ -53,6 +66,8 @@ export const panelCommandSchema = z.discriminatedUnion('type', [
     ),
   }),
   buddyMutationSchema,
+  rememberCommandSchema,
+  ...draftCommandSchema.options,
   ...manualCommandSchema.options,
   z.strictObject({ type: z.literal('DEMO_STEP'), role: roleSchema }),
   z.strictObject({ type: z.literal('DEMO'), scenario: scenarioSchema }),
@@ -90,6 +105,7 @@ const sessionSchema = z.strictObject({
   evidence: z.enum(['UNKNOWN', 'SIMULATION']),
 });
 export const snapshotSchema = z.strictObject({
+  retention: retentionStatusSchema,
   buddyEpoch: z.number().int().nonnegative(),
   resetVersion: z.number().int().nonnegative(),
   buddy: buddyStateSchema,
@@ -105,7 +121,11 @@ export const snapshotSchema = z.strictObject({
   incognitoAllowed: z.boolean(),
 });
 export const panelReplySchema = z.discriminatedUnion('ok', [
-  z.strictObject({ ok: z.literal(true), state: snapshotSchema }),
+  z.strictObject({
+    ok: z.literal(true),
+    state: snapshotSchema,
+    restoredDraft: draftPlanSchema.optional(),
+  }),
   replyErrorSchema,
 ]);
 export const fixtureReplySchema = z.discriminatedUnion('ok', [
