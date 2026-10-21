@@ -45,3 +45,30 @@ export async function planViaUI(page: Page, together = false) {
       .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
       .click();
 }
+
+export async function openSimulation(page: Page) {
+  const button = page.getByRole('button', {
+    name: 'Simulatie / technische proef',
+    exact: true,
+  });
+  if (!(await button.isVisible()))
+    await page
+      .getByText('Diagnostiek zonder privégegevens', { exact: true })
+      .click();
+  await button.click();
+}
+export async function firstPlanViaUI(page: Page, together = false) {
+  if (together)
+    await page
+      .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
+      .click();
+  for (const [field, value] of Object.entries(fakePlan))
+    await page.locator(`#plan-${field}`).fill(value);
+  for (const role of together ? ['A', 'B'] : ['A']) {
+    await page.locator(`#plan-row-${role}`).fill('F');
+    await page.locator(`#plan-seat-${role}`).fill(role === 'A' ? '10' : '11');
+  }
+  await page
+    .getByRole('button', { name: 'Bewaar filmplan', exact: true })
+    .click();
+}

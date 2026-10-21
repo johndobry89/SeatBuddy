@@ -8,6 +8,7 @@ import {
   recoveryText,
 } from '../../core/manual-assistant';
 import type { PanelCommand } from '../../privacy/protocol';
+import SeatFields from './SeatFields.vue';
 import ShowtimeFields from './ShowtimeFields.vue';
 const props = defineProps<{
   role: Role;
@@ -54,20 +55,28 @@ async function focusSelected() {
       'Venster kon niet worden getoond. Controleer de context zelf of werk handmatig.';
   }
 }
-watch(
-  () =>
-    JSON.stringify({
-      plan: props.state.manual.plan,
-      showtime: track.value.reportedShowtime,
-      seat: track.value.seat,
-    }),
-  () => {
-    showtime.value = {
-      ...(track.value.reportedShowtime ?? props.state.manual.plan ?? empty),
-    };
-    seat.value = { ...track.value.seat };
-  },
-);
+const retainedDraft = ref(false);
+const canonical = () =>
+  JSON.stringify({
+    showtime: track.value.reportedShowtime ?? props.state.manual.plan ?? empty,
+    seat: track.value.seat,
+  });
+watch(canonical, (current, previous) => {
+  const local = JSON.stringify({ showtime: showtime.value, seat: seat.value });
+  if (props.role === 'A' && local !== previous && local !== current) {
+    retainedDraft.value = true;
+    selectedContext.value = '';
+    contextFeedback.value = '';
+    return;
+  }
+  showtime.value = {
+    ...(track.value.reportedShowtime ?? props.state.manual.plan ?? empty),
+  };
+  seat.value = { ...track.value.seat };
+  retainedDraft.value = false;
+  if (track.value.seat.row && track.value.seat.number)
+    detailsOpen.value = false;
+});
 const next = computed(() => manualSteps[track.value.completed.length]);
 const choices = computed(() =>
   props.state.contexts.filter(
@@ -101,6 +110,11 @@ function saveDetails() {
         </p>
       </div>
     </div>
+    <p v-if="retainedDraft" class="notice" data-testid="retained-track-draft">
+      Onopgeslagen eigen invoer blijft alleen hier als concept. Geen controles
+      of koppeling hersteld. Bewaar eerst een actueel filmplan en controleer
+      daarna je invoer.
+    </p>
     <p class="status" :data-testid="`manual-status-${role}`">
       {{
         track.completed.includes('DONE')
@@ -205,26 +219,8 @@ function saveDetails() {
       </p>
       <form @submit.prevent="saveDetails">
         <ShowtimeFields v-model="showtime" :prefix="`reported-${role}`" />
-        <div class="seat-fields">
-          <label :for="`row-${role}`"
-            >Gewenste rij {{ role
-            }}<input
-              :id="`row-${role}`"
-              v-model="seat.row"
-              maxlength="12"
-              autocomplete="off" /></label
-          ><label :for="`seat-${role}`"
-            >Stoelnummer {{ role
-            }}<input
-              :id="`seat-${role}`"
-              v-model="seat.number"
-              inputmode="numeric"
-              pattern="[0-9]{0,3}"
-              maxlength="3"
-              autocomplete="off"
-          /></label>
-        </div>
-        <button class="secondary" :disabled="busy">
+        <SeatFields v-model="seat" :role="role" />
+        <button class="secondary" :disabled="busy || !state.manual.plan">
           Bewaar eigen invoer {{ role }}
         </button>
       </form>

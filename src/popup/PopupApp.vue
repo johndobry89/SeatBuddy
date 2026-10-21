@@ -35,6 +35,21 @@ onUnmounted(() => clearInterval(timer));
       Kies optioneel een bijnaam. Kies pas in de assistent bewust solo of samen;
       een bijnaam activeert geen tweede traject.
     </p>
+    <details class="first-run">
+      <summary>Wat doet SeatBuddies?</summary>
+      <p>
+        Plan solo of met buddy, vergelijk eigen invoer en volg je eigen stappen.
+        Deze onafhankelijke assistent leest Vue niet en boekt niets. Bijnamen
+        zijn optioneel.
+      </p>
+      <a
+        href="./fixture.html"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="site-link"
+        >Start met een fictieve proef ↗</a
+      >
+    </details>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
     <p v-if="notice" class="notice" data-testid="popup-notice">{{ notice }}</p>
     <div class="popup-launch">

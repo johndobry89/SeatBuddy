@@ -66,7 +66,13 @@ export const manualCommandSchema = z.discriminatedUnion('type', [
     resetB: z.boolean(),
   }),
   z.strictObject({ type: z.literal('REVIEW_PLAN') }),
-  z.strictObject({ type: z.literal('PLAN'), plan: planningSchema }),
+  z.strictObject({
+    type: z.literal('PLAN'),
+    plan: planningSchema,
+    initialSeats: z
+      .strictObject({ A: intendedSeatSchema, B: intendedSeatSchema.optional() })
+      .optional(),
+  }),
   z.strictObject({
     type: z.literal('MANUAL_DETAILS'),
     role: roleSchema,
@@ -189,6 +195,12 @@ export function applyManual(
     return null;
   }
   if (command.type === 'PLAN') {
+    if (
+      command.initialSeats?.B &&
+      (state.planningMode === 'SOLO' ||
+        (state.plan && !sameFilmNight(state.plan, command.plan)))
+    )
+      return 'Kies eerst bewust samen plannen; B is niet actief voor dit nieuwe plan.';
     if (state.plan && !sameFilmNight(state.plan, command.plan))
       state.planningMode = 'SOLO';
     invalidateReview(state);
@@ -197,6 +209,10 @@ export function applyManual(
       state.tracks[role] = emptyTrack();
       if (role === 'A' || state.planningMode === 'TOGETHER')
         state.tracks[role].reportedShowtime = structuredClone(command.plan);
+      if (role === 'A' || state.planningMode === 'TOGETHER')
+        state.tracks[role].seat = {
+          ...(command.initialSeats?.[role] ?? { row: '', number: '' }),
+        };
     }
     return null;
   }

@@ -547,3 +547,24 @@ summary {
 .planning-mode [aria-pressed='true'] {
   border: 2px solid var(--gold);
 }
+
+.local-self-test {
+  border: 1px solid var(--gold);
+  border-radius: 0.5rem;
+  padding: 0.8rem;
+}
+.test-checks {
+  padding-left: 1.3rem;
+}
+.test-checks li {
+  margin-block: 0.55rem;
+  overflow-wrap: anywhere;
+}
+.first-run p {
+  margin-block: 0.6rem;
+}
+.initial-seats {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}

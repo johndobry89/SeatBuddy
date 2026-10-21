@@ -1,3 +1,4 @@
+import { openSimulation, firstPlanViaUI } from '../helpers/browser-workflow';
 import {
   openInputs,
   enterSeats,
@@ -100,10 +101,15 @@ async function attachMockTransport(
             return bridge(windowId, navigator.userActivation.isActive);
           },
         },
+        storage: {
+          local: { get: async () => ({}), setAccessLevel: async () => {} },
+          session: { get: async () => ({}), setAccessLevel: async () => {} },
+        },
         runtime: {
+          id: 'fictional-extension',
           getManifest: () => ({
             manifest_version: 3,
-            version: '0.6.0',
+            version: '0.7.0',
             permissions: ['sidePanel', 'storage'],
           }),
           sendMessage: (message: unknown) => {
@@ -133,9 +139,7 @@ test('built Vue UI: matching, mismatch, partial outcome, aisle, expiry and manua
     page.on('pageerror', (error) => errors.push(error.message));
     await attachMockTransport(page, coordinator);
     await page.goto('http://127.0.0.1:4173/sidepanel.html');
-    await page
-      .getByRole('button', { name: 'Simulatie / technische proef' })
-      .click();
+    await openSimulation(page);
     await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
     await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
     await page.getByRole('button', { name: 'Start simulatie' }).click();
@@ -186,9 +190,7 @@ test('built Vue UI: matching, mismatch, partial outcome, aisle, expiry and manua
       fullPage: true,
     });
     await page.reload();
-    await page
-      .getByRole('button', { name: 'Simulatie / technische proef' })
-      .click();
+    await openSimulation(page);
     await expect(checklist.getByRole('checkbox').first()).not.toBeChecked();
     expect(errors).toEqual([]);
   } finally {
@@ -242,7 +244,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).focus();
     await page.keyboard.press('Enter');
     const report = page.getByTestId('diagnostic-report');
-    await expect(report).toContainText('"extensionVersion": "0.6.0"');
+    await expect(report).toContainText('"extensionVersion": "0.7.0"');
     await expect(report).toContainText('NOT_IMPLEMENTED');
     await expect(report).toContainText('SIDE_PANEL_AND_STORAGE');
     await expect(report).not.toContainText('De maan van papier');
@@ -425,9 +427,7 @@ test('manual flow: independent reports, keyboard focus, partial recovery and no 
       path: 'test-results/sprint02-manual-partial.png',
       fullPage: true,
     });
-    await page
-      .getByRole('button', { name: 'Simulatie / technische proef' })
-      .click();
+    await openSimulation(page);
     await expect(page.getByLabel('Scenario', { exact: true })).toBeVisible();
     await page
       .getByRole('button', { name: 'Boekingsassistent', exact: true })
@@ -1164,7 +1164,7 @@ test('diagnostic copy previews exact allowlisted text, waits for clipboard succe
     await expect(report).toBeFocused();
     const preview = await report.innerText();
     expect(JSON.parse(preview)).toMatchObject({
-      build: { version: '0.6.0' },
+      build: { version: '0.7.0' },
       productionAdapter: 'DISABLED_G0',
     });
     for (const secret of [
@@ -1253,6 +1253,345 @@ test('changed fictional schema clears previous fixture evidence and offers UNKNO
     ).toBeVisible();
     expect(worker.sessions.A.observation).toBeNull();
     expect(worker.sessions.A.binding).toBeNull();
+  } finally {
+    await browser.close();
+  }
+});
+
+for (const together of [false, true])
+  test(`friction audit: ${together ? 'TOGETHER' : 'SOLO'} required main-path actions`, async () => {
+    const browser = await chromium.launch({
+      executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+      args: ['--no-sandbox'],
+    });
+    try {
+      const page = await browser.newPage();
+      await attachMockTransport(page, new Coordinator());
+      await page.goto('http://127.0.0.1:4173/sidepanel.html');
+      await page.evaluate(() => {
+        Reflect.set(window, 'audit', { clicks: 0, entries: 0 });
+        document.addEventListener(
+          'click',
+          (event) => {
+            if (
+              event.isTrusted &&
+              (event.target as Element).closest('button,input')
+            ) {
+              const a = Reflect.get(window, 'audit') as { clicks: number };
+              a.clicks++;
+            }
+          },
+          true,
+        );
+        document.addEventListener(
+          'input',
+          (event) => {
+            if (event.isTrusted) {
+              const a = Reflect.get(window, 'audit') as { entries: number };
+              a.entries++;
+            }
+          },
+          true,
+        );
+      });
+      async function field(id: string, value: string) {
+        await page.locator(id).click();
+        await page.locator(id).fill(value);
+      }
+      for (const [key, value] of Object.entries({
+        movie: 'De maan van papier',
+        cinema: 'Fictief Filmhuis',
+        date: '2030-04-12',
+        time: '19:30',
+        hall: 'Zaal 2',
+      }))
+        await field(`#plan-${key}`, value);
+      if (together)
+        await page
+          .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
+          .click();
+      for (const role of together ? ['A', 'B'] : ['A']) {
+        await field(`#plan-row-${role}`, 'F');
+        await field(`#plan-seat-${role}`, role === 'A' ? '10' : '11');
+      }
+      await page
+        .getByRole('button', { name: 'Bewaar filmplan', exact: true })
+        .click();
+      // Count an ordinary pointer route: reviewViaUI uses Enter, so click explicitly here.
+      await page
+        .getByRole('button', {
+          name: 'Ik heb de gegevens gecontroleerd — naar de eigen stappen',
+          exact: true,
+        })
+        .click();
+      for (const role of together ? ['A', 'B'] : ['A'])
+        for (let i = 0; i < 5; i++)
+          await page.locator(`#next-own-${role}`).click();
+      const measured = await page.evaluate(() => Reflect.get(window, 'audit'));
+      expect(measured).toEqual({
+        clicks: together ? 22 : 14,
+        entries: together ? 7 : 5,
+      });
+      console.log(
+        `UX_FRICTION ${together ? 'TOGETHER' : 'SOLO'} ${JSON.stringify(measured)}`,
+      );
+    } finally {
+      await browser.close();
+    }
+  });
+
+test('First-Run Forge: isolated local self-test preserves the real plan, remembered buddies, selected buddy, draft and proof across repeated runs', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 320, height: 900 },
+    });
+    const worker = new Coordinator();
+    const port = memoryStorage();
+    const control: MockControl = {
+      worker,
+      unavailable: false,
+      retained: new RetainedData(worker, port),
+    };
+    await attachMockTransport(page, worker, control);
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await page.getByText('Buddy kiezen of beheren', { exact: true }).click();
+    await page
+      .getByLabel('Bijnaam toevoegen', { exact: true })
+      .fill('Fictief maatje');
+    await page
+      .getByRole('button', { name: 'Voeg buddy toe', exact: true })
+      .click();
+    await page
+      .getByRole('checkbox', {
+        name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+        exact: true,
+      })
+      .check();
+    await page
+      .getByRole('button', { name: 'Kies Fictief maatje', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Bevestig wijziging en wis B', exact: true })
+      .click();
+    await firstPlanViaUI(page, true);
+    await reviewViaUI(page);
+    await page.locator('#next-own-A').click();
+    await page
+      .getByText('Filmplan-concept veilig bewaren of herstellen', {
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole('button', {
+        name: 'Bewaar tijdelijk filmplan-concept',
+        exact: true,
+      })
+      .click();
+    const before = worker.snapshot(Date.now(), false),
+      local = structuredClone(port.local.values),
+      session = structuredClone(port.session.values);
+    await page
+      .getByText('Diagnostiek zonder privégegevens', { exact: true })
+      .click();
+    for (let i = 0; i < 2; i++) {
+      await page
+        .getByRole('button', { name: 'Controleer SeatBuddies', exact: true })
+        .focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByTestId('local-test-result')).toHaveText(
+        'Lokale proef geslaagd',
+      );
+      await expect(page.getByTestId('local-test-result')).toBeFocused();
+      expect(worker.snapshot(Date.now(), false)).toEqual(before);
+      expect(port.local.values).toEqual(local);
+      expect(port.session.values).toEqual(session);
+    }
+    const preview = await page.getByTestId('local-test-report').innerText();
+    for (const value of [
+      'Fictief maatje',
+      'De maan van papier',
+      'Fictief Filmhuis',
+      '2030-04-12',
+      '19:30',
+      'F10',
+      'F11',
+      before.generation,
+      'fictional-extension',
+    ])
+      expect(preview).not.toContain(value);
+    expect(JSON.parse(preview).kind).toBe('FICTIONAL_TEST');
+    await expect(page.getByTestId('hq-A')).toContainText('1/5');
+    control.worker = new Coordinator();
+    control.retained = new RetainedData(control.worker, port);
+    await expect(page.getByTestId('hq-A')).toContainText('0/5');
+    expect(control.worker.manual.planningMode).toBe('SOLO');
+    expect(control.worker.manual.review).toBeNull();
+    await expect(page.getByTestId('local-test-result')).toHaveText(
+      'Lokale proef geslaagd',
+    ); // Explicit fictional scope, not worker validation.
+    await page
+      .locator('.local-self-test')
+      .screenshot({ path: 'test-results/seatbuddies-local-test.png' });
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('local self-test is cancellable, guards rapid repeat, shares the safe copy renderer and clears superseded previews', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage();
+    await attachMockTransport(page, new Coordinator());
+    const copied: string[] = [];
+    await page.exposeFunction('testCopy', (value: string) => {
+      copied.push(value);
+    });
+    await page.addInitScript(() =>
+      Object.defineProperty(navigator, 'clipboard', {
+        value: {
+          writeText: (value: string) =>
+            (
+              Reflect.get(window, 'testCopy') as (text: string) => Promise<void>
+            )(value),
+        },
+      }),
+    );
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await page
+      .getByText('Diagnostiek zonder privégegevens', { exact: true })
+      .click();
+    await page.clock.install();
+    await page.clock.pauseAt(new Date());
+    const run = page.getByRole('button', {
+      name: 'Controleer SeatBuddies',
+      exact: true,
+    });
+    await run.click();
+    await expect(run).toBeDisabled();
+    await run.dispatchEvent('click');
+    await page
+      .getByRole('button', { name: 'Annuleer lokale proef', exact: true })
+      .click();
+    await page.clock.runFor(200);
+    await expect(page.getByTestId('local-test-report')).toHaveCount(0);
+    await expect(
+      page.getByText('Lokale proef geannuleerd.', { exact: false }),
+    ).toBeVisible();
+    await run.click();
+    await page.clock.runFor(200);
+    await expect(page.getByTestId('local-test-result')).toHaveText(
+      'Lokale proef geslaagd',
+    );
+    const preview = await page.getByTestId('local-test-report').innerText();
+    await page
+      .getByRole('button', {
+        name: 'Kopieer lokale testsamenvatting',
+        exact: true,
+      })
+      .click();
+    await expect.poll(() => copied.length).toBe(1);
+    expect(copied[0]).toBe(preview);
+    await page
+      .getByRole('button', { name: 'Voer zelfcontrole uit', exact: true })
+      .click();
+    await expect(page.getByTestId('local-test-report')).toHaveCount(0);
+    await expect(page.getByTestId('diagnostic-report')).toBeVisible();
+    await run.click();
+    await page.clock.runFor(200);
+    await expect(page.getByTestId('diagnostic-report')).toHaveCount(0);
+    await expect(page.getByTestId('local-test-report')).toBeVisible();
+  } finally {
+    await browser.close();
+  }
+});
+
+test('self-test in ordinary local preview shows NOT_TESTED capabilities and never external success', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage();
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await page
+      .getByText('Diagnostiek zonder privégegevens', { exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Controleer SeatBuddies', exact: true })
+      .click();
+    await expect(page.getByTestId('local-test-result')).toHaveText(
+      'Lokale proef niet volledig uitgevoerd',
+    );
+    await expect(page.getByTestId('local-check-CHROME_MANIFEST')).toContainText(
+      'NOT_TESTED',
+    );
+    await expect(page.getByTestId('local-test-report')).not.toContainText(
+      'CONFIRMED',
+    );
+  } finally {
+    await browser.close();
+  }
+});
+
+test('unsaved film and A input survive technical view changes and worker replacement as local draft only', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage();
+    const control: MockControl = {
+      worker: new Coordinator(),
+      unavailable: false,
+    };
+    await attachMockTransport(page, control.worker, control);
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await firstPlanViaUI(page, true);
+    await reviewViaUI(page);
+    await openInputs(page, 'A');
+    await page.locator('#row-A').fill('K');
+    await page.locator('#plan-movie').fill('Onopgeslagen fictief concept');
+    await openSimulation(page);
+    await page
+      .getByRole('button', { name: 'Boekingsassistent', exact: true })
+      .click();
+    await expect(page.locator('#row-A')).toHaveValue('K');
+    await expect(page.locator('#plan-movie')).toHaveValue(
+      'Onopgeslagen fictief concept',
+    );
+    control.worker = new Coordinator();
+    await expect(page.getByTestId('lifecycle-notice')).toBeVisible();
+    await expect(page.locator('#plan-movie')).toHaveValue(
+      'Onopgeslagen fictief concept',
+    );
+    await expect(page.locator('#row-A')).toHaveValue('K');
+    await expect(page.getByTestId('retained-track-draft')).toBeVisible();
+    expect(control.worker.manual.plan).toBeNull();
+    expect(control.worker.manual.tracks.A.completed).toEqual([]);
+    expect(control.worker.manual.tracks.A.seat.row).toBe('');
+    expect(control.worker.manual.planningMode).toBe('SOLO');
+    await page.getByText('Alle gegevens wissen', { exact: true }).click();
+    await page
+      .getByRole('button', {
+        name: 'Wis alle tijdelijke gegevens',
+        exact: true,
+      })
+      .click();
+    await expect(page.locator('#plan-movie')).toHaveValue('');
   } finally {
     await browser.close();
   }

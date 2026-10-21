@@ -11,6 +11,7 @@ import {
 import PreflightReview from './components/PreflightReview.vue';
 import StableAnnouncer from '../components/StableAnnouncer.vue';
 import { nextMovieNightStep } from '../core/movie-night';
+import SeatFields from './components/SeatFields.vue';
 import ShowtimeFields from './components/ShowtimeFields.vue';
 import ManualTrack from './components/ManualTrack.vue';
 import SimulationPanel from './components/SimulationPanel.vue';
@@ -47,6 +48,11 @@ const activeBuddy = computed(() =>
   snapshot.value ? selectedBuddy(snapshot.value.buddy) : null,
 );
 const pendingSolo = ref(false);
+const discardVersion = ref(0);
+const initialSeats = ref({
+  A: { row: '', number: '' },
+  B: { row: '', number: '' },
+});
 const dirty = ref({ A: false, B: false });
 const announcement = computed(
   () =>
@@ -68,7 +74,10 @@ async function chooseMode(mode: 'SOLO' | 'TOGETHER', confirmed = false) {
   if (
     mode === 'SOLO' &&
     !confirmed &&
-    (hasBHistory(snapshot.value.manual) || dirty.value.B)
+    (hasBHistory(snapshot.value.manual) ||
+      dirty.value.B ||
+      !!initialSeats.value.B.row ||
+      !!initialSeats.value.B.number)
   ) {
     pendingSolo.value = true;
     await nextTick();
@@ -77,6 +86,7 @@ async function chooseMode(mode: 'SOLO' | 'TOGETHER', confirmed = false) {
   }
   if (await command({ type: 'PLANNING_MODE', mode, resetB: confirmed })) {
     pendingSolo.value = false;
+    initialSeats.value.B = { row: '', number: '' };
     await nextTick();
     document.getElementById('mode-title')?.focus();
   }
@@ -149,39 +159,49 @@ async function draftAction(
     draftFeedback.value =
       'Opgeslagen concept verwijderd; je huidige invoer blijft staan.';
 }
-watch(
-  () => `${snapshot.value?.generation}:${snapshot.value?.resetVersion}`,
-  (current, previous) => {
-    if (current !== previous) {
-      plan.value = {
-        movie: null,
-        cinema: null,
-        date: null,
-        time: null,
-        hall: null,
-      };
-      formError.value = '';
+function emptyPlan() {
+  return { movie: null, cinema: null, date: null, time: null, hall: null };
+}
+function clearForm() {
+  plan.value = emptyPlan();
+  initialSeats.value = {
+    A: { row: '', number: '' },
+    B: { row: '', number: '' },
+  };
+  formError.value = '';
+  concept.value = false;
+  draftFeedback.value = '';
+  dirty.value = { A: false, B: false };
+}
+watch(snapshot, (current, previous) => {
+  if (!current || !previous) return;
+  if (current.generation !== previous.generation) {
+    const edited = (['movie', 'cinema', 'date', 'time', 'hall'] as const).some(
+      (key) =>
+        plan.value[key] !== previous.manual.plan?.[key] &&
+        plan.value[key] !== null,
+    );
+    if (edited) {
+      concept.value = true;
+      draftFeedback.value =
+        'Onopgeslagen filmconcept blijft alleen hier. Geen plan, samenmodus of eigen controles hersteld; controleer en bewaar opnieuw.';
+    } else {
+      plan.value = emptyPlan();
       concept.value = false;
       draftFeedback.value = '';
-      dirty.value = { A: false, B: false };
     }
-  },
-);
-watch(
-  () => snapshot.value?.manual.plan,
-  (current, previous) => {
-    if (previous && !current)
-      plan.value = {
-        movie: null,
-        cinema: null,
-        date: null,
-        time: null,
-        hall: null,
-      };
-  },
-);
+    initialSeats.value.B = { row: '', number: '' };
+    formError.value = '';
+    pendingSolo.value = false;
+  } else if (current.resetVersion !== previous.resetVersion) {
+    clearForm();
+    discardVersion.value++;
+  }
+});
 async function clearAll() {
   if (await command({ type: 'RESET' })) {
+    clearForm();
+    discardVersion.value++;
     plan.value = {
       movie: null,
       cinema: null,
@@ -214,7 +234,25 @@ async function savePlan() {
       'Vul een geldige film, bioscoop, datum en tijd in. Laat een onbekende zaal leeg.';
     return;
   }
-  if (await command({ type: 'PLAN', plan: parsed.data })) {
+  const initial = !snapshot.value?.manual.plan
+    ? {
+        A: { ...initialSeats.value.A },
+        ...(snapshot.value?.manual.planningMode === 'TOGETHER'
+          ? { B: { ...initialSeats.value.B } }
+          : {}),
+      }
+    : undefined;
+  if (
+    await command({
+      type: 'PLAN',
+      plan: parsed.data,
+      ...(initial ? { initialSeats: initial } : {}),
+    })
+  ) {
+    initialSeats.value = {
+      A: { row: '', number: '' },
+      B: { row: '', number: '' },
+    };
     concept.value = false;
     formError.value = '';
     await nextTick();
@@ -223,7 +261,7 @@ async function savePlan() {
 }
 onMounted(async () => {
   await command({ type: 'GET_STATE' });
-  if (snapshot.value?.manual.plan)
+  if (snapshot.value?.manual.plan && !Object.values(plan.value).some(Boolean))
     plan.value = { ...snapshot.value.manual.plan };
   timer = setInterval(() => {
     if (view.value === 'manual') void command({ type: 'GET_STATE' });
@@ -235,18 +273,7 @@ onUnmounted(() => clearInterval(timer));
   <div class="app-shell">
     <BrandHeader />
     <StableAnnouncer :message="announcement" />
-    <nav aria-label="Werkwijze">
-      <button :aria-pressed="view === 'manual'" @click="changeView('manual')">
-        Boekingsassistent</button
-      ><button
-        class="secondary"
-        :aria-pressed="view === 'simulation'"
-        @click="changeView('simulation')"
-      >
-        Simulatie / technische proef
-      </button>
-    </nav>
-    <main v-if="view === 'manual'">
+    <main v-show="view === 'manual'">
       <header>
         <p class="eyebrow">Zelf plannen · afzonderlijk controleren</p>
         <h1 ref="heading" tabindex="-1">Samen naar de film</h1>
@@ -260,13 +287,8 @@ onUnmounted(() => clearInterval(timer));
         </p>
       </header>
       <p class="notice">
-        Deze assistent leest Vue niet en boekt niets.
-        <strong
-          >Eigen vinkjes of meldingen zijn geen websitebevestiging.</strong
-        >
-        Controles blijven alleen in geheugen. Bijnamen onthouden en een
-        tijdelijk filmplan-concept vragen elk een bewuste keuze; geen
-        boekingsstatus wordt opgeslagen.
+        Alleen eigen invoer; SeatBuddies leest Vue niet en boekt niets. Eigen
+        meldingen zijn geen websitebevestiging.
       </p>
       <p v-if="offline" class="notice">
         Alleen lokaal in dit paneel. Browserkoppeling is niet beschikbaar; bij
@@ -287,44 +309,6 @@ onUnmounted(() => clearInterval(timer));
       </p>
       <p v-if="error" role="alert" class="error">{{ error }}</p>
       <MovieNightHQ v-if="snapshot" :state="snapshot" />
-      <details class="tutorial">
-        <summary>Probeer SeatBuddies in 90 seconden</summary>
-        <ol>
-          <li>
-            Vul De maan van papier, Fictief Filmhuis, 12 april 2030, 19:30, Zaal
-            2 in en bewaar het plan.
-          </li>
-          <li>
-            Kies Ook met buddy plannen. Vul A F10 en B F11 in; controleer eerst
-            de filmavond en doorloop daarna zelf de vijf stappen van A. B moet
-            zelfstandig blijven.
-          </li>
-          <li>
-            Vergelijk bovenaan: A's eigen melding is geen websitebewijs,
-            opeenvolgende stoelen zijn niet bewezen aangrenzend. Alles blijft
-            fictief.
-          </li>
-        </ol>
-        <p class="source">
-          Geen account, ticket of checkout nodig. Een buddy kiezen is optioneel.
-        </p>
-      </details>
-      <details class="panel-buddies">
-        <summary>Buddy kiezen of beheren</summary>
-        <BuddyManager
-          :state="buddyView"
-          :busy="busy"
-          :disabled="offline"
-          prefix="panel"
-          @command="command"
-        />
-        <RetentionControls
-          :state="buddyView"
-          :busy="busy || offline"
-          prefix="panel"
-          @command="command"
-        />
-      </details>
       <section aria-labelledby="plan-title">
         <h2 id="plan-title">1. Kies jullie voorstelling</h2>
         <fieldset v-if="snapshot" class="planning-mode">
@@ -397,6 +381,19 @@ onUnmounted(() => clearInterval(timer));
             eigen controle.
           </p>
           <ShowtimeFields v-model="plan" prefix="plan" />
+          <div v-if="snapshot && !snapshot.manual.plan" class="initial-seats">
+            <p class="source">
+              Gewenste stoelen (optioneel nu invullen). Alleen eigen invoer;
+              geen beschikbaarheid of hold.
+            </p>
+            <SeatFields
+              v-for="role in activeRoles(snapshot.manual)"
+              :key="role"
+              v-model="initialSeats[role]"
+              :role="role"
+              prefix="plan-"
+            />
+          </div>
           <p v-if="formError" role="alert" class="error">{{ formError }}</p>
           <p v-if="snapshot?.manual.plan" class="source">
             Opnieuw opslaan wist beide controles en koppelingen. Je begint
@@ -462,7 +459,11 @@ onUnmounted(() => clearInterval(timer));
         "
         @review="reviewPlan"
       />
-      <section v-if="snapshot" aria-labelledby="tracks-title">
+      <section
+        v-if="snapshot"
+        v-show="snapshot.manual.plan || dirty.A"
+        aria-labelledby="tracks-title"
+      >
         <h2 id="tracks-title" tabindex="-1">
           {{
             snapshot.manual.review
@@ -490,7 +491,7 @@ onUnmounted(() => clearInterval(timer));
         <div class="sessions">
           <ManualTrack
             v-for="role in activeRoles(snapshot.manual)"
-            :key="`${role}-${snapshot.generation}-${snapshot.resetVersion}-${role === 'B' ? `${snapshot.buddyEpoch}:${activeBuddy?.id ?? 'manual'}:${activeBuddy?.nickname ?? ''}` : ''}`"
+            :key="`${role}-${discardVersion}-${role === 'B' ? `${snapshot.generation}:${snapshot.buddyEpoch}:${activeBuddy?.id ?? 'manual'}:${activeBuddy?.nickname ?? ''}` : ''}`"
             :role="role"
             :nickname="role === 'B' ? (activeBuddy?.nickname ?? null) : null"
             :state="snapshot"
@@ -501,16 +502,15 @@ onUnmounted(() => clearInterval(timer));
             @dirty="dirty[role] = $event"
           />
         </div>
-        <p
-          v-if="snapshot.manual.planningMode === 'SOLO'"
-          class="source"
-          data-testid="inactive-B"
-        >
+        <p v-if="snapshot.manual.planningMode === 'SOLO'" class="source">
           Buddy (B) is niet actief. Kies bewust Ook met buddy plannen voor een
           tweede onafhankelijk traject.
         </p>
       </section>
-      <section aria-labelledby="comparison-title">
+      <section
+        v-show="snapshot?.manual.planningMode === 'TOGETHER'"
+        aria-labelledby="comparison-title"
+      >
         <h2 id="comparison-title">Vergelijking van eigen meldingen</h2>
         <dl>
           <dt>Voorstelling volgens eigen controles</dt>
@@ -543,6 +543,44 @@ onUnmounted(() => clearInterval(timer));
           controleren. De extensie heeft geen bevestiging waargenomen.
         </aside>
       </section>
+      <details class="tutorial">
+        <summary>Probeer SeatBuddies in 90 seconden</summary>
+        <ol>
+          <li>
+            Vul De maan van papier, Fictief Filmhuis, 12 april 2030, 19:30, Zaal
+            2 in en bewaar het plan.
+          </li>
+          <li>
+            Kies Ook met buddy plannen. Vul A F10 en B F11 in; controleer eerst
+            de filmavond en doorloop daarna zelf de vijf stappen van A. B moet
+            zelfstandig blijven.
+          </li>
+          <li>
+            Vergelijk bovenaan: A's eigen melding is geen websitebewijs,
+            opeenvolgende stoelen zijn niet bewezen aangrenzend. Alles blijft
+            fictief.
+          </li>
+        </ol>
+        <p class="source">
+          Geen account, ticket of checkout nodig. Een buddy kiezen is optioneel.
+        </p>
+      </details>
+      <details class="panel-buddies">
+        <summary>Buddy kiezen of beheren</summary>
+        <BuddyManager
+          :state="buddyView"
+          :busy="busy"
+          :disabled="offline"
+          prefix="panel"
+          @command="command"
+        />
+        <RetentionControls
+          :state="buddyView"
+          :busy="busy || offline"
+          prefix="panel"
+          @command="command"
+        />
+      </details>
       <details class="reset-area">
         <summary>Alle gegevens wissen</summary>
         <p>
@@ -560,7 +598,19 @@ onUnmounted(() => clearInterval(timer));
         assistent kan dan ophouden te werken. Testbuild {{ version }}.
       </footer>
     </main>
-    <SimulationPanel v-else />
-    <DiagnosticsPanel :run="runDiagnostic" :busy="busy" />
+    <SimulationPanel v-if="view === 'simulation'" />
+    <DiagnosticsPanel :run="runDiagnostic" :busy="busy">
+      <nav aria-label="Werkwijze">
+        <button :aria-pressed="view === 'manual'" @click="changeView('manual')">
+          Boekingsassistent</button
+        ><button
+          class="secondary"
+          :aria-pressed="view === 'simulation'"
+          @click="changeView('simulation')"
+        >
+          Simulatie / technische proef
+        </button>
+      </nav>
+    </DiagnosticsPanel>
   </div>
 </template>
