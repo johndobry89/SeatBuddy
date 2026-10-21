@@ -416,6 +416,7 @@ test('real action popup shares one buddy with the panel and opens a native Side 
     headless: process.env.HEADED !== '1',
     args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
   });
+  context.setDefaultTimeout(7_000);
   try {
     const worker =
       context.serviceWorkers()[0] ??
@@ -424,6 +425,21 @@ test('real action popup shares one buddy with the panel and opens a native Side 
     const neutral = context.pages()[0] ?? (await context.newPage());
     const cdp = await context.newCDPSession(neutral);
     const manifest = await worker.evaluate(() => chrome.runtime.getManifest());
+    await worker.evaluate(() => {
+      chrome.runtime.onMessage.addListener((raw: unknown, sender) => {
+        if (
+          typeof raw === 'object' &&
+          raw &&
+          'type' in raw &&
+          raw.type === 'BUDDY_READ'
+        )
+          Reflect.set(globalThis, 's05PopupSender', {
+            documentId: sender.documentId ?? null,
+            frameId: sender.frameId ?? null,
+            url: sender.url ?? null,
+          });
+      });
+    });
     expect(manifest.action?.default_popup).toBe('popup.html');
     expect(manifest.permissions).toEqual(['sidePanel', 'storage']);
     for (const size of [16, 32, 48, 128])
@@ -455,6 +471,26 @@ test('real action popup shares one buddy with the panel and opens a native Side 
     await expect(
       popup.getByRole('heading', { name: 'Met wie ga je naar de film?' }),
     ).toBeVisible();
+    const metadata = await worker.evaluate(async () => ({
+      contexts: (
+        await chrome.runtime.getContexts({
+          documentUrls: [chrome.runtime.getURL('popup.html')],
+        })
+      ).map(({ documentId, contextType, frameId, windowId, incognito }) => ({
+        documentId,
+        contextType,
+        frameId,
+        windowId,
+        incognito,
+      })),
+      sender: Reflect.get(globalThis, 's05PopupSender'),
+    }));
+    await expect(
+      popup.getByRole('button', {
+        name: 'Probeer fictieve buddy’s Sanne en Mark',
+      }),
+      `Own isolated popup metadata: ${JSON.stringify(metadata)}`,
+    ).toBeEnabled();
     await popup
       .getByRole('button', { name: 'Probeer fictieve buddy’s Sanne en Mark' })
       .click();
@@ -807,10 +843,17 @@ test('spanning Chrome: a real incognito popup cannot read remembered names, chan
         (command) => chrome.runtime.sendMessage(command),
         command,
       );
-      expect(response).toMatchObject({
-        ok: false,
-        code: 'BROWSER_UNAVAILABLE',
-      });
+      if (command.type === 'DRAFT_SAVE')
+        expect(response).toEqual({
+          ok: false,
+          error:
+            'Bericht geweigerd. Koppel en observeer de fictieve tab opnieuw.',
+        });
+      else
+        expect(response).toMatchObject({
+          ok: false,
+          code: 'BROWSER_UNAVAILABLE',
+        });
       expect(JSON.stringify(response)).not.toContain('Filmmaatje');
     }
     expect(await panel.evaluate(() => chrome.storage.local.get(null))).toEqual(
