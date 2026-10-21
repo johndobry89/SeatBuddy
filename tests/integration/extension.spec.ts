@@ -28,6 +28,19 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
     });
     await page.goto(`chrome-extension://${id}/sidepanel.html`);
     await page
+      .getByText('Diagnostiek zonder privégegevens', { exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).click();
+    await expect(page.getByTestId('diagnostic-report')).toContainText(
+      'SIDE_PANEL_ONLY',
+    );
+    await expect(page.getByTestId('diagnostic-report')).toContainText(
+      '"extensionVersion": "0.3.0"',
+    );
+    await expect(page.getByTestId('diagnostic-report')).toContainText(
+      'NOT_IMPLEMENTED',
+    );
+    await page
       .getByRole('button', { name: 'Simulatie / technische proef' })
       .click();
     await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
@@ -336,6 +349,8 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     );
     if (!planned.ok) throw new Error(planned.error);
     expect(planned.state.manual.plan?.movie).toBe('De maan van papier');
+    await page.reload();
+    await expect(page.locator('#plan-movie')).toHaveValue('De maan van papier');
     const cdp = await context.newCDPSession(page);
     let versionId: string | undefined;
     cdp.on('ServiceWorker.workerVersionUpdated', ({ versions }) => {
@@ -357,6 +372,16 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     expect(restarted.ok && restarted.state.manual.plan).toBeNull();
     expect(restarted.ok && restarted.state.sessions.A.observation).toBeNull();
     expect(restarted.ok && restarted.state.sessions.B.observation).toBeNull();
+    expect(restarted.ok && restarted.state.generation).not.toBe(
+      planned.state.generation,
+    );
+    await expect(
+      page.getByText('Chrome-coördinator opnieuw gestart.', { exact: false }),
+    ).toBeVisible();
+    await expect(page.locator('#plan-movie')).toHaveValue('');
+    await expect(page.getByTestId('manual-status-A')).toHaveText(
+      'Nog niet gecontroleerd',
+    );
   } finally {
     await context.close();
     await rm(profile, { recursive: true, force: true });

@@ -151,6 +151,9 @@ it('reduces Chrome metadata and invalidates a context on navigation and consent 
   const changed = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
   expect(changed.ok && changed.state.manual.tracks.A.context).toBeNull();
   expect(changed.ok && changed.state.manual.tracks.A.problem).toBe('NAVIGATED');
+  expect(
+    changed.ok && changed.state.contexts.some((value) => value.tabId === 7),
+  ).toBe(false);
   await send({ type: 'BIND_CONTEXT', role: 'B', tabId: 8 });
   api.extension.isAllowedIncognitoAccess.mockResolvedValue(false);
   const revoked = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
@@ -168,4 +171,57 @@ it('does not enumerate browser tabs during ordinary status polling or untrusted 
   expect(api.tabs.query).not.toHaveBeenCalled();
   await send({ type: 'GET_CONTEXTS' });
   expect(api.tabs.query).toHaveBeenCalledTimes(1);
+});
+
+it('a reset invalidates a command still awaiting Chrome permission instead of resurrecting old input', async () => {
+  const { api, send } = await boot();
+  let finish: ((allowed: boolean) => void) | undefined;
+  api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
+    new Promise<boolean>((resolve) => {
+      finish = resolve;
+    }),
+  );
+  const pending = send({
+    type: 'PLAN',
+    plan: fictionalObservation('A', Date.now()).showtime,
+  });
+  expect(await send({ type: 'RESET' })).toMatchObject({ ok: true });
+  finish?.(false);
+  expect(await pending).toMatchObject({ ok: false });
+  const state = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  expect(state.ok && state.state.manual.plan).toBeNull();
+});
+
+it('an untrusted reset cannot cancel a legitimate pending panel command', async () => {
+  const { api, send } = await boot();
+  let finish: ((allowed: boolean) => void) | undefined;
+  api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
+    new Promise<boolean>((resolve) => {
+      finish = resolve;
+    }),
+  );
+  const pending = send({
+    type: 'PLAN',
+    plan: fictionalObservation('A', Date.now()).showtime,
+  });
+  expect(await send({ type: 'RESET' }, fixture)).toMatchObject({ ok: false });
+  finish?.(false);
+  expect(await pending).toMatchObject({ ok: true });
+});
+
+it('a delayed context query cannot repopulate cleared choices after reset', async () => {
+  const { api, send } = await boot();
+  let finish: ((tabs: unknown[]) => void) | undefined;
+  api.tabs.query.mockReturnValueOnce(
+    new Promise<unknown[]>((resolve) => {
+      finish = resolve;
+    }),
+  );
+  const pending = send({ type: 'GET_CONTEXTS' });
+  await vi.waitFor(() => expect(api.tabs.query).toHaveBeenCalledTimes(1));
+  await send({ type: 'RESET' });
+  finish?.([{ id: 7, windowId: 1, incognito: false }]);
+  expect(await pending).toMatchObject({ ok: false });
+  const state = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  expect(state.ok && state.state.contexts).toEqual([]);
 });

@@ -19,8 +19,10 @@ import { matchShowtimes } from '../core/showtime-matcher';
 import { adjacent } from '../core/seats';
 import { scenarioObservations } from '../fixtures/data';
 import { boundRole } from './session-registry';
+import { roleEvidence } from '../core/evidence';
 
 export class Coordinator {
+  readonly generation: string = crypto.randomUUID();
   sessions = emptySessions();
   manual = emptyManual();
   contextChoices: BrowserContext[] = [];
@@ -83,7 +85,7 @@ export class Coordinator {
         observation.observedAt <= session.lastObservedAt)
     ) {
       session.observation = null;
-      session.evidence = 'NONE';
+      session.evidence = 'UNKNOWN';
       return false;
     }
     session.observation = structuredClone(observation);
@@ -106,7 +108,7 @@ export class Coordinator {
     for (const role of roles)
       if (!fresh(this.sessions[role].observation, now)) {
         this.sessions[role].observation = null;
-        this.sessions[role].evidence = 'NONE';
+        this.sessions[role].evidence = 'UNKNOWN';
       }
     const A = this.sessions.A.observation;
     const B = this.sessions.B.observation;
@@ -130,6 +132,11 @@ export class Coordinator {
                 ? 'Controleer stoelen en gangpad handmatig; aangrenzendheid is niet aangetoond.'
                 : 'Vergelijk A en B afzonderlijk. Dit is alleen een simulatie, geen reservering of seat hold.';
     return structuredClone({
+      generation: this.generation,
+      evidence: {
+        A: roleEvidence(this.manual, this.sessions, 'A'),
+        B: roleEvidence(this.manual, this.sessions, 'B'),
+      },
       manual: this.manual,
       contexts: contexts.filter(
         (context) => !context.incognito || incognitoAllowed,

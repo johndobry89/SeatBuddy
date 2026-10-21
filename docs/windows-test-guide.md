@@ -1,12 +1,14 @@
-# Windows-testbuild installeren — SeatMates 0.2.0-test
+# Chrome-testbuild installeren op Windows — SeatMates 0.3.0-test
 
 Dit is een **testbuild**, geen Chrome Web Store-release en geen werkende Vue-boekingsintegratie. Je hebt desktop Chrome 116 of nieuwer nodig op een computer waarop je zelf extensies mag installeren. Windows-uitvoering is niet in de Linux-cloud gevalideerd.
 
+Dezelfde platformneutrale browsercode is beschikbaar voor [macOS](macos-test-guide.md). Oudere Sprint 02-runs gebruiken nog de historische artifactnaam `seatmates-windows-test` en `seatmates-0.2.0-windows-test.zip`; die worden niet hernoemd. Gebruik voor Sprint 03 de hieronder beschreven nieuwe naam.
+
 ## Download en uitpakken
 
-1. Open [Actions voor de Sprint 02-branch](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-5-sprint-02). Kies de run bij de juiste commit; bekijk ook of de tests geslaagd zijn. Een bouwartefact bewijst geen geslaagde browsertest.
-2. Download onder **Artifacts** het bestand **seatmates-windows-test**. Mogelijk moet je ingelogd zijn op GitHub om artefacten te downloaden.
-3. Klik in Verkenner met rechts op het gedownloade ZIP-bestand → **Alles uitpakken**. Het Actions-archief bevat `seatmates-0.2.0-windows-test.zip` en een SHA-256-bestand.
+1. Open [Actions voor de Sprint 03-branch](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-7-sprint-03). Kies de run bij de juiste commit; bekijk ook of de tests geslaagd zijn. Een bouwartefact bewijst geen geslaagde browsertest.
+2. Download onder **Artifacts** het bestand **seatmates-chrome-test**. Mogelijk moet je ingelogd zijn op GitHub om artefacten te downloaden.
+3. Klik in Verkenner met rechts op het gedownloade ZIP-bestand → **Alles uitpakken**. Het Actions-archief bevat `seatmates-0.3.0-chrome-test.zip` en een SHA-256-bestand.
 4. Pak ook **de binnenste ZIP** uit, bijvoorbeeld naar `Documenten\SeatMates-test\`. In die map moet `manifest.json` staan, naast `background.js`, `sidepanel.html`, `fixture.html` en `assets`.
 5. Open `chrome://extensions`. Zet rechtsboven **Ontwikkelaarsmodus** aan. Kies **Uitgepakte extensie laden** en selecteer de map die `manifest.json` bevat. Selecteer geen ZIP en ook niet de bovenliggende map.
 6. Pin SeatMates via het puzzelstukje in de Chrome-werkbalk. Klik op het icoon: het echte zijpaneel moet openen. Noteer Chrome-versie, Windows-versie, build/commit en eventuele foutmelding zonder privégegevens.
@@ -38,3 +40,9 @@ Als Chrome meldt dat je beheerder dit blokkeert: stop de installatieproef. Wijzi
 - Voor een nieuwe testbuild: pak uit in een nieuwe of bewust vervangen eigen map, laad die build en controleer de weergegeven versie. Verwijder desgewenst eerst de vorige testextensie om dubbele panelen te vermijden.
 - Verwijderen: `chrome://extensions` → SeatMates → **Verwijderen**. Daarna kun je de zelf uitgepakte testmap verwijderen.
 - Voor zelf bouwen: Node.js 24 LTS, `npm ci`, `npm run check`, `npm run package`. De ZIP en checksum verschijnen in `build/`. Er is geen backend, accountsecret of server nodig.
+
+## Herstel en diagnostiek
+
+Bij verbindingsverlies blijft tijdelijk lokaal plannen mogelijk. **Verbind opnieuw en wis tijdelijke gegevens** wist bewust lokale én gedeelde coördinatorgegevens, ook in andere SeatMates-panelen. Een mislukte verbinding laat de lokale invoer staan; opdrachten worden niet herhaald. Een nieuwe worker geeft hersteladvies en eerdere controles vervallen.
+
+Open desgewenst **Diagnostiek zonder privégegevens** → **Voer zelfcontrole uit**. Alleen versie, capabilities, scope, toestemming, modus en bewijssoorten verschijnen; geen film, tabnummers, titels of URL’s. Capabilities bewijzen geen beleidsautorisatie. Wis de momentopname na controle. Noteer resultaten met het [QA-formulier](qa-evidence-template.md); menselijke Windows-QA is niet door Mac-/Linux-CI vervangen.

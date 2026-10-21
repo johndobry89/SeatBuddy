@@ -5,12 +5,12 @@
 | Documentcontrole | Waarde |
 | --- | --- |
 | Document-ID | `SEATMATES.MASTERPLAN.v0.2` |
-| Productversie | **0.2.0 — ontwerp / pre-feasibility** |
-| Datum | 20 oktober 2026 |
+| Productversie | **0.3.0-test — handmatige assistent; G0 live open** |
+| Datum | Ontwerp 20 oktober 2026; implementatiestatus bijgewerkt 21 oktober 2026 |
 | Project | SeatMates (werknaam; naam- en merkrechten niet onderzocht) |
 | Productdoel | Twee geldige Vue Movie Pass-houders begeleiden naar dezelfde voorstelling en waar mogelijk aangrenzende stoelen |
 | Status van echte Vue-integratie | **NOT_RUN / niet bewezen** |
-| Bewijsstatus van dit document | **DESIGN_REVIEW + gerichte openbare documentatiecontrole**, geen werkende MVP |
+| Bewijsstatus van dit document | **DESIGN_REVIEW** voor het ontwerp; uitgevoerd code-/browserbewijs uitsluitend in feasibility |
 | Platformkeuze | Chrome desktop, Manifest V3, Side Panel |
 | Frontendvoorkeur | Vue 3 + TypeScript (de frameworknaam is niet de bioscoopnaam) |
 | Eerste distributie | Open-source repository, daarna eventueel Chrome Web Store |
@@ -19,6 +19,8 @@
 | Ontwerpstandaard | Obsidian Forge 2.0 (`DEVVI.CORE.v2.0`) |
 | Agentinstructies | Root [`AGENTS.md`](AGENTS.md): **AGENTS2.0 / KDB Development Standard, SeatMates-profiel** |
 | Feitelijke onderzoeksstatus | [`docs/feasibility.md`](docs/feasibility.md) |
+
+**Implementatiestand 21 oktober 2026:** de handmatige assistent en fictieve tests zijn gebouwd; bronlabels onderscheiden SIMULATION, MANUAL_SELF_REPORT, BROWSER_CONTEXT_ONLY en UNKNOWN. Echte Vue-bevestiging is NOT_IMPLEMENTED. De historische ontwerpvoorbeelden hieronder zijn geen actuele live API’s of bewijs. Alle uitgevoerde platformresultaten staan in feasibility.
 
 **Interpretatie:** dit document beschrijft een kandidaatproduct en duidelijke beslisgates. Een ontwerpkeuze is geen bewezen Chrome/Vue-integratie. `UNKNOWN` blijft onbekend tot een reproduceerbare waarneming het oplost. Het OF-ontwerpkader en `AGENTS.md` geven geen bijzondere browserrechten of toestemming voor live boekingen.
 
@@ -91,6 +93,8 @@ SeatMates helpt twee legitieme, afzonderlijk ingelogde gebruikers dezelfde voors
 
 - `ADR-001`: Chrome MV3-extensie eerst, PWA niet als boekingsmotor — [`docs/decisions/ADR-001-extension-first.md`](docs/decisions/ADR-001-extension-first.md).
 - `ADR-002`: regulier + incognito in `spanning` **onderzoeken**, niet vooraf garanderen — [`docs/decisions/ADR-002-dual-session.md`](docs/decisions/ADR-002-dual-session.md).
+- `ADR-003`: handmatige assistent en uitsluitend Chrome-contextmetadata; geen account-/sitebewijs — [`docs/decisions/ADR-003-manual-first-context-pairing.md`](docs/decisions/ADR-003-manual-first-context-pairing.md).
+- `ADR-004`: expliciet herverbinden, vluchtige workergeneratie en gereduceerde diagnostiek — [`docs/decisions/ADR-004-explicit-reconnection.md`](docs/decisions/ADR-004-explicit-reconnection.md).
 - Een besluit mag wijzigen als de feiten veranderen; leg motivatie, impact, bewijs en vervangende ADR vast.
 
 ---
@@ -123,7 +127,7 @@ Een proef is functioneel nuttig wanneer beide personen zonder onnodige herhaling
 | Chrome-profielen A/B | Cookie- en accountisolatie mogelijk, maar geen bewezen gedeelde controller | Handmatige begeleidingsfallback |
 | Playwright/browsercontexten | Bruikbaar voor lokale mocktests; live installatie en effecten complexer | Testinstrument, geen MVP-distributie |
 
-### Voorgestelde stack (nog geen geïnstalleerde dependencies)
+### Oorspronkelijk stackontwerp (geïmplementeerde versies: package-lock.json)
 
 | Laag | Voorstel | Waarom / beslispunt |
 | --- | --- | --- |
@@ -352,16 +356,16 @@ Een accountstatus kan op elk moment naar `UNKNOWN` terugvallen wanneer bewijs ve
 
 **GO voor navigatieadapter:** sessies, herkomst en exacte voorstelling betrouwbaar waarneembaar binnen toegestane technieken. **NO-GO:** deze basis ontbreekt of hangt af van verboden trucs → handmatige checklistvariant. **Nog een aparte gate** voordat echte stoelen automatisch worden aangeraakt.
 
-### G1 — Technisch skelet **[NOT_RUN]**
+### G1 — Technisch skelet **[PASS Linux-CI; menselijke platform-QA apart]**
 
-- [ ] Repository met AGENTS.md, masterplan en docs initialiseren zonder oude bestanden stilzwijgend te overschrijven.
-- [ ] Werkende MV3-build, Vue 3 Side Panel, strict TypeScript.
-- [ ] Installeerbaar via `chrome://extensions` → *Load unpacked*.
-- [ ] Minimale permissies en expliciete incognito-instructie in UI.
-- [ ] A/B-toewijzing en statusweergave met uitsluitend lokale fixtures.
-- [ ] Feitelijk uitgevoerde build, lint/typecheck en unit tests registreren.
+- [x] Repository met AGENTS.md, masterplan en docs initialiseren zonder oude bestanden stilzwijgend te overschrijven.
+- [x] Werkende MV3-build, Vue 3 Side Panel, strict TypeScript.
+- [x] Installeerbaar via `chrome://extensions` → *Load unpacked*.
+- [x] Minimale permissies en expliciete incognito-instructie in UI.
+- [x] A/B-toewijzing en statusweergave met uitsluitend lokale fixtures.
+- [x] Feitelijk uitgevoerde build, lint/typecheck en unit tests registreren.
 
-**Gate:** reproduceerbare lokale installatie en dummyobservatie, geen live claim.
+**Gate:** Linux-CI heeft unpacked installatie, echte Side Panel-opening en fictieve observatie aangetoond (S02-CI in feasibility). De gemelde Mac-installatie/opening is alleen USER_REPORTED_PARTIAL_SMOKE; volledige menselijke Mac-/Windows-QA blijft apart. Geen live claim.
 
 ### G2 — Veilige voorstellingnavigatie **[NOT_RUN]**
 
@@ -448,7 +452,7 @@ Drie of meer houders, Firefox/andere Chromium-browsers, een informatieve mobiele
 
 ---
 
-## 13. Repositoryontwerp (voorgesteld, niet aangemaakt)
+## 13. Oorspronkelijk repositoryontwerp (historische schets)
 
 ```text
 seatmates/
@@ -500,7 +504,7 @@ seatmates/
 └── .github/workflows/ci.yml          # pas na werkende lokale scripts
 ```
 
-**Huidige pakketstatus:** alleen de Markdown-projectdocumenten zijn geleverd; de hierboven getoonde extensiecode, tests, lockfile en workflows zijn **niet** geïmplementeerd. Herhaal deze lijst niet als bewijs van bestanden die nog ontbreken.
+**Actuele pakketstatus:** MV3/Vue 3/TypeScript, Vite, npm-lockfile, coördinator, handmatige A/B-flow, lokale fixtureobserver, tests, packaging en CI bestaan inmiddels. De schets hierboven bevat ook toekomstige live modules en is geen bestandsinventaris. Er zijn geen productiehostrechten of content scripts; de Vue-adapter blijft inert. Raadpleeg de echte boom en `docs/feasibility.md` voor uitvoering.
 
 ---
 
@@ -606,7 +610,7 @@ Deze gebruikersbronnen zijn **aanwijzingen over de ervaren pijn**, geen officiee
 
 ---
 
-## 19. Migratienotitie v0.1 → v0.2.0
+## 19. Historische migratienotitie v0.1 → ontwerp v0.2.0
 
 **Behouden:** kernprobleem, Chrome-extensie eerst, twee accountcontexten, afzonderlijke legitieme boekingen, Vue 3/TypeScript, privacy, handmatige finalisatie, stoel-/accountwaarschuwingen, fasering, publieke distributieambitie en officiële niet-affiliatie.
 
@@ -614,6 +618,6 @@ Deze gebruikersbronnen zijn **aanwijzingen over de ervaren pijn**, geen officiee
 
 **Niet gedaan:** geen codebasis aangemaakt, geen echte Vue-tickets geboekt, geen Chrome-extensies geïnstalleerd en geen externe publicatie uitgevoerd. De v0.1-bron is niet overschreven; dit is een nieuwe brongetrouwe editie.
 
-**Eerstvolgende juiste actie:** voer de smalle G0-proef uit en vul `docs/feasibility.md` met feitelijke waarnemingen. Beslis op basis daarvan GO voor een minimaal skelet of NO-GO naar de handmatige checklist. Maak daarna pas een fraaie uitgebreide UI.
+**Actuele vervolgstap:** voer de toegestane handmatige G0-observatie uit volgens `docs/g0-human-observation-guide.md` en vul feasibility met feitelijke waarnemingen. Het skelet en de handmatige assistent bestaan; zonder nieuw G0-bewijs blijft productieobservatie uitgeschakeld.
 
 *SeatMates moet twee boekingen begrijpelijker maken, niet een vals gevoel van één gegarandeerde boeking creëren.*

@@ -94,7 +94,10 @@ function saveDetails() {
               : 'Nog niet gecontroleerd'
       }}
     </p>
-    <p class="source">Bron: MANUAL / eigen invoer. Websitebewijs: UNKNOWN.</p>
+    <p class="source" :data-testid="`manual-evidence-${role}`">
+      Bron: {{ state.evidence[role].manual }} / eigen invoer. Websitebewijs:
+      UNKNOWN.
+    </p>
     <p v-if="track.reviewedAt" class="source">
       Laatste eigen controle:
       {{ new Date(track.reviewedAt).toLocaleTimeString('nl-NL') }} · vervalt na
@@ -104,8 +107,8 @@ function saveDetails() {
       {{ recoveryText[track.problem] }}
     </p>
     <p v-if="track.context" class="context-note">
-      Chrome-context gekoppeld: venster {{ track.context.windowId }}, tab
-      {{ track.context.tabId }},
+      BROWSER_CONTEXT_ONLY · Chrome-context gekoppeld: venster
+      {{ track.context.windowId }}, tab {{ track.context.tabId }},
       {{ track.context.incognito ? 'incognito' : 'normaal' }}. Dit koppelt geen
       account en leest geen Vue-pagina.
     </p>

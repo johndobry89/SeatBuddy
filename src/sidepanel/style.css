@@ -260,6 +260,16 @@ details button {
 .intro {
   color: #c8ccdd;
 }
+.diagnostics {
+  max-width: 868px;
+  margin: 16px auto;
+  padding: 16px;
+}
+.diagnostics pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+}
 @media (max-width: 380px) {
   main {
     padding: 16px;

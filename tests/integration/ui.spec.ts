@@ -4,9 +4,19 @@ import { routeMessage } from '../../src/background/message-router';
 
 // A transport double only: the built Vue UI talks to the real router + coordinator in Node.
 // This does not validate Chrome extension APIs, incognito or Side Panel placement.
-async function attachMockTransport(page: Page, coordinator: Coordinator) {
+async function attachMockTransport(
+  page: Page,
+  coordinator: Coordinator,
+  control = { unavailable: false, worker: coordinator },
+) {
   let reads = 0;
   await page.exposeFunction('mockRuntimeSend', (raw: unknown) => {
+    if (control.unavailable)
+      return {
+        ok: false,
+        code: 'BROWSER_UNAVAILABLE',
+        error: 'Fictieve transportfout',
+      };
     if (
       typeof raw === 'object' &&
       raw !== null &&
@@ -15,7 +25,7 @@ async function attachMockTransport(page: Page, coordinator: Coordinator) {
     )
       reads++;
     return routeMessage(
-      coordinator,
+      control.worker,
       raw,
       {
         id: 'fictional-extension',
@@ -31,6 +41,11 @@ async function attachMockTransport(page: Page, coordinator: Coordinator) {
     Object.defineProperty(globalThis, 'chrome', {
       value: {
         runtime: {
+          getManifest: () => ({
+            manifest_version: 3,
+            version: '0.3.0',
+            permissions: ['sidePanel'],
+          }),
           sendMessage: (message: unknown) => {
             const bridge = Reflect.get(globalThis, 'mockRuntimeSend') as (
               raw: unknown,
@@ -116,6 +131,96 @@ test('built Vue UI: matching, mismatch, partial outcome, aisle, expiry and manua
       .click();
     await expect(checklist.getByRole('checkbox').first()).not.toBeChecked();
     expect(errors).toEqual([]);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('reconnection, worker generation and explicit privacy-safe diagnostic in a narrow keyboard-driven panel', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 320, height: 900 },
+    });
+    const worker = new Coordinator();
+    const control = { unavailable: false, worker };
+    await attachMockTransport(page, worker, control);
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    async function plan() {
+      await page.locator('#plan-movie').fill('De maan van papier');
+      await page.locator('#plan-cinema').fill('Fictief Filmhuis');
+      await page.locator('#plan-date').fill('2030-04-12');
+      await page.locator('#plan-time').fill('19:30');
+      await page.locator('#plan-hall').fill('Zaal 2');
+      await page.getByRole('button', { name: 'Bewaar filmplan' }).click();
+    }
+    await plan();
+    await expect(page.getByTestId('manual-evidence-A')).toContainText(
+      'MANUAL_SELF_REPORT',
+    );
+    await page
+      .getByRole('button', {
+        name: 'Ik gebruik mijn eigen account en geldige pas — A',
+      })
+      .click();
+    control.worker = new Coordinator();
+    await expect(
+      page.getByText('Chrome-coördinator opnieuw gestart.', { exact: false }),
+    ).toBeVisible();
+    await expect(page.locator('#plan-movie')).toHaveValue('');
+    await expect(page.getByTestId('manual-evidence-A')).toContainText(
+      'UNKNOWN',
+    );
+    await plan();
+    await page
+      .getByText('Diagnostiek zonder privégegevens', { exact: true })
+      .click();
+    await expect(page.getByTestId('diagnostic-report')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).focus();
+    await page.keyboard.press('Enter');
+    const report = page.getByTestId('diagnostic-report');
+    await expect(report).toContainText('"extensionVersion": "0.3.0"');
+    await expect(report).toContainText('NOT_IMPLEMENTED');
+    await expect(report).toContainText('SIDE_PANEL_ONLY');
+    await expect(report).not.toContainText('De maan van papier');
+    await page
+      .getByRole('button', { name: 'Wis diagnostische momentopname' })
+      .click();
+    await expect(report).toHaveCount(0);
+    control.unavailable = true;
+    await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).click();
+    await expect(page.getByRole('alert')).toContainText(
+      'Browserverbinding niet beschikbaar',
+    );
+    await expect(report).toContainText('LOCAL_ONLY');
+    await expect(page.locator('#plan-movie')).toHaveValue('');
+    await plan();
+    control.unavailable = false;
+    const reconnect = page.getByRole('button', {
+      name: 'Verbind opnieuw en wis tijdelijke gegevens',
+    });
+    await reconnect.focus();
+    await page.keyboard.press('Enter');
+    await expect(
+      page.getByText('Browserverbinding hersteld.', { exact: false }),
+    ).toBeVisible();
+    await expect(page.locator('#plan-movie')).toHaveValue('');
+    await expect(page.getByTestId('manual-status-A')).toHaveText(
+      'Nog niet gecontroleerd',
+    );
+    expect(control.worker.manual.plan).toBeNull();
+    const width = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(width.scroll).toBeLessThanOrEqual(width.client);
+    await page.screenshot({
+      path: 'test-results/sprint03-recovery.png',
+      fullPage: true,
+    });
   } finally {
     await browser.close();
   }
