@@ -146,7 +146,8 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
       .poll(async () =>
         (await cdp.send('Target.getTargets')).targetInfos.some(
           (t) =>
-            t.url === `chrome-extension://${id}/sidepanel.html` &&
+            t.url.split(/[?#]/)[0] ===
+              `chrome-extension://${id}/sidepanel.html` &&
             !before.includes(t.targetId),
         ),
       )
@@ -155,8 +156,17 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
     await fixture
       .getByRole('button', { name: 'Koppel deze fictieve tab' })
       .click();
-    await expect(fixture.getByRole('status')).toContainText(
-      'Bericht geweigerd',
+    await expect(fixture.getByRole('status')).toContainText('Status UNKNOWN');
+    await expect(fixture.getByRole('status')).toContainText('Handmatig verder');
+    const refusedB = panelReplySchema.parse(
+      await page.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+      ),
+    );
+    expect(refusedB.ok && refusedB.state.sessions.B.binding).toBeNull();
+    expect(refusedB.ok && refusedB.state.sessions.B.observation).toBeNull();
+    expect(refusedB.ok && refusedB.state.sessions.A.binding?.incognito).toBe(
+      false,
     );
     await fixture.reload();
     await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
