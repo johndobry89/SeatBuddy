@@ -389,6 +389,11 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
 });
 
 test('real action popup shares one buddy with the panel and opens a native Side Panel through its button', async () => {
+  // Pinned Playwright 1.64.1 otherwise detaches Chrome's native "other"
+  // popup targets (coreBundle.js _onAttachedToTarget). This changes test
+  // attachment only; no browser policy or shipped permission is modified.
+  const previousAttachment = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
+  process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
   const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-popup-'));
   const context = await chromium.launchPersistentContext(profile, {
     executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
@@ -415,7 +420,23 @@ test('real action popup shares one buddy with the panel and opens a native Side 
     // Native action opening in this modern test browser, not a popup.html tab.
     // openPopup is test instrumentation (Chrome 127+); the shipped UI needs no such API.
     await worker.evaluate(() => chrome.action.openPopup());
-    const popup = await popupReady;
+    let popup;
+    try {
+      popup = await popupReady;
+    } catch (error) {
+      const targets = (await cdp.send('Target.getTargets')).targetInfos
+        .filter((target) => target.url.startsWith(`chrome-extension://${id}/`))
+        .map(({ targetId, type, url }) => ({ targetId, type, url }));
+      throw new Error(
+        `Own extension targets after native action: ${JSON.stringify(targets)}`,
+        { cause: error },
+      );
+    }
+    expect(
+      (await cdp.send('Target.getTargets')).targetInfos.some(
+        (target) => target.url === `chrome-extension://${id}/popup.html`,
+      ),
+    ).toBe(true);
     await expect(
       popup.getByRole('heading', { name: 'Met wie ga je naar de film?' }),
     ).toBeVisible();
@@ -470,5 +491,8 @@ test('real action popup shares one buddy with the panel and opens a native Side 
   } finally {
     await context.close();
     await rm(profile, { recursive: true, force: true });
+    if (previousAttachment === undefined)
+      delete process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
+    else process.env.PW_CHROMIUM_ATTACH_TO_OTHER = previousAttachment;
   }
 });
