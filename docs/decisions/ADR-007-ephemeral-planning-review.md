@@ -1,6 +1,6 @@
 # ADR-007 — Explicit planning intent, ephemeral review and workflow revisions
 
-**Status:** Accepted for Sprint 06, issue #15. **Date:** 2026-10-21. Extends ADR-004/005; ADR-006's strict persistence projections and normal-document gate are unchanged.
+**Status:** Accepted for Sprint 06, issue #15; extended for Sprint 07, issue #17. **Date:** 2026-10-21. Extends ADR-004/005; ADR-006's strict persistence projections and normal-document gate are unchanged.
 
 ## Decision
 
@@ -17,3 +17,11 @@ Every panel manual mutation uses a strict **WORKFLOW {generation, revision, budd
 This is a local protocol change within a single versioned bundle, not a migration of stored records or a remote transaction protocol. Saved nickname and five-field film-draft schemas remain v1. Worker/browser lifecycle never restores intent, review, seats, checks or context. No manifest permission is added: exactly sidePanel + storage. No automatic navigation, booking, retry, cancellation, rollback or Undo booking exists. **Review** means examining locally entered planning data. **Reset/again/clear** changes only local assistant data; it cannot undo a real reservation or cancel a Movie Pass subscription.
 
 Unit/worker races, renderer keyboard/clipboard/announcer and real Chrome two-panel/worker tests are included. Actual platform execution is recorded separately in [feasibility](../feasibility.md); G0 live Vue remains NOT PASSED and human Mac/VoiceOver acceptance follows delivery.
+
+## Sprint 07 extension — atomic first input, no persistence change
+
+PLAN accepts optional strict `initialSeats: { A, B? }` using the existing intended-seat schema. The coordinator rejects B seats in SOLO or an unrelated-night replacement before mutation. A new plan may atomically enter its initial active seats/showtime; these remain own input, not review or account evidence. Existing separate MANUAL_DETAILS edits and all five ordered checks remain. WORKFLOW counters still wrap the entire mutation.
+
+Technical view changes keep mounted forms alive. A passive worker replacement may preserve only already dirty, uncommitted film/A text in that open document as a labelled concept; it sends nothing automatically and restores no committed plan, seat, review, selection, mode or evidence. B is cleared on generation/epoch change, including the new initial B fields. Explicit reset/reconnect clears these local fields too. No retention schema/key, manifest permission or new persisted state is introduced. The self-test owns separate coordinators/documents and never dispatches into the real workflow.
+
+Background GET_STATE/BUDDY_READ uses a separate coalesced read barrier so polling never disables a focused user control. A user mutation supersedes a pending read; a document-local operation counter drops its late snapshot/error without overwriting the mutation, releasing its busy guard or replaying anything. Mutations retain the existing exclusive busy guard and worker-side generation/revision/epoch checks. This changes no trust or persistence boundary.

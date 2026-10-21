@@ -1,6 +1,6 @@
 # Chrome Web Store — SeatBuddies (voorbereiding)
 
-Bijgewerkt **21 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.6.0**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.
+Bijgewerkt **21 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.7.0**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.
 
 ## Conceptlisting
 
@@ -15,6 +15,10 @@ De Chrome-popup beheert optionele korte buddybijnamen en opent het Side Panel. H
 Bijnamen zijn standaard tijdelijk. Alleen na expliciet inschakelen worden nickname/ID-paren lokaal onthouden. Een afzonderlijke knop kan uitsluitend filmplan-conceptvelden maximaal vier uur in Chrome-sessiegeheugen bewaren. Herstellen vult alleen bewerkbare invoer; nooit een actief plan, stoelen, A/B-controles of bevestigingen. Het product werkt zonder buddy of opslag. Geen extra-pass-autofill, accountvalidatie, checkout, betalingen of automatische reserveringen. De widget en 90-secondenproef staan uitsluitend op de verpakte fictieve testpagina.
 
 Independent third-party tool. Not affiliated with or endorsed by Vue Cinemas. Reservations remain separate and are only final when independently confirmed by Vue.
+
+## Lokale eerste proef
+
+**Controleer SeatBuddies** is een expliciete tijdelijke FICTIONAL_TEST op geïsoleerde eigen kernlogica, protocol, los fictief DOM en publieke API-aanwezigheid. Geen gebruikerstoestand, opgeslagen bijnamen/concepten, persoonlijke tabs of incognitogegevens worden gelezen of gewijzigd. Geen netwerk, upload, QA-opslag of nieuwe permissie. De strict allowlisted kopie bevat uitsluitend scope, veilige extensie-/adapterversie, vaste test-ID/status/grove codes. Overall succes bewijst geen browserinstallatie, storagewerking, accountkoppeling of echte reservering. Kopiëren naar het systeemklembord gebeurt alleen na klik, met exacte preview en werkelijke succes-/weigeringfeedback.
 
 ## Rechtenverantwoording
 
@@ -57,7 +61,7 @@ Support/homepage: https://github.com/johndobry89/SeatBuddy. Huidige distributie 
 
 | Versie     | Datum      | Wijziging                                                                 | Storestatus           |
 | ---------- | ---------- | ------------------------------------------------------------------------- | --------------------- |
-| 0.6.0-test | 2026-10-21 | Projector Ready: solo/samen, lokale preflight, herstel en diagnosekopie   | Draft, niet ingediend |
+| 0.7.0-test | 2026-10-21 | Projector Ready: solo/samen, lokale preflight, herstel en diagnosekopie   | Draft, niet ingediend |
 | 0.5.0-test | 2026-10-21 | Movie Night HQ, expliciet nickname-onthouden en concept-only herstel      | Draft, niet ingediend |
 | 0.4.0-test | 2026-10-21 | Werkende Buddy Manager, popup/paneel, originele iconen en fictieve widget | Niet ingediend        |
 | 0.3.0-test | 2026-10-21 | Platformneutrale testbuild, Mac-QA, herstel en diagnostiek                | Niet ingediend        |

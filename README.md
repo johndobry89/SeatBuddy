@@ -1,8 +1,12 @@
-# SeatBuddies — Projector Ready 0.6.0-test
+# SeatBuddies — First-Run Forge 0.7.0-test
 
 Een onafhankelijke Chrome Manifest V3-assistent met Vue 3/strict TypeScript voor één filmavond en **solo of twee zelfstandige boekingstrajecten**. Geen backend, accountsysteem of automatische boeking. **G0 live Vue is niet gehaald.** Alleen eigen invoer en fictieve testpagina’s; zelfmeldingen zijn geen websitebevestiging.
 
 ## Wat werkt
+
+- **Kortere eerste filmavond:** filmgegevens en gewenste A/B-stoelen in één formulier bewaren, daarna dezelfde lokale review en vijf eigen stappen. Gemeten pointerklikken vanaf open paneel: solo 15 → 14, samen 24 → 22; geen live Vue- of tijdsbesparingsclaim. [Meetmethode](docs/ux-friction-audit.md).
+- **Controleer SeatBuddies** onder bestaande diagnostiek voert twaalf afgebakende lokale controles uit: geïsoleerde fictieve logica/adapter/protocol plus Chrome-API-aanwezigheid. Tijdelijk FICTIONAL_TEST-rapport, annuleren/herhalen en privacyveilige kopie. Geen werkend plan/opslag/tabbladen lezen of wijzigen; PASS bewijst geen echte boeking of native browserwerking.
+- **Wat doet SeatBuddies?** en **Start met een fictieve proef ↗** in popup/lege start: alleen de eigen verpakte testpagina. Onopgeslagen film-/A-concepten blijven bij gewone viewwissel/polling en passieve workervervanging in het open document; nooit herstel van review/voortgang. B wisselt veilig mee met zijn context.
 
 - Echte toolbarpopup met buddy’s toevoegen, hernoemen, verwijderen en één buddy kiezen. Start leeg; DEMO-voorbeelden verschijnen alleen na een bewuste actie. Zonder buddy blijft de assistent bruikbaar.
 - Popup → **Open boekingsassistent** opent het echte Side Panel vanuit een klik. Eén getypeerde workercoördinator deelt de selectie. Een buddywissel vraagt bevestiging en wist alleen B’s gegevens/controles/onopgeslagen velden; A blijft zelfstandig.
@@ -29,9 +33,9 @@ Een onafhankelijke Chrome Manifest V3-assistent met Vue 3/strict TypeScript voor
 
 ## Installeren en bouwen
 
-Download **seatbuddies-chrome-test** uit [Sprint 06 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-15-sprint-06). Pak het Actions-archief én **seatbuddies-0.6.0-chrome-test.zip** uit. Open Chrome 116+ → chrome://extensions → Ontwikkelaarsmodus → Uitgepakte extensie laden → kies de map met manifest.json aan de root. Pin SeatBuddies, open de popup en klik **Open boekingsassistent**. Checksum staat naast de binnenste ZIP.
+Download **seatbuddies-chrome-test** uit [Sprint 07 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-17-sprint-07). Pak het Actions-archief én **seatbuddies-0.7.0-chrome-test.zip** uit. Open Chrome 116+ → chrome://extensions → Ontwikkelaarsmodus → Uitgepakte extensie laden → kies de map met manifest.json aan de root. Pin SeatBuddies, open de popup en klik **Open boekingsassistent**. Checksum staat naast de binnenste ZIP.
 
-[Mac-proef na de bouw (10–15 min)](docs/macos-test-guide.md) · [Windows](docs/windows-test-guide.md) · [QA-formulier](docs/qa-evidence-template.md). Menselijke Mac-QA is niet vooraf vereist en wordt niet als uitgevoerd geclaimd.
+[Van ZIP tot eerste filmavond (Mac, 5–8 min)](docs/macos-test-guide.md) · [Windows](docs/windows-test-guide.md) · [QA-formulier](docs/qa-evidence-template.md). Menselijke Mac-QA is niet vooraf vereist en wordt niet als uitgevoerd geclaimd.
 
 Zelf bouwen met Node 24 LTS (.nvmrc) en npm, geen secrets:
 
@@ -40,20 +44,21 @@ npm ci
 npm run check
 npm run test:ui
 npm run test:e2e
+npm run test:adversarial
 npm run package
 ```
 
-`dist/` is direct unpacked laadbaar. `build/seatbuddies-0.6.0-chrome-test.zip` bevat alleen runtime, manifest, popup en iconen. Packaging controleert versies, exact verwachte rechten, runtime-allowlist, PNG-afmetingen, archiefbytes en checksum. Een audit van de gegenereerde bestanden weigert netwerkprimitieven/remote executable resources en afwijkende CSP; Zod gebruikt de interpreter zonder JIT. Statische audits zijn geen volledige securityaudit. `npm run icons` reproduceert de PNG’s; `npm run icons:check` vergelijkt exacte bytes met de vastgelegde dev-only resvg-rasterizer. `npm run dev` bouwt bij wijzigingen; herlaad daarna de extensie en heropen de UI.
+`dist/` is direct unpacked laadbaar. `build/seatbuddies-0.7.0-chrome-test.zip` bevat alleen runtime, manifest, popup en iconen. Packaging controleert versies, exact verwachte rechten, runtime-allowlist, PNG-afmetingen, archiefbytes en checksum. Een audit van de gegenereerde bestanden weigert netwerkprimitieven/remote executable resources en afwijkende CSP; Zod gebruikt de interpreter zonder JIT. Statische audits zijn geen volledige securityaudit. De aangescherpte audit weigert ook ontbrekende/ontsnappende lokale imports, remote afbeeldingen en ongeldige gegenereerde JS. [Afzonderlijke Codex-selfreview](docs/security-review-sprint07.md). `npm run icons` reproduceert de PNG’s; `npm run icons:check` vergelijkt exacte bytes met de vastgelegde dev-only resvg-rasterizer. `npm run dev` bouwt bij wijzigingen; herlaad daarna de extensie en heropen de UI.
 
-Browsertests: `npm exec playwright install -- --with-deps chromium` op Linux, `npm exec playwright install -- chromium` op Mac. Native Linux: `HEADED=1 xvfb-run -a npm run test:e2e`; Mac: `HEADED=1 npm run test:e2e`. Deze beheerde cloud blokkeert unpacked extensies/incognito; dat beleid wordt niet gewijzigd. Renderercontrole kan met `CHROMIUM_PATH=/usr/bin/chromium XDG_CONFIG_HOME=/tmp/seatbuddy-chromium-config XDG_CACHE_HOME=/tmp/seatbuddy-chromium-cache npm run test:ui`. Gebruik zo nodig `npm ci --cache /tmp/seatbuddy-npm`.
+Browsertests: `npm exec playwright install -- --with-deps chromium` op Linux, `npm exec playwright install -- chromium` op Mac. Gerichte native smoke: `HEADED=1 npm run test:smoke:chrome` (Linux met xvfb). Native Linux: `HEADED=1 xvfb-run -a npm run test:e2e`; Mac: `HEADED=1 npm run test:e2e`. Deze beheerde cloud blokkeert unpacked extensies/incognito; dat beleid wordt niet gewijzigd. Renderercontrole kan met `CHROMIUM_PATH=/usr/bin/chromium XDG_CONFIG_HOME=/tmp/seatbuddy-chromium-config XDG_CACHE_HOME=/tmp/seatbuddy-chromium-cache npm run test:ui`. Gebruik zo nodig `npm ci --cache /tmp/seatbuddy-npm`.
 
 ## Uitvoering en grenzen
 
-Linux en macOS Intel CI behouden installatie/check/unit/iconen/build/package en renderer-UI-tests; Linux draait daarnaast echte unpacked Chrome-proeven. Transportdoubles bewijzen geen native API-werking; Mac-renderertests bewijzen geen native Mac-popup/incognito/VoiceOver. [Feasibility](docs/feasibility.md) bevat de werkelijke head-SHA’s, runlinks, uitslagen en lokale blokkades. Oudere SeatMates/SeatBuddies-builds houden historische artifactnamen; gebruik die niet als 0.6.0.
+Linux en macOS Intel CI behouden installatie/check/unit/iconen/build/package en renderer-UI-tests; Linux draait daarnaast de volledige native suite; macOS Intel ook twee native smoketests. Transportdoubles bewijzen geen native API-werking; Mac-renderertests bewijzen geen native Mac-popup/incognito/VoiceOver; de nieuwe native smoke heeft een eigen beperkte scope en afzonderlijke uitslag. [Feasibility](docs/feasibility.md) bevat de werkelijke head-SHA’s, runlinks, uitslagen en lokale blokkades. Oudere SeatMates/SeatBuddies-builds houden historische artifactnamen; gebruik die niet als 0.7.0.
 
 **G0 live Vue NOT PASSED:** voorwaarden, echte accounts/DOM/seatmap/holds/checkout/bevestigingen zijn niet gevalideerd. Geen echte website-interacties, pas-autofill, accountomzeiling, betaling, annulering of definitieve reservering. Opeenvolgende stoelnummers bewijzen geen aangrenzende beschikbaarheid. Alleen de gebruiker handelt en controleert iedere echte boeking zelfstandig.
 
-[Design en werkelijk gemaakte fictieve screenshots](docs/design-system.md) · [Changelog](CHANGELOG.md) · [Veilige Chrome-tooling](docs/agent-browser-debugging.md) · [G0-observatiegids](docs/g0-human-observation-guide.md). Sprint 06 volgt [issue #15](https://github.com/johndobry89/SeatBuddy/issues/15), gestapeld op `feat/issue-12-sprint-05` / [draft PR #14](https://github.com/johndobry89/SeatBuddy/pull/14). [ADR-007](docs/decisions/ADR-007-ephemeral-planning-review.md) beschrijft mode/review en het aangescherpte vluchtige protocol. Geen merge, release of Storepublicatie.
+[Design en werkelijk gemaakte fictieve screenshots](docs/design-system.md) · [Changelog](CHANGELOG.md) · [Veilige Chrome-tooling](docs/agent-browser-debugging.md) · [G0-observatiegids](docs/g0-human-observation-guide.md). Sprint 07 volgt [issue #17](https://github.com/johndobry89/SeatBuddy/issues/17), gestapeld op `feat/issue-15-sprint-06` / [draft PR #16](https://github.com/johndobry89/SeatBuddy/pull/16). [ADR-007](docs/decisions/ADR-007-ephemeral-planning-review.md) beschrijft mode/review en het aangescherpte vluchtige protocol. Geen merge, release of Storepublicatie.
 
 Independent third-party tool. Not affiliated with or endorsed by Vue Cinemas. Reservations remain separate and are only final when independently confirmed by Vue.
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0-test — 21 oktober 2026 (Sprint 07, First-Run Forge)
+
+- Gestroomlijnde eerste planning: gewenste stoelen in hetzelfde formulier, atomair bewaren; aparte review en vijf eigen stappen blijven. Gemeten solo 15 → 14 en samen 24 → 22 pointerklikken, zonder live- of tijdsclaim.
+- Startuitleg/proeflink in popup en paneel; technische simulatie onder diagnostiek. Onopgeslagen film/A-concepten blijven bij viewwissel/passieve workervervanging, zonder enig statusherstel. B-epoch en expliciet wissen blijven leidend.
+- Echte geïsoleerde twaalfdelige lokale zelftest met FICTIONAL_TEST, PASS/FAIL/NOT_TESTED, annuleren/herhalen, strict allowlisted tijdelijke kopie en echte clipboardfeedback. Geen gebruikersopslag/-toestand/tabs/netwerk geraakt.
+- Afzonderlijke kritische Codex-selfreview: B-conceptlek bij buddywissel, permissieve manifest/statusvalidatie, runtime-auditgaten en toetsenbordfocusverlies door achtergrondpolls gerepareerd met regressies.
+- Kort Mac-installatiepad en 5–8-minutenchecklist, uitgebreide bijlage behouden; Windows/QA/privacy/ADR bijgewerkt. Geen menselijke PASS vooraf ingevuld.
+- 225 unit-/contracttests, 19 rendererproeven en zeven native tests; macOS Intel native smoke toegevoegd naast bestaande Linux/Mac-controles. Werkelijke per-platformuitslagen staan in feasibility. Nieuwe 0.7.0-runtime-ZIP/checksum, exact sidePanel + storage. Geen nieuwe dependency; G0 blijft NOT PASSED.
+
 ## 0.6.0-test — 21 oktober 2026 (Sprint 06, Projector Ready)
 
 - Expliciet solo/samen plannen, onafhankelijk van nickname; nieuwe andere filmavond en worker/reset beginnen solo. Bevestigd uitschakelen wist B inclusief onopgeslagen velden, behoudt A en annuleert niets.
