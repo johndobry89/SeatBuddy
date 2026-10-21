@@ -1,48 +1,49 @@
-# macOS — SeatMates 0.3.0-test in 10–15 minuten
+# Mac — SeatBuddies 0.4.0-test in 10–15 minuten
 
-Gebruik uitsluitend fictieve filmgegevens en neutrale tabs in een eigen, toegestaan testprofiel. Geen echte Vue-accounts of boekingen. Chrome desktop 116+ is vereist. De melding van 20 oktober 2026 dat de extensie op Mac installeert en visueel opent is **USER_REPORTED_PARTIAL_SMOKE**; de onderstaande A/B-proef is daarmee nog niet uitgevoerd. Geautomatiseerd Mac-bewijs en menselijke Mac-QA worden apart bijgehouden in [feasibility](feasibility.md).
+Voer deze menselijke test **na de bouw** uit. Gebruik uitsluitend fictieve nicknames, film-/stoelgegevens en neutrale tabs in een eigen toegestaan testprofiel. Geen echte accounts, tickets of checkoutacties. De gemelde visuele opening van SeatMates op 20 oktober 2026 blijft **USER_REPORTED_PARTIAL_SMOKE**, geen volledige A/B-QA. Automatische Mac- en Linux-bewijzen staan afzonderlijk in [feasibility](feasibility.md).
 
-## 0–3 minuten: downloaden en openen
+## 0–3 minuten: installeren en de popup openen
 
-1. Open [Actions voor Sprint 03](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-7-sprint-03). Kies de run bij de gewenste commit en controleer de afzonderlijke Linux- en macOS-resultaten.
-2. Download **seatmates-chrome-test** onder Artifacts (GitHub-login kan nodig zijn). Pak het Actions-archief uit. Dubbelklik daarna ook op de binnenste **seatmates-0.3.0-chrome-test.zip**. Dezelfde browsercode is bestemd voor Mac en Windows; een ZIP-naam bewijst geen OS-test. Oudere Sprint 02-runs hebben nog `seatmates-windows-test`; gebruik de versies niet door elkaar.
-3. Bewaar de uitgepakte map bijvoorbeeld onder `Documenten/SeatMates-test/0.3.0/`. Daarin moet direct **manifest.json** staan, naast `background.js`, `sidepanel.html`, `fixture.html` en `assets/`. Kies straks deze binnenste map, geen ZIP of bovenliggende map. Optioneel in Terminal: `shasum -a 256 seatmates-0.3.0-chrome-test.zip` en vergelijk de volledige waarde met het `.sha256`-bestand.
-4. Open `chrome://extensions`, schakel **Ontwikkelaarsmodus** in, kies **Uitgepakte extensie laden** en selecteer die map. Controleer op Details versie **0.3.0**, incognito aanvankelijk uit, en geen website-/cookie-/debuggerrechten. Bij een beheerdersblokkade: stop deze proef; wijzig geen beleid.
-5. Pin SeatMates via het puzzelstukje. Klik het icoon om het echte zijpaneel te openen. Sluit en heropen het paneel via het icoon. Na een nieuwe build: klik **Opnieuw laden** op de extensiekaart en heropen het paneel; oude voortgang mag vervallen.
+1. Open [Sprint 04 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-10-sprint-04); controleer commit en beide jobs. Download **seatbuddies-chrome-test** (GitHub-login kan nodig zijn). Pak het Actions-archief uit en daarna ook **seatbuddies-0.4.0-chrome-test.zip**.
+2. Bewaar de binnenste uitgepakte map, bijvoorbeeld `Documenten/SeatBuddies-test/0.4.0/`. Daarin staan direct `manifest.json`, `background.js`, `popup.html`, `sidepanel.html`, `fixture.html`, `icons/` en `assets/`. Kies geen ZIP of bovenliggende map. Optioneel: `shasum -a 256 seatbuddies-0.4.0-chrome-test.zip`, vergelijk met `.sha256`.
+3. Open `chrome://extensions`, zet **Ontwikkelaarsmodus** aan en kies **Uitgepakte extensie laden**. Selecteer die map. Chrome 116+ vereist. Controleer **SeatBuddies**, versie **0.4.0**, de twee rode stoelen en alleen Side Panel-rechten. Verwijder een oude testinstallatie als je anders dubbele iconen/panelen hebt. Verplaats de geladen map daarna niet.
+4. Pin SeatBuddies via het puzzelstukje en klik het icoon. Nu opent de **popup**, met “Met wie ga je naar de film?”. Klik **Open boekingsassistent** om het zijpaneel te openen; toolbarclick opent niet meer rechtstreeks het paneel. Als Chrome dit blokkeert, lees de herstelmelding en probeer het normale Chrome-zijpaneelmenu; wijzig geen organisatiebeleid.
 
-## 3–7 minuten: afzonderlijke fictieve A/B-stappen
+## 3–6 minuten: echte tijdelijke buddy’s
 
-1. Plan **De maan van papier**, **Fictief Filmhuis**, **12 april 2030**, **19:30**, **Zaal 2**. Bewaar met het toetsenbord: Tab naar **Bewaar filmplan**, Enter. Focus hoort naar “Controleer A en B afzonderlijk” te gaan.
-2. Open per kaart **Voorstelling en stoel … controleren**. Bewaar A: F10 en B: F11. Type een veld over meerdere pollingrondes: onopgeslagen tekst mag niet verdwijnen.
-3. Doorloop uitsluitend A's vijf eigen stappen als fictieve zelfmeldingen. A toont **Zelf gemeld afgerond**, B blijft ongecontroleerd en de partiële melding verschijnt. Dit bewijst geen websitebevestiging. **MANUAL_SELF_REPORT** is eigen invoer; echt websitebewijs blijft **UNKNOWN**.
-4. Verander B's aanvang naar 21:00, bewaar en meld de accountstap. De voorstellingstap moet blokkeren. A's eigen voortgang blijft staan. Meld bij B een uitlogprobleem; alleen B moet opnieuw controleren.
-5. Herstel B naar het plan. Ook als beide tijden gelijk zijn en F10/F11 elkaar numeriek opvolgen, mag er geen gegarandeerde buurstoel, beschikbaarheid of hold worden getoond. Laat de zaal leeg in een nieuw plan: vergelijking blijft UNKNOWN en eerdere controles vervallen.
-6. Open **Alle gegevens wissen**, wis en controleer lege invoer, lege koppelingen en beide personen ongecontroleerd. Optioneel: bekijk de aparte **Simulatie / technische proef**; uitkomsten moeten SIMULATION blijven.
+1. De lijst begint leeg. Voeg de fictieve bijnaam **Filmmaatje** toe. Probeer een e-mailadres/pasnummer niet: zulke gegevens horen hier niet en worden begrensd/geweigerd. Gebruik geen echte namen of accountidentifiers voor deze proef.
+2. Hernoem naar **Avondbuddy**. Kies die buddy en lees “B begint opnieuw”. Annuleer één keer: niets verandert. Kies opnieuw en bevestig bewust. De popup toont **Ik + Avondbuddy**, geen abonnement of accountbewijs.
+3. Open het paneel. B heet nu Avondbuddy; de technische rollen A/B blijven zichtbaar en onafhankelijk. Sluit/heropen de popup: dezelfde keuze moet terugkomen zolang de worker nog leeft. Je kunt ook in het paneel **Buddy kiezen of beheren** openen; het is dezelfde coördinator, geen tweede lijst.
+4. Je kunt zonder buddy verder: **Ga verder zonder buddy** vraagt bij een bestaande keuze ook bevestiging. De volledige handmatige assistent blijft bruikbaar. Optioneel kun je vanuit een lege lijst expliciet fictieve Sanne/Mark laden; DEMO moet zichtbaar blijven.
 
-## 7–11 minuten: neutrale Chrome-contexten, opt-in en intrekken
+## 6–10 minuten: A/B-independence, wisselen en stoelgrenzen
 
-1. Open alleen neutrale `about:blank`-tabs: één normaal venster, één incognitovenster via **⌘⇧N**. Log nergens in. Bij ontbrekende incognitoondersteuning noteer je BLOCKED en gebruik je de handmatige route.
-2. Geef in `chrome://extensions` → SeatMates → Details zelf **Toestaan in incognito**. Chrome kan de extensie herladen en het paneel sluiten; heropen via het icoon. Eerdere tijdelijke gegevens mogen verdwijnen.
-3. Open in het normale paneel per A/B-kaart **Browsercontext kiezen of loskoppelen** en klik bewust **Vensterlijst ophalen / vernieuwen**. Kies de actieve normale tab voor A en incognito voor B. Gebruik **Toon gekozen venster** om het juiste neutrale venster te herkennen. De lijst bevat alleen nummers en contextsoort, geen titels of URL’s.
-4. De bron is nu **BROWSER_CONTEXT_ONLY**: geen account-/persoonsidentiteit of websitewaarneming. Je mag B niet aan een normale tab koppelen. Sluit A's gekoppelde testtab: A's koppeling en controles vervallen; B blijft zelfstandig zolang de worker niet herstart.
-5. Trek **Toestaan in incognito** weer in. Als Chrome vraagt om incognitovensters te sluiten, sluit alleen je eigen testvensters en controleer opnieuw. B verliest zijn koppeling; een extensiereload mag alle voortgang wissen. Heropen het normale paneel indien nodig.
+1. Bewaar **De maan van papier**, **Fictief Filmhuis**, **12 april 2030**, **19:30**, **Zaal 2**. Gebruik Tab/Shift+Tab en Enter; focus hoort na bewaren bij de A/B-sectie. Open per kaart de eigen invoer, bewaar A F10 en B F11.
+2. Doorloop A’s vijf eigen stappen als fictieve zelfmeldingen; B blijft zelfstandig ongecontroleerd. Alleen A afronden geeft een partiële eigen melding, nooit een waargenomen websitebevestiging.
+3. Geef ook B alvast eigen controles en typ eventueel onopgeslagen stoelvelden. Voeg in de popup **Nieuw maatje** toe, kies die en annuleer eerst: B blijft staan. Bevestig daarna bewust: alleen B’s eerdere invoer, context en controles worden UNKNOWN/opnieuw controleren; onopgeslagen B-velden en oude contextkeuze verdwijnen. A’s controles en onopgeslagen A-velden mogen niet verdwijnen. Bewaar voor de nieuwe B zelf opnieuw details.
+4. Hernoem/verwijder de geselecteerde buddy: dezelfde waarschuwing en B-reset horen te volgen. Een niet-geselecteerde buddy hernoemen/verwijderen mag A/B niet resetten. **Wis alle buddy’s** verwijdert de lijst; **Wis alle tijdelijke gegevens** in het paneel wist daarnaast alle planning/voortgang.
+5. Verander B’s tijd naar 21:00 en bewaar: geen volledige voorstellingmatch/doorgang. Laat de zaal leeg in een nieuw plan: UNKNOWN. F10/F11 bewijzen nooit aangrenzende beschikbaarheid, gangpad of hold, ook niet met een geselecteerde bijnaam.
 
-Laad `fixture.html` niet als hoofdpagina in incognito: dat ondersteunt `spanning` niet. De neutrale contextproef bewijst ook geen twee echte Vue-logins of uniforme incognito-Side-Panelwerking.
+## 10–13 minuten: neutrale contexten en fictieve widget
 
-## 11–15 minuten: lifecycle, diagnostiek en bediening
+1. Geef desgewenst zelf **Toestaan in incognito** via `chrome://extensions` → Details. Open een normaal en een incognitovenster (**⌘⇧N**), beide alleen met `about:blank`. Log nergens in. Een toestemmingswijziging kan de extensie/popup sluiten/herladen en tijdelijke gegevens wissen; heropen de popup en het normale paneel.
+2. Kies in het **paneel**, niet de popup, per kaart **Browsercontext kiezen of loskoppelen** → **Vensterlijst ophalen / vernieuwen**. Maak de gewenste neutrale tab zelf actief, controleer het gekozen venster, koppel normale metadata aan A en expliciet toegestane incognitometadata aan B. De popup krijgt die contextgegevens niet. Browsercontext ≠ accountidentiteit.
+3. Sluit een gekoppelde testtab en controleer dat diens koppeling/controles vervallen. Trek incognitotoegang weer in; sluit eigen neutrale incognitovensters als Chrome daarom vraagt. B verliest zijn koppeling; een reload mag alles wissen. Bij beleidblokkade noteer BLOCKED en gebruik de handmatige route. Laad `fixture.html` niet als incognitohoofdpagina: spanning ondersteunt dat niet.
+4. Open **Simulatie / technische proef** → **Open fictieve testpagina**. De widget toont **DEMO · NIET GEBOEKT · GEEN VUE INTEGRATIE**. Wissel fictieve schermstappen, verberg/plaats de widget terug: één kaart, geen duplicaten. De knop opent het echte paneel waar Chrome het toestaat. Er wordt niets in een Vue-pagina geïnjecteerd of ingediend.
 
-1. Maak opnieuw een fictief plan. Open bij `chrome://extensions` de serviceworkerinspectie van **deze testextensie**. Controleer dat niets gevoeligs wordt gelogd; sluit DevTools weer (inspectie kan de worker wakker houden). Laat de worker daarna stoppen door inactiviteit. Een open, pollend paneel kan hem wakker houden; sluit dat paneel tijdens wachten. Heropen het paneel: eerder verdwenen gegevens worden niet hersteld, je vult het plan opnieuw in. Een paneel dat een nieuwe worker aantreft toont hersteladvies. Geen automatische actie.
-2. Voor een deterministische resetproef kun je **Opnieuw laden** op de extensiekaart gebruiken en het paneel heropenen. Noteer dit als _extensiereload_, niet als bewezen natuurlijke worker-suspensie. De echte geforceerde workerstop heeft een afzonderlijke geautomatiseerde Chrome-test.
-3. Bij verbindingsverlies blijft tijdelijk lokaal plannen mogelijk. **Verbind opnieuw en wis tijdelijke gegevens** vraagt bewust een nieuwe start: lokale én coördinatorgegevens (ook in andere SeatMates-panelen) worden gewist. Er wordt geen mislukte melding opnieuw verstuurd. Als verbinden mislukt, blijft je lokale invoer behouden.
-4. Open **Diagnostiek zonder privégegevens**. Er verschijnt pas een rapport na **Voer zelfcontrole uit**. Controleer versie, capabilities, contexttoestemming, modus en **NOT_IMPLEMENTED / DISABLED_G0 / MEMORY_ONLY**. Capabilities betekenen dat de API bestaat, niet dat beleid iedere actie toestaat. Het rapport bevat geen film, tabnummers, titels of URL’s en wordt niet verstuurd. Wis de momentopname.
-5. Sleep het echte paneel zo smal mogelijk richting 320px. Controleer Tab/Shift+Tab, Enter, zichtbare focus, leesbare herstelmeldingen en geen horizontale overflow. Als Chrome een andere minimumbreedte afdwingt, noteer die; de automatische UI-proef gebruikt exact 320px. Eventueel macOS-instelling voor toetsenbordnavigatie inschakelen als Tab geen knoppen bereikt. VoiceOver-kwaliteit blijft een afzonderlijke menselijke controle.
+## 13–15 minuten: restart, privacy en bediening
 
-## Fouten melden, bijwerken en verwijderen
+1. Maak een fictieve buddy/plan, klik **Opnieuw laden** op de extensiekaart en heropen de popup. Lijst, selectie en voortgang zijn leeg; oude opdrachten mogen niets terugzetten. Noteer dit als extensiereload, geen bewezen natuurlijke workersuspensie. Voor natuurlijke suspensie: sluit alle testpanel-/fixture-inspecties, wacht op de workerstop en heropen; open polling-UI/DevTools kan de worker wakker houden. De gedwongen workerstop heeft een afzonderlijke geautomatiseerde Chrome-test.
+2. Bij verbroken verbinding kun je lokaal handmatig plannen zonder buddybeheer. **Verbind opnieuw en wis tijdelijke gegevens** wist bewust de gedeelde en lokale gegevens, ook in andere SeatBuddies-panelen. Geen oude opdracht wordt herhaald; een mislukte herverbinding laat lokaal plannen mogelijk.
+3. Open **Diagnostiek zonder privégegevens** en voer zelfcontrole uit. Controleer 0.4.0, scope/capabilities en **NOT_IMPLEMENTED / DISABLED_G0 / MEMORY_ONLY**. Geen bijnamen, film, tabnummers, URL’s of accountdata in het rapport. Wis het rapport.
+4. Controleer smalle popup/paneelbreedte richting 320px, leesbare cream/crimson/goud-contrasten, geen horizontale overflow, Tab/Shift+Tab/Enter en zichtbare focus bij buddybevestiging. Noteer Chrome’s werkelijke minimumbreedte als die afwijkt; automatische UI-tests gebruiken exact 320px. VoiceOver blijft menselijke QA. Schakel eventueel macOS-toetsenbordnavigatie in als Tab geen knoppen bereikt.
 
-- **Manifest ontbreekt:** open in Finder de map met `manifest.json`; een Actions-ZIP bevat nog een tweede ZIP. Een broncheckout zonder `dist/` is nog niet gebouwd.
-- **Dubbele versie/panelen:** verwijder de oude testextensie, laad één bewust gekozen uitgepakte map en controleer Details plus diagnostische versie. Verplaats die map daarna niet.
-- **Paneel sluit na toestemming/reload:** heropen via het werkbalkicoon. Tijdelijke gegevens kunnen terecht verdwenen zijn.
-- **Managed policy of Developer mode ontbreekt:** noteer BLOCKED; geen policy-/profielbestanden aanpassen.
-- **Verwijderen:** `chrome://extensions` → SeatMates → Verwijderen; verwijder daarna desgewenst je eigen uitgepakte testmap.
+## Bijwerken, problemen en verwijderen
 
-Bugmelding: gebruik [qa-evidence-template.md](qa-evidence-template.md), bijvoorbeeld “macOS-versie / Chrome-versie / 0.3.0 / commit / stap 4 / verwacht B ongewijzigd / feitelijk … / PASS of FAIL”. Deel alleen fictieve gegevens. Geen accountnamen, browsergeschiedenis, persoonlijke schermen of ongeschoonde logs. Voor echt G0-onderzoek: eerst de afzonderlijke [handmatige observatiegids](g0-human-observation-guide.md).
+- **Manifest ontbreekt:** kies de binnenste uitgepakte map, geen Actions-ZIP, broncheckout of bovenliggende map. Zelf bouwen: `npm ci`, `npm run check`, `npm run package`; runtime staat in `dist/`.
+- **Popup/paneel verdwijnt na toestemming/reload:** normaal heropenen via het icoon → paneelknop. Tijdelijke gegevens kunnen terecht weg zijn.
+- **Beleidblokkade:** stop die proef; geen managed policies of browserprofielbestanden wijzigen.
+- **Bijwerken:** gebruik een bewust gekozen nieuwe uitgepakte map/build en controleer versie 0.4.0. Oudere SeatMates/0.3.0-artifacts zijn niet de nieuwe build.
+- **Verwijderen:** `chrome://extensions` → SeatBuddies → Verwijderen; verwijder daarna je eigen uitgepakte map.
+
+Meld alleen fictieve, geschoonde feiten met [het QA-formulier](qa-evidence-template.md): OS-/Chrome-versie, 0.4.0, commit/run, stap, verwacht/feitelijk gedrag en PASS/FAIL/NOT_RUN/BLOCKED/INCONCLUSIVE. Geen persoonlijke browserbeelden, echte bijnamen, cookies, tokens of tickets. Voor eventueel later echt G0-onderzoek eerst de [afzonderlijke veilige observatiegids](g0-human-observation-guide.md).

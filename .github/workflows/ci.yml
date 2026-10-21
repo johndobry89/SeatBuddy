@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-15-intel]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -32,7 +32,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success() && runner.os == 'Linux'
         with:
-          name: seatmates-chrome-test
+          name: seatbuddies-chrome-test
           path: |
             build/*-chrome-test.zip
             build/*-chrome-test.zip.sha256

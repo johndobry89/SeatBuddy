@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { panelReplySchema } from '../../src/privacy/protocol';
+import { panelReplySchema, popupReplySchema } from '../../src/privacy/protocol';
 import { fictionalObservation } from '../../src/fixtures/data';
 import type { Sender } from '../../src/background/message-router';
 
@@ -19,6 +19,11 @@ const fixture: Sender = {
   frameId: 0,
   documentId: 'one',
   tab: { id: 7, windowId: 1, incognito: false },
+};
+const popup: Sender = {
+  id: 'worker-test',
+  url: 'chrome-extension://worker-test/popup.html',
+  frameId: 0,
 };
 async function boot() {
   vi.resetModules();
@@ -69,7 +74,7 @@ it('wires async Chrome messages, read-only panel behavior and fail-closed browse
   const { api, send } = await boot();
   api.runtime.onInstalled.addListener.mock.calls[0]![0]();
   expect(api.sidePanel.setPanelBehavior).toHaveBeenCalledWith({
-    openPanelOnActionClick: true,
+    openPanelOnActionClick: false,
   });
   const reply = panelReplySchema.parse(
     await send({ type: 'DEMO', scenario: 'partial' }),
@@ -154,7 +159,13 @@ it('reduces Chrome metadata and invalidates a context on navigation and consent 
   expect(
     changed.ok && changed.state.contexts.some((value) => value.tabId === 7),
   ).toBe(false);
-  await send({ type: 'BIND_CONTEXT', role: 'B', tabId: 8 });
+  if (!changed.ok) throw new Error(changed.error);
+  await send({
+    type: 'B_COMMAND',
+    generation: changed.state.generation,
+    buddyEpoch: changed.state.buddyEpoch,
+    command: { type: 'BIND_CONTEXT', role: 'B', tabId: 8 },
+  });
   api.extension.isAllowedIncognitoAccess.mockResolvedValue(false);
   const revoked = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
   expect(revoked.ok && revoked.state.manual.tracks.B.context).toBeNull();
@@ -224,4 +235,125 @@ it('a delayed context query cannot repopulate cleared choices after reset', asyn
   expect(await pending).toMatchObject({ ok: false });
   const state = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
   expect(state.ok && state.state.contexts).toEqual([]);
+});
+
+it('rejects an in-flight popup mutation after reset without enumerating tabs', async () => {
+  const { api, send } = await boot();
+  const initial = popupReplySchema.parse(
+    await send({ type: 'BUDDY_READ' }, popup),
+  );
+  if (!initial.ok) throw new Error(initial.error);
+  let finish: ((allowed: boolean) => void) | undefined;
+  api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
+    new Promise<boolean>((resolve) => {
+      finish = resolve;
+    }),
+  );
+  const mutation = {
+    type: 'BUDDY_MUTATE',
+    generation: initial.buddy.generation,
+    revision: initial.buddy.revision,
+    action: { kind: 'ADD', nickname: 'Filmmaatje' },
+    resetB: false,
+  };
+  const pending = send(mutation, popup);
+  await send({ type: 'RESET' });
+  finish?.(false);
+  expect(await pending).toMatchObject({ ok: false });
+  expect(await send(mutation, popup)).toMatchObject({
+    ok: false,
+    code: 'STALE_BUDDY',
+  });
+  const current = popupReplySchema.parse(
+    await send({ type: 'BUDDY_READ' }, popup),
+  );
+  expect(current.ok && current.buddy.roster).toEqual([]);
+  expect(api.tabs.query).not.toHaveBeenCalled();
+});
+
+it('a new worker refuses an old popup generation instead of restoring its roster', async () => {
+  const old = await boot();
+  const initial = popupReplySchema.parse(
+    await old.send({ type: 'BUDDY_READ' }, popup),
+  );
+  if (!initial.ok) throw new Error(initial.error);
+  const next = await boot();
+  expect(
+    await next.send(
+      {
+        type: 'BUDDY_MUTATE',
+        generation: initial.buddy.generation,
+        revision: initial.buddy.revision,
+        action: { kind: 'ADD', nickname: 'Filmmaatje' },
+        resetB: false,
+      },
+      popup,
+    ),
+  ).toMatchObject({ ok: false, code: 'STALE_BUDDY' });
+});
+
+it('a selected buddy change cancels pending B acknowledgement but preserves pending A acknowledgement', async () => {
+  const { api, send } = await boot();
+  await send({
+    type: 'PLAN',
+    plan: fictionalObservation('A', Date.now()).showtime,
+  });
+  const buddy = popupReplySchema.parse(
+    await send({ type: 'BUDDY_READ' }, popup),
+  );
+  if (!buddy.ok) throw new Error(buddy.error);
+  await send(
+    {
+      type: 'BUDDY_MUTATE',
+      generation: buddy.buddy.generation,
+      revision: buddy.buddy.revision,
+      action: { kind: 'DEMO' },
+      resetB: false,
+    },
+    popup,
+  );
+  const roster = popupReplySchema.parse(
+    await send({ type: 'BUDDY_READ' }, popup),
+  );
+  if (!roster.ok) throw new Error(roster.error);
+  const state = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  if (!state.ok) throw new Error(state.error);
+  let finishA: ((allowed: boolean) => void) | undefined;
+  let finishB: ((allowed: boolean) => void) | undefined;
+  api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
+    new Promise<boolean>((done) => {
+      finishB = done;
+    }),
+  );
+  const B = send({
+    type: 'B_COMMAND',
+    generation: state.state.generation,
+    buddyEpoch: state.state.buddyEpoch,
+    command: { type: 'ACKNOWLEDGE', role: 'B', step: 'ACCOUNT' },
+  });
+  api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
+    new Promise<boolean>((done) => {
+      finishA = done;
+    }),
+  );
+  const A = send({ type: 'ACKNOWLEDGE', role: 'A', step: 'ACCOUNT' });
+  await send(
+    {
+      type: 'BUDDY_MUTATE',
+      generation: roster.buddy.generation,
+      revision: roster.buddy.revision,
+      action: { kind: 'SELECT', id: roster.buddy.roster[0]!.id },
+      resetB: true,
+    },
+    popup,
+  );
+  finishB?.(false);
+  finishA?.(false);
+  expect(await B).toMatchObject({ ok: false });
+  expect(await A).toMatchObject({ ok: true });
+  const current = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+  expect(current.ok && current.state.manual.tracks.B.completed).toEqual([]);
+  expect(current.ok && current.state.manual.tracks.A.completed).toEqual([
+    'ACCOUNT',
+  ]);
 });

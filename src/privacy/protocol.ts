@@ -6,6 +6,37 @@ import {
 import { z } from 'zod';
 import { observationSchema, roleSchema, scenarioSchema } from '../core/types';
 import { roleEvidenceSchema } from '../core/evidence';
+import {
+  buddyMutationSchema,
+  buddyStateSchema,
+  buddyViewSchema,
+  nicknameSchema,
+} from '../core/buddies';
+
+export const replyErrorSchema = z.strictObject({
+  ok: z.literal(false),
+  error: z.string(),
+  code: z
+    .enum(['BROWSER_UNAVAILABLE', 'STALE_BUDDY', 'BUDDY_REVIEW'])
+    .optional(),
+});
+export const popupCommandSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('BUDDY_READ') }),
+  buddyMutationSchema,
+]);
+export const popupReplySchema = z.discriminatedUnion('ok', [
+  z.strictObject({ ok: z.literal(true), buddy: buddyViewSchema }),
+  replyErrorSchema,
+]);
+export const fixtureBuddyReplySchema = z.discriminatedUnion('ok', [
+  z.strictObject({
+    ok: z.literal(true),
+    buddy: z
+      .strictObject({ nickname: nicknameSchema, demo: z.boolean() })
+      .nullable(),
+  }),
+  replyErrorSchema,
+]);
 
 // Strict schemas reject extra fields (including claimed tab IDs, credentials and live evidence).
 export const panelCommandSchema = z.discriminatedUnion('type', [
@@ -13,11 +44,21 @@ export const panelCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('GET_CONTEXTS') }),
   z.strictObject({ type: z.literal('RESET') }),
   z.strictObject({ type: z.literal('MANUAL_MODE') }),
+  z.strictObject({
+    type: z.literal('B_COMMAND'),
+    generation: z.uuid(),
+    buddyEpoch: z.number().int().nonnegative(),
+    command: manualCommandSchema.refine(
+      (command) => 'role' in command && command.role === 'B',
+    ),
+  }),
+  buddyMutationSchema,
   ...manualCommandSchema.options,
   z.strictObject({ type: z.literal('DEMO_STEP'), role: roleSchema }),
   z.strictObject({ type: z.literal('DEMO'), scenario: scenarioSchema }),
 ]);
 export const fixtureCommandSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('GET_BUDDY') }),
   z.strictObject({ type: z.literal('BIND'), role: roleSchema }),
   z.strictObject({ type: z.literal('UNBIND') }),
   z.strictObject({
@@ -49,6 +90,9 @@ const sessionSchema = z.strictObject({
   evidence: z.enum(['UNKNOWN', 'SIMULATION']),
 });
 export const snapshotSchema = z.strictObject({
+  buddyEpoch: z.number().int().nonnegative(),
+  resetVersion: z.number().int().nonnegative(),
+  buddy: buddyStateSchema,
   generation: z.uuid(),
   evidence: z.strictObject({ A: roleEvidenceSchema, B: roleEvidenceSchema }),
   manual: manualStateSchema,
@@ -62,11 +106,7 @@ export const snapshotSchema = z.strictObject({
 });
 export const panelReplySchema = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true), state: snapshotSchema }),
-  z.strictObject({
-    ok: z.literal(false),
-    error: z.string(),
-    code: z.literal('BROWSER_UNAVAILABLE').optional(),
-  }),
+  replyErrorSchema,
 ]);
 export const fixtureReplySchema = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true) }),

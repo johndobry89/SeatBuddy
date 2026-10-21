@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "SeatMates — handmatige A/B-assistent (test)",
-  "version": "0.3.0",
+  "name": "SeatBuddies — samen naar de film (test)",
+  "version": "0.4.0",
   "description": "Plan één filmavond met twee onafhankelijke handmatige stappenlijsten. Geen live boekingsintegratie.",
   "minimum_chrome_version": "116",
   "permissions": ["sidePanel"],
@@ -11,7 +11,14 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Open SeatMates"
+    "default_title": "Open SeatBuddies",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
   "side_panel": {
     "default_path": "sidepanel.html"
@@ -19,5 +26,11 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'"
   },
-  "version_name": "0.3.0-test (Sprint 03)"
+  "version_name": "0.4.0-test (Sprint 04)",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
 }

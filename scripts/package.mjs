@@ -33,19 +33,28 @@ export async function packageRuntime(root) {
         dir === dist &&
         ![
           'assets',
+          'icons',
           'manifest.json',
           'background.js',
           'sidepanel.html',
           'sidepanel.js',
           'fixture.html',
           'fixture.js',
+          'popup.html',
+          'popup.js',
         ].includes(name)
       )
         throw new Error(`Unexpected package root: ${name}`);
       if (item.isDirectory()) {
-        if (name !== 'assets') throw new Error(`Unexpected directory: ${name}`);
+        if (!['assets', 'icons'].includes(name))
+          throw new Error(`Unexpected directory: ${name}`);
         await collect(path);
       } else {
+        if (
+          name.startsWith('icons/') &&
+          !/^icons\/(icon-(16|32|48|128)\.png|seatbuddies\.svg)$/.test(name)
+        )
+          throw new Error('Unexpected icon file');
         if (!/\.(js|css|html|json|png|svg)$/.test(name) || name.includes('..'))
           throw new Error(`Unexpected runtime file: ${name}`);
         files[name] = await readFile(path);
@@ -56,9 +65,26 @@ export async function packageRuntime(root) {
   for (const name of [
     manifest.background.service_worker,
     manifest.side_panel.default_path,
+    manifest.action?.default_popup,
     'fixture.html',
   ])
     if (!files[name]) throw new Error(`Missing runtime entry ${name}`);
+  for (const size of [16, 32, 48, 128]) {
+    const path = `icons/icon-${size}.png`;
+    const png = files[path];
+    if (
+      manifest.icons?.[size] !== path ||
+      manifest.action?.default_icon?.[size] !== path ||
+      !png ||
+      png.length < 24 ||
+      !png
+        .subarray(0, 8)
+        .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) ||
+      png.readUInt32BE(16) !== size ||
+      png.readUInt32BE(20) !== size
+    )
+      throw new Error(`Missing or invalid ${size}px icon`);
+  }
   const bytes = zipSync(files, {
     level: 9,
     mtime: new Date(2026, 0, 1, 0, 0, 0),
@@ -68,7 +94,7 @@ export async function packageRuntime(root) {
     if (!Buffer.from(unpacked[name]).equals(files[name]))
       throw new Error('Archive verification failed');
   await mkdir(resolve(root, 'build'), { recursive: true });
-  const name = `seatmates-${pkg.version}-chrome-test.zip`;
+  const name = `seatbuddies-${pkg.version}-chrome-test.zip`;
   await writeFile(resolve(root, 'build', name), bytes);
   await writeFile(
     resolve(root, 'build', `${name}.sha256`),

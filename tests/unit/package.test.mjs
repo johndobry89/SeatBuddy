@@ -19,22 +19,36 @@ async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'seatmates-package-'));
   roots.push(root);
   await mkdir(join(root, 'dist/assets'), { recursive: true });
+  await mkdir(join(root, 'dist/icons'));
+  const icons = Object.fromEntries(
+    [16, 32, 48, 128].map((size) => [size, `icons/icon-${size}.png`]),
+  );
+  for (const size of [16, 32, 48, 128])
+    await writeFile(
+      join(root, `dist/icons/icon-${size}.png`),
+      await readFile(
+        new URL(`../../public/icons/icon-${size}.png`, import.meta.url),
+      ),
+    );
   const manifest = {
     manifest_version: 3,
-    version: '0.3.0',
+    version: '0.4.0',
     permissions: ['sidePanel'],
+    icons,
+    action: { default_popup: 'popup.html', default_icon: icons },
     background: { service_worker: 'background.js' },
     side_panel: { default_path: 'sidepanel.html' },
   };
   await writeFile(
     join(root, 'package.json'),
-    JSON.stringify({ version: '0.3.0' }),
+    JSON.stringify({ version: '0.4.0' }),
   );
   await writeFile(join(root, 'dist/manifest.json'), JSON.stringify(manifest));
   for (const file of [
     'background.js',
     'sidepanel.html',
     'fixture.html',
+    'popup.html',
     'assets/panel.js',
   ])
     await writeFile(join(root, 'dist', file), `fictional runtime ${file}`);
@@ -55,7 +69,7 @@ afterEach(async () => {
 it('produces only deterministic runtime bytes with a root manifest and a correct platform-neutral checksum', async () => {
   const { root } = await fixture();
   const result = await packageRuntime(root);
-  expect(result.name).toBe('seatmates-0.3.0-chrome-test.zip');
+  expect(result.name).toBe('seatbuddies-0.4.0-chrome-test.zip');
   expect(await readdir(join(root, 'build'))).toEqual([
     result.name,
     `${result.name}.sha256`,
@@ -70,7 +84,12 @@ it('produces only deterministic runtime bytes with a root manifest and a correct
     'assets/panel.js',
     'background.js',
     'fixture.html',
+    'icons/icon-128.png',
+    'icons/icon-16.png',
+    'icons/icon-32.png',
+    'icons/icon-48.png',
     'manifest.json',
+    'popup.html',
     'sidepanel.html',
   ]);
   for (const [file, content] of Object.entries(files))
@@ -121,4 +140,13 @@ it('rejects symlink traversal outside the runtime', async () => {
   const { root } = await fixture();
   await symlink(join(root, '.env'), join(root, 'dist/assets/link.js'));
   await expect(packageRuntime(root)).rejects.toThrow(/Symlink/);
+});
+
+it('rejects a missing or incorrectly sized manifest icon', async () => {
+  const { root } = await fixture();
+  await writeFile(
+    join(root, 'dist/icons/icon-16.png'),
+    await readFile(join(root, 'dist/icons/icon-32.png')),
+  );
+  await expect(packageRuntime(root)).rejects.toThrow(/16px icon/);
 });

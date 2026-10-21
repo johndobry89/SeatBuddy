@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import CompanionWidget from './CompanionWidget.vue';
+const fixtureStep = ref('Fictieve voorstelling');
+const showWidget = ref(true);
 import { fictionalObservation } from './data';
 import { readFictionalFixture } from '../content/fixture-observer';
 import { fixtureReplySchema, type FixtureCommand } from '../privacy/protocol';
@@ -59,7 +62,19 @@ async function act(kind: 'BIND' | 'OBSERVE') {
 }
 </script>
 <template>
-  <main>
+  <main class="fictional-page">
+    <div class="fixture-controls">
+      <label for="fixture-step">Fictieve schermstap</label
+      ><select id="fixture-step" v-model="fixtureStep">
+        <option>Fictieve voorstelling</option>
+        <option>Fictieve stoelen</option>
+        <option>Fictief overzicht</option></select
+      ><label class="check"
+        ><input v-model="showWidget" type="checkbox" />Toon fictieve
+        widget</label
+      >
+    </div>
+    <CompanionWidget v-if="showWidget" :step="fixtureStep" />
     <p class="eyebrow">SIMULATION · uitsluitend fictieve gegevens</p>
     <h1>Lokale testpagina</h1>
     <p>

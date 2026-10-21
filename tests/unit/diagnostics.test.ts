@@ -9,7 +9,7 @@ it('reduces diagnostics to an explicit allowlist without enumerating tabs or exp
     runtime: {
       getManifest: () => ({
         manifest_version: 3,
-        version: '0.3.0',
+        version: '0.4.0',
         permissions: ['sidePanel'],
         author: 'fictional-private-name',
       }),
@@ -32,9 +32,16 @@ it('reduces diagnostics to an explicit allowlist without enumerating tabs or exp
     incognito: false,
   };
   c.demo('partial', now);
+  c.buddyCommand({
+    type: 'BUDDY_MUTATE',
+    generation: c.generation,
+    revision: 0,
+    resetB: false,
+    action: { kind: 'ADD', nickname: 'Fictieve schermnaam' },
+  });
   const report = selfCheck(c.snapshot(now, true), false);
   expect(report).toMatchObject({
-    extensionVersion: '0.3.0',
+    extensionVersion: '0.4.0',
     permissionScope: 'SIDE_PANEL_ONLY',
     transport: 'EXTENSION',
     realVueConfirmation: 'NOT_IMPLEMENTED',
@@ -56,6 +63,7 @@ it('reduces diagnostics to an explicit allowlist without enumerating tabs or exp
     '880123',
     c.generation,
     'fictional-private-name',
+    'Fictieve schermnaam',
   ])
     expect(JSON.stringify(report)).not.toContain(secret);
   expect(

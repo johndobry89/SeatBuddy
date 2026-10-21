@@ -10,6 +10,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         sidepanel: resolve(import.meta.dirname, 'sidepanel.html'),
+        popup: resolve(import.meta.dirname, 'popup.html'),
         fixture: resolve(import.meta.dirname, 'fixture.html'),
         background: resolve(import.meta.dirname, 'src/background/index.ts'),
       },

@@ -1,21 +1,11 @@
 import { ref } from 'vue';
+import { sendRuntime } from '../chrome/messaging';
 import { Coordinator, type Snapshot } from '../background/coordinator';
 import { panelReplySchema, type PanelCommand } from '../privacy/protocol';
 import { manualCommandSchema } from '../core/manual-assistant';
 
 async function send(message: PanelCommand) {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const raw: unknown = await Promise.race([
-      chrome.runtime.sendMessage(message),
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error('Browser timeout')), 4000);
-      }),
-    ]);
-    return panelReplySchema.parse(raw);
-  } finally {
-    clearTimeout(timeout);
-  }
+  return panelReplySchema.parse(await sendRuntime(message));
 }
 export function useCompanion() {
   const snapshot = ref<Snapshot | null>(null);
@@ -83,9 +73,26 @@ export function useCompanion() {
         error.value = '';
         return true;
       }
-      const reply = await send(message);
+      const manual = manualCommandSchema.safeParse(message);
+      const request: PanelCommand =
+        manual.success &&
+        'role' in manual.data &&
+        manual.data.role === 'B' &&
+        snapshot.value
+          ? {
+              type: 'B_COMMAND',
+              generation: snapshot.value.generation,
+              buddyEpoch: snapshot.value.buddyEpoch,
+              command: manual.data,
+            }
+          : message;
+      const reply = await send(request);
       if (!reply.ok) {
         if (reply.code === 'BROWSER_UNAVAILABLE') throw new Error(reply.error);
+        if (reply.code === 'STALE_BUDDY') {
+          const current = await send({ type: 'GET_STATE' });
+          if (current.ok) snapshot.value = current.state;
+        }
         error.value = reply.error;
         return false;
       }

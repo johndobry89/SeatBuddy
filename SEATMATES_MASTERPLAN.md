@@ -1,13 +1,13 @@
-# SeatMates — Masterplan v0.2.0 · Obsidian Forge Edition
+# SeatBuddies — Masterplan v0.2.0 · Obsidian Forge Edition
 
 > **One movie. Multiple passes. Two independent bookings. No false promises.**
 
 | Documentcontrole | Waarde |
 | --- | --- |
 | Document-ID | `SEATMATES.MASTERPLAN.v0.2` |
-| Productversie | **0.3.0-test — handmatige assistent; G0 live open** |
+| Productversie | **0.4.0-test — buddy-popup + handmatige assistent; G0 live open** |
 | Datum | Ontwerp 20 oktober 2026; implementatiestatus bijgewerkt 21 oktober 2026 |
-| Project | SeatMates (werknaam; naam- en merkrechten niet onderzocht) |
+| Project | SeatBuddies (voorheen SeatMates; naam-/merkrechten niet onderzocht) |
 | Productdoel | Twee geldige Vue Movie Pass-houders begeleiden naar dezelfde voorstelling en waar mogelijk aangrenzende stoelen |
 | Status van echte Vue-integratie | **NOT_RUN / niet bewezen** |
 | Bewijsstatus van dit document | **DESIGN_REVIEW** voor het ontwerp; uitgevoerd code-/browserbewijs uitsluitend in feasibility |
@@ -19,6 +19,8 @@
 | Ontwerpstandaard | Obsidian Forge 2.0 (`DEVVI.CORE.v2.0`) |
 | Agentinstructies | Root [`AGENTS.md`](AGENTS.md): **AGENTS2.0 / KDB Development Standard, SeatMates-profiel** |
 | Feitelijke onderzoeksstatus | [`docs/feasibility.md`](docs/feasibility.md) |
+
+**Naam en optionele labels:** het huidige product heet SeatBuddies; SeatMates in historische ontwerpvoorbeelden/code is de eerdere werknaam. Korte, optionele buddybijnamen zijn uitsluitend tijdelijke eigen weergavelabels; geen accountidentiteit, opslag of pasvalidatie. De popup heeft daarvoor een smal protocol zonder A/B-/incognitodata; een buddywissel wist B na bewuste bevestiging en laat A zelfstandig. Zie ADR-005.
 
 **Implementatiestand 21 oktober 2026:** de handmatige assistent en fictieve tests zijn gebouwd; bronlabels onderscheiden SIMULATION, MANUAL_SELF_REPORT, BROWSER_CONTEXT_ONLY en UNKNOWN. Echte Vue-bevestiging is NOT_IMPLEMENTED. De historische ontwerpvoorbeelden hieronder zijn geen actuele live API’s of bewijs. Alle uitgevoerde platformresultaten staan in feasibility.
 
@@ -95,6 +97,7 @@ SeatMates helpt twee legitieme, afzonderlijk ingelogde gebruikers dezelfde voors
 - `ADR-002`: regulier + incognito in `spanning` **onderzoeken**, niet vooraf garanderen — [`docs/decisions/ADR-002-dual-session.md`](docs/decisions/ADR-002-dual-session.md).
 - `ADR-003`: handmatige assistent en uitsluitend Chrome-contextmetadata; geen account-/sitebewijs — [`docs/decisions/ADR-003-manual-first-context-pairing.md`](docs/decisions/ADR-003-manual-first-context-pairing.md).
 - `ADR-004`: expliciet herverbinden, vluchtige workergeneratie en gereduceerde diagnostiek — [`docs/decisions/ADR-004-explicit-reconnection.md`](docs/decisions/ADR-004-explicit-reconnection.md).
+- `ADR-005`: tijdelijke buddybijnamen, begrensde popup en bewuste B-reset — [`docs/decisions/ADR-005-buddy-manager-popup.md`](docs/decisions/ADR-005-buddy-manager-popup.md).
 - Een besluit mag wijzigen als de feiten veranderen; leg motivatie, impact, bewijs en vervangende ADR vast.
 
 ---

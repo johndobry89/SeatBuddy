@@ -1,7 +1,7 @@
 import { invalidateManualTab } from '../core/manual-assistant';
 import { Coordinator } from './coordinator';
 import { routeMessage, isPanelSender } from './message-router';
-import { panelCommandSchema } from '../privacy/protocol';
+import { panelCommandSchema, boundedPayload } from '../privacy/protocol';
 import type { BrowserContext } from '../core/manual-assistant';
 import { invalidateTab } from './session-registry';
 
@@ -19,19 +19,29 @@ function invalidateContext(
 }
 chrome.runtime.onMessage.addListener(
   (message: unknown, sender, sendResponse) => {
-    const parsed = panelCommandSchema.safeParse(message);
+    const parsed = boundedPayload(message)
+      ? panelCommandSchema.safeParse(message)
+      : null;
     const privileged = isPanelSender(sender, chrome.runtime.id);
     // Establish a synchronous barrier before any asynchronous Chrome call.
     // Only a validated panel RESET can cancel earlier in-flight commands.
-    if (privileged && parsed.success && parsed.data.type === 'RESET') {
+    if (privileged && parsed?.success && parsed.data.type === 'RESET') {
       resetEpoch++;
       coordinator.reset();
     }
     const receivedEpoch = resetEpoch;
+    const receivedBuddyEpoch = coordinator.buddyEpoch;
+    const protectsB =
+      privileged && parsed?.success && parsed.data.type === 'B_COMMAND';
     const obsolete = () => {
-      if (receivedEpoch === resetEpoch) return false;
+      if (
+        receivedEpoch === resetEpoch &&
+        (!protectsB || receivedBuddyEpoch === coordinator.buddyEpoch)
+      )
+        return false;
       sendResponse({
         ok: false,
+        ...(protectsB ? { code: 'STALE_BUDDY' } : {}),
         error:
           'Opdracht vervallen na wissen. Controleer de actuele toestand opnieuw.',
       });
@@ -41,11 +51,25 @@ chrome.runtime.onMessage.addListener(
       .isAllowedIncognitoAccess()
       .then(async (allowed) => {
         if (obsolete()) return;
+        // The authenticated RESET already ran synchronously. Do not erase new
+        // work again if another panel acted while Chrome resolved consent.
+        if (privileged && parsed?.success && parsed.data.type === 'RESET') {
+          sendResponse({
+            ok: true,
+            state: coordinator.snapshot(Date.now(), allowed),
+          });
+          return;
+        }
         let contexts: BrowserContext[] | undefined;
+        const panelCommand = parsed?.success
+          ? parsed.data.type === 'B_COMMAND'
+            ? parsed.data.command
+            : parsed.data
+          : null;
         if (
           privileged &&
-          parsed.success &&
-          ['GET_CONTEXTS', 'BIND_CONTEXT'].includes(parsed.data.type)
+          panelCommand &&
+          ['GET_CONTEXTS', 'BIND_CONTEXT'].includes(panelCommand.type)
         ) {
           const tabs = await chrome.tabs.query({ active: true });
           contexts = tabs
@@ -102,5 +126,5 @@ chrome.tabs.onReplaced.addListener((_addedTabId, removedTabId) => {
   invalidateContext(removedTabId);
 });
 chrome.runtime.onInstalled.addListener(() => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
 });

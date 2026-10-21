@@ -11,6 +11,7 @@ import type { PanelCommand } from '../../privacy/protocol';
 import ShowtimeFields from './ShowtimeFields.vue';
 const props = defineProps<{
   role: Role;
+  nickname: string | null;
   state: Snapshot;
   busy: boolean;
   offline: boolean;
@@ -73,7 +74,10 @@ function saveDetails() {
     <div class="track-heading">
       <span class="role-mark">{{ role }}</span>
       <div>
-        <h3 :id="`account-${role}`">Account {{ role }}</h3>
+        <h3 :id="`account-${role}`">
+          <span>{{ role === 'A' ? 'Ik' : (nickname ?? 'Mijn buddy') }}</span
+          ><small class="source">Account {{ role }}</small>
+        </h3>
         <p>
           {{
             role === 'A'
