@@ -1,3 +1,9 @@
+import {
+  openInputs,
+  enterSeats,
+  reviewViaUI,
+  planViaUI,
+} from '../helpers/browser-workflow';
 import { chromium, expect, test, type Page } from '@playwright/test';
 import { Coordinator } from '../../src/background/coordinator';
 import { routeMessage } from '../../src/background/message-router';
@@ -97,7 +103,7 @@ async function attachMockTransport(
         runtime: {
           getManifest: () => ({
             manifest_version: 3,
-            version: '0.5.0',
+            version: '0.6.0',
             permissions: ['sidePanel', 'storage'],
           }),
           sendMessage: (message: unknown) => {
@@ -212,6 +218,8 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
       await page.getByRole('button', { name: 'Bewaar filmplan' }).click();
     }
     await plan();
+    await enterSeats(page);
+    await reviewViaUI(page);
     await expect(page.getByTestId('manual-evidence-A')).toContainText(
       'MANUAL_SELF_REPORT',
     );
@@ -221,9 +229,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
       })
       .click();
     control.worker = new Coordinator();
-    await expect(
-      page.getByText('Chrome-coördinator opnieuw gestart.', { exact: false }),
-    ).toBeVisible();
+    await expect(page.getByTestId('lifecycle-notice')).toBeVisible();
     await expect(page.locator('#plan-movie')).toHaveValue('');
     await expect(page.getByTestId('manual-evidence-A')).toContainText(
       'UNKNOWN',
@@ -236,7 +242,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).focus();
     await page.keyboard.press('Enter');
     const report = page.getByTestId('diagnostic-report');
-    await expect(report).toContainText('"extensionVersion": "0.5.0"');
+    await expect(report).toContainText('"extensionVersion": "0.6.0"');
     await expect(report).toContainText('NOT_IMPLEMENTED');
     await expect(report).toContainText('SIDE_PANEL_AND_STORAGE');
     await expect(report).not.toContainText('De maan van papier');
@@ -258,9 +264,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     });
     await reconnect.focus();
     await page.keyboard.press('Enter');
-    await expect(
-      page.getByText('Browserverbinding hersteld.', { exact: false }),
-    ).toBeVisible();
+    await expect(page.getByTestId('lifecycle-notice')).toBeVisible();
     await expect(page.locator('#plan-movie')).toHaveValue('');
     await expect(page.getByTestId('manual-status-A')).toHaveText(
       'Nog niet gecontroleerd',
@@ -301,6 +305,17 @@ test('missing runtime keeps a usable local manual planner without claiming Chrom
     await page.getByRole('button', { name: 'Bewaar filmplan' }).click();
     await expect(page.getByTestId('hq-next')).toBeVisible();
     await expect(page.getByTestId('hq-next')).toContainText('Zaal UNKNOWN');
+    await expect(
+      page.getByRole('button', {
+        name: 'Ik heb de gegevens gecontroleerd — naar de eigen stappen',
+      }),
+    ).toBeDisabled();
+    await page.locator('#plan-hall').fill('Zaal 2');
+    await page
+      .getByRole('button', { name: 'Bewaar filmplan', exact: true })
+      .click();
+    await enterSeats(page);
+    await reviewViaUI(page);
     await page
       .getByRole('button', {
         name: 'Ik gebruik mijn eigen account en geldige pas — A',
@@ -309,9 +324,8 @@ test('missing runtime keeps a usable local manual planner without claiming Chrom
     await expect(page.getByTestId('manual-status-A')).toHaveText(
       'Bezig — eigen controles',
     );
-    await expect(page.getByTestId('manual-status-B')).toHaveText(
-      'Nog niet gecontroleerd',
-    );
+    await expect(page.getByTestId('manual-status-B')).toHaveCount(0);
+    await expect(page.getByTestId('inactive-B')).toBeVisible();
     await expect(page.getByTestId('manual-match')).toContainText('UNKNOWN');
     await page.reload();
     await expect(page.locator('#plan-movie')).toHaveValue('');
@@ -340,13 +354,12 @@ test('manual flow: independent reports, keyboard focus, partial recovery and no 
     await page.locator('#plan-hall').fill('Zaal 2');
     await page.getByRole('button', { name: 'Bewaar filmplan' }).focus();
     await page.keyboard.press('Enter');
-    await expect(page.locator('#tracks-title')).toBeFocused();
+    await expect(page.locator('#review-title')).toBeFocused();
+    await page
+      .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
+      .click();
     for (const role of ['A', 'B']) {
-      await page
-        .getByText(`Voorstelling en stoel voor ${role} controleren`, {
-          exact: true,
-        })
-        .click();
+      await openInputs(page, role);
       await page.locator(`#row-${role}`).fill('F');
       await page.locator(`#seat-${role}`).fill(role === 'A' ? '10' : '11');
       const before = reads();
@@ -356,6 +369,7 @@ test('manual flow: independent reports, keyboard focus, partial recovery and no 
         .getByRole('button', { name: `Bewaar eigen invoer ${role}` })
         .click();
     }
+    await reviewViaUI(page);
     const labels = [
       'Ik gebruik mijn eigen account en geldige pas',
       'Ik heb film, bioscoop, datum, tijd en zaal op Vue vergeleken',
@@ -373,9 +387,12 @@ test('manual flow: independent reports, keyboard focus, partial recovery and no 
     await expect(page.getByTestId('manual-status-B')).toHaveText(
       'Nog niet gecontroleerd',
     );
-    await expect(page.getByRole('status')).toContainText(
-      'Partiële eigen melding',
-    );
+    await expect(
+      page.getByRole('heading', {
+        name: 'Partiële eigen melding — controleer elke uitkomst',
+        exact: true,
+      }),
+    ).toBeVisible();
     await page
       .getByRole('button', { name: `${labels[0]} — B`, exact: true })
       .click();
@@ -539,6 +556,10 @@ test('popup buddy CRUD, keyboard confirmation and shared panel selection preserv
       fullPage: true,
     });
     await panel.goto('http://127.0.0.1:4173/sidepanel.html');
+    await expect(panel.getByTestId('inactive-B')).toBeVisible();
+    await panel
+      .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
+      .click();
     await expect(panel.getByTestId('panel-buddy')).toContainText(
       'Ik + Avondbuddy',
     );
@@ -550,6 +571,8 @@ test('popup buddy CRUD, keyboard confirmation and shared panel selection preserv
     await panel
       .getByRole('button', { name: 'Bewaar filmplan', exact: true })
       .click();
+    await enterSeats(panel, ['A', 'B']);
+    await reviewViaUI(panel);
     for (const role of ['A', 'B'])
       await panel
         .getByRole('button', {
@@ -558,11 +581,7 @@ test('popup buddy CRUD, keyboard confirmation and shared panel selection preserv
         })
         .click();
     for (const role of ['A', 'B']) {
-      await panel
-        .getByText(`Voorstelling en stoel voor ${role} controleren`, {
-          exact: true,
-        })
-        .click();
+      await openInputs(panel, role);
       await panel.locator(`#row-${role}`).fill(role === 'A' ? 'K' : 'X');
     }
     await popup.getByLabel('Bijnaam toevoegen').fill('Nieuw maatje');
@@ -590,9 +609,7 @@ test('popup buddy CRUD, keyboard confirmation and shared panel selection preserv
     expect(worker.manual.tracks.A.completed).toEqual(['ACCOUNT']);
     expect(worker.manual.tracks.B.completed).toEqual([]);
     await expect(panel.locator('#row-A')).toHaveValue('K');
-    await panel
-      .getByText('Voorstelling en stoel voor B controleren', { exact: true })
-      .click();
+    await openInputs(panel, 'B');
     await expect(panel.locator('#row-B')).toHaveValue('');
     await popup
       .getByRole('button', { name: 'Verwijder Nieuw maatje', exact: true })
@@ -618,9 +635,7 @@ test('popup buddy CRUD, keyboard confirmation and shared panel selection preserv
     ).toBeVisible();
     await popup.getByLabel('Bijnaam toevoegen').fill('Onopgeslagen fictief');
     control.worker = new Coordinator();
-    await expect(
-      popup.getByText('Opnieuw gestart:', { exact: false }),
-    ).toBeVisible();
+    await expect(popup.getByTestId('popup-notice')).toBeVisible();
     await expect(popup.getByLabel('Bijnaam toevoegen')).toHaveValue('');
     await expect(panel.locator('#plan-movie')).toHaveValue('');
     const width = await popup.evaluate(() => ({
@@ -775,8 +790,13 @@ test('Movie Night HQ: explicit remembered buddies, worker reset and draft-only r
       .click();
     await expect(panel.getByTestId('hq-next')).toHaveAttribute(
       'data-step',
-      'ACCOUNT',
+      'PREFLIGHT',
     );
+    await panel
+      .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
+      .click();
+    await enterSeats(panel, ['A', 'B']);
+    await reviewViaUI(panel);
     await panel
       .getByRole('button', {
         name: 'Ik gebruik mijn eigen account en geldige pas — A',
@@ -826,7 +846,9 @@ test('Movie Night HQ: explicit remembered buddies, worker reset and draft-only r
       popup.getByRole('button', { name: 'Kies Avondbuddy', exact: true }),
     ).toBeVisible();
     await expect(panel.getByTestId('hq-A')).toContainText('0/5');
-    await expect(panel.getByTestId('hq-B')).toContainText('0/5');
+    await expect(panel.getByTestId('hq-B')).toHaveCount(0);
+    expect(control.worker.manual.planningMode).toBe('SOLO');
+    expect(control.worker.manual.review).toBeNull();
     await panel
       .getByRole('button', { name: 'Herstel concept', exact: true })
       .focus();
@@ -848,14 +870,14 @@ test('Movie Night HQ: explicit remembered buddies, worker reset and draft-only r
       .click();
     await expect(panel.getByTestId('hq-next')).toHaveAttribute(
       'data-step',
-      'ACCOUNT',
+      'PREFLIGHT',
     );
+    expect(control.worker.manual.planningMode).toBe('SOLO');
+    await panel
+      .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
+      .click();
     for (const role of ['A', 'B']) {
-      await panel
-        .getByText(`Voorstelling en stoel voor ${role} controleren`, {
-          exact: true,
-        })
-        .click();
+      await openInputs(panel, role);
       await panel.locator(`#row-${role}`).fill('F');
       await panel.locator(`#seat-${role}`).fill(role === 'A' ? '10' : '11');
       await panel
@@ -947,9 +969,290 @@ test('unavailable retention is visibly unknown and disabled while temporary budd
       .click();
     await expect(panel.getByTestId('hq-next')).toHaveAttribute(
       'data-step',
-      'ACCOUNT',
+      'PREFLIGHT',
     );
     expect(port.local.values).toEqual({});
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Projector Ready: deliberate solo/together, honest preflight, local B reset confirmation and stable keyboard announcements', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 320, height: 900 },
+      reducedMotion: 'reduce',
+    });
+    const worker = new Coordinator();
+    const reads = await attachMockTransport(page, worker);
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await expect(
+      page.getByRole('button', { name: 'Ik ga alleen', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('inactive-B')).toBeVisible();
+    await planViaUI(page);
+    await expect(page.getByTestId('manual-status-B')).toHaveCount(0);
+    await enterSeats(page);
+    await expect(page.getByTestId('review-A')).toContainText('F10');
+    await expect(page.getByTestId('review-B')).toHaveCount(0);
+    await reviewViaUI(page);
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('hq-A')).toContainText('1/5');
+    await page
+      .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
+      .focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#mode-title')).toBeFocused();
+    await expect(page.getByTestId('hq-A')).toContainText('1/5');
+    await enterSeats(page, ['B']);
+    await reviewViaUI(page);
+    await expect(page.getByTestId('hq-seats')).toContainText(
+      'CONSECUTIVE_UNVERIFIED',
+    );
+    await page
+      .locator('.preflight')
+      .screenshot({ path: 'test-results/seatbuddies-preflight.png' });
+    await openInputs(page, 'B');
+    await page.locator('#row-B').fill('G');
+    await expect(
+      page.getByRole('button', {
+        name: 'Ik heb de gegevens gecontroleerd — naar de eigen stappen',
+      }),
+    ).toBeDisabled();
+    await page
+      .getByRole('button', { name: 'Bewaar eigen invoer B', exact: true })
+      .click();
+    expect(worker.manual.review).toBeNull();
+    await expect(page.getByTestId('hq-A')).toContainText('1/5');
+    await reviewViaUI(page);
+    await page
+      .getByRole('button', { name: 'Ik ga alleen', exact: true })
+      .focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#solo-confirm-title')).toBeFocused();
+    await page
+      .getByRole('button', { name: 'Behoud buddytraject', exact: true })
+      .click();
+    expect(worker.manual.planningMode).toBe('TOGETHER');
+    await page
+      .getByRole('button', { name: 'Ik ga alleen', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Wis lokaal B en plan solo', exact: true })
+      .focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#mode-title')).toBeFocused();
+    await expect(page.getByTestId('inactive-B')).toBeVisible();
+    await expect(page.getByTestId('hq-A')).toContainText('1/5');
+    expect(worker.manual.tracks.B.seat.row).toBe('');
+    await page.evaluate(() => {
+      Reflect.set(window, 'announcements', 0);
+      new MutationObserver(() =>
+        Reflect.set(
+          window,
+          'announcements',
+          Number(Reflect.get(window, 'announcements')) + 1,
+        ),
+      ).observe(document.querySelector('[data-testid="announcer"]')!, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    });
+    const before = reads();
+    await expect.poll(() => reads()).toBeGreaterThan(before + 1);
+    expect(
+      await page.evaluate(() => Reflect.get(window, 'announcements')),
+    ).toBe(0);
+    expect(
+      await page.evaluate(
+        () => matchMedia('(prefers-reduced-motion: reduce)').matches,
+      ),
+    ).toBe(true);
+    const width = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(width.scroll).toBeLessThanOrEqual(width.client);
+    const ratios = await page.evaluate(() => {
+      const luminance = (rgb: string) => {
+        const values = rgb
+          .match(/\d+/g)!
+          .slice(0, 3)
+          .map(Number)
+          .map((value) => {
+            const c = value / 255;
+            return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+          });
+        return values[0]! * 0.2126 + values[1]! * 0.7152 + values[2]! * 0.0722;
+      };
+      return [
+        'button:not(.secondary):not(.text-button)',
+        '.planning-mode button',
+      ].map((selector) => {
+        const style = getComputedStyle(document.querySelector(selector)!);
+        const text = luminance(style.color),
+          background = luminance(style.backgroundColor);
+        return (
+          (Math.max(text, background) + 0.05) /
+          (Math.min(text, background) + 0.05)
+        );
+      });
+    });
+    for (const ratio of ratios) expect(ratio).toBeGreaterThanOrEqual(4.5);
+    await expect(
+      page.getByRole('button', { name: 'Ook met buddy plannen', exact: true }),
+    ).toHaveCSS('min-height', '44px');
+
+    await page.screenshot({
+      path: 'test-results/seatbuddies-projector-review.png',
+      fullPage: true,
+    });
+  } finally {
+    await browser.close();
+  }
+});
+
+test('diagnostic copy previews exact allowlisted text, waits for clipboard success and offers manual fallback on denial', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 320, height: 900 },
+    });
+    await attachMockTransport(page, new Coordinator());
+    const copied: string[] = [];
+    let finish: (() => void) | undefined;
+    let denied = false;
+    await page.exposeFunction('writeDiagnostic', async (text: string) => {
+      if (denied)
+        throw new Error('Fictional denied clipboard with private details');
+      copied.push(text);
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    });
+    await page.addInitScript(() =>
+      Object.defineProperty(navigator, 'clipboard', {
+        value: {
+          writeText: (text: string) =>
+            (
+              Reflect.get(window, 'writeDiagnostic') as (
+                text: string,
+              ) => Promise<void>
+            )(text),
+        },
+      }),
+    );
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await planViaUI(page, true);
+    await enterSeats(page, ['A', 'B']);
+    await page
+      .getByText('Diagnostiek zonder privégegevens', { exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Voer zelfcontrole uit', exact: true })
+      .focus();
+    await page.keyboard.press('Enter');
+    const report = page.getByTestId('diagnostic-report');
+    await expect(report).toBeFocused();
+    const preview = await report.innerText();
+    expect(JSON.parse(preview)).toMatchObject({
+      build: { version: '0.6.0' },
+      productionAdapter: 'DISABLED_G0',
+    });
+    for (const secret of [
+      'De maan van papier',
+      'Fictief Filmhuis',
+      '2030-04-12',
+      '19:30',
+      'Zaal 2',
+      'F10',
+      'F11',
+      'fictional-extension',
+      'fictional-doc',
+    ])
+      expect(preview).not.toContain(secret);
+    const copy = page.getByRole('button', {
+      name: 'Kopieer technische diagnose',
+      exact: true,
+    });
+    await copy.focus();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => copied.length).toBe(1);
+    await expect(copy).toBeDisabled();
+    await expect(
+      page.getByText('Technische diagnose gekopieerd.', { exact: false }),
+    ).toHaveCount(0);
+    expect(copied[0]).toBe(preview);
+    finish?.();
+    await expect(
+      page.getByText('Technische diagnose gekopieerd.', { exact: false }),
+    ).toBeVisible();
+    denied = true;
+    await copy.click();
+    await expect(page.getByRole('alert')).toContainText(
+      'Kopiëren niet toegestaan',
+    );
+    await expect(report).toBeFocused();
+    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(
+      preview,
+    );
+    await expect(page.getByRole('alert')).not.toContainText('private details');
+    await expect(
+      page.getByRole('link', { name: 'Meld een probleem ↗', exact: true }),
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/johndobry89/SeatBuddy/issues/new',
+    );
+    expect(copied).toHaveLength(1);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('changed fictional schema clears previous fixture evidence and offers UNKNOWN/manual guidance', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage();
+    const worker = new Coordinator();
+    await attachMockTransport(page, worker);
+    await page.goto('http://127.0.0.1:4173/fixture.html');
+    await page
+      .getByRole('button', { name: 'Koppel deze fictieve tab', exact: true })
+      .click();
+    await page
+      .getByRole('button', {
+        name: 'Verstuur fictieve waarneming',
+        exact: true,
+      })
+      .click();
+    expect(worker.sessions.A.observation?.status).toBe('SELECTED');
+    await page
+      .getByLabel('Fictief adapterschema', { exact: true })
+      .selectOption('v2');
+    await page
+      .getByRole('button', {
+        name: 'Verstuur fictieve waarneming',
+        exact: true,
+      })
+      .click();
+    await expect(
+      page.getByText('Status UNKNOWN — fictief schema gewijzigd.', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    expect(worker.sessions.A.observation).toBeNull();
+    expect(worker.sessions.A.binding).toBeNull();
   } finally {
     await browser.close();
   }

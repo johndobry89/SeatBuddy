@@ -58,7 +58,12 @@ chrome.runtime.onMessage.addListener(
     let receivedEpoch = resetEpoch;
     const receivedBuddyEpoch = coordinator.buddyEpoch;
     const protectsB = Boolean(
-      privileged && parsed?.success && parsed.data.type === 'B_COMMAND',
+      privileged &&
+      parsed?.success &&
+      (parsed.data.type === 'B_COMMAND' ||
+        (parsed.data.type === 'WORKFLOW' &&
+          'role' in parsed.data.command &&
+          parsed.data.command.role === 'B')),
     );
     const obsolete = () =>
       receivedEpoch !== resetEpoch ||
@@ -92,7 +97,7 @@ chrome.runtime.onMessage.addListener(
         }
         let contexts: BrowserContext[] | undefined;
         const panelCommand = parsed?.success
-          ? parsed.data.type === 'B_COMMAND'
+          ? parsed.data.type === 'B_COMMAND' || parsed.data.type === 'WORKFLOW'
             ? parsed.data.command
             : parsed.data
           : null;

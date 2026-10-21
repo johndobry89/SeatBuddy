@@ -2,6 +2,7 @@ import { readFile, readdir, mkdir, writeFile, lstat } from 'node:fs/promises';
 import { resolve, relative, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { zipSync, unzipSync } from 'fflate';
+import { auditRuntime } from './audit-runtime.mjs';
 import { pathToFileURL } from 'node:url';
 
 export async function packageRuntime(root) {
@@ -86,6 +87,7 @@ export async function packageRuntime(root) {
     )
       throw new Error(`Missing or invalid ${size}px icon`);
   }
+  auditRuntime(manifest, files);
   const bytes = zipSync(files, {
     level: 9,
     mtime: new Date(2026, 0, 1, 0, 0, 0),

@@ -83,3 +83,24 @@ Gebruik uitsluitend fictieve data, na de bouw. Bewijs workerstop, extensiereload
 | HQ next step / mismatch / stale / logout / partiële meldingen | Eén veilige vervolgstap, behoud vijf onafhankelijke checks, nooit websitebevestiging                                     |
 | Stoelen / keyboard / 320px                                    | CONSECUTIVE_UNVERIFIED zonder echte kaart/hold; semantische labels/focus, geen horizontale overflow                      |
 | Browserherstart/reload                                        | Session-concept weg, alleen opt-in local-lijst blijft; menselijke OS-proef apart                                         |
+
+## Sprint 06 — Projector Ready (alleen fictieve invoer)
+
+| Proef                                                    | Verwachting                                                                                                               |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Leeg plan / nickname selecteren                          | SOLO, B niet actief; nickname activeert niets                                                                             |
+| Samen expliciet kiezen                                   | A/B zelfstandig; nieuwe andere voorstelling begint weer solo                                                              |
+| Eigen invoer, missing hall/seat/mismatch                 | Review weigert onbekend/afwijkend; geen geordende stappen overslaan                                                       |
+| Review + opgeslagen B-edit                               | Review vervalt, A-checks blijven; nieuwe handeling pas na eigen review                                                    |
+| Solo bij B-input/binding/checks of onopgeslagen velden   | Eerst bevestiging; annuleren behoudt B, bevestigen wist alleen lokale B, geen boeking geannuleerd                         |
+| Twee panelen / oude generatie/revisie/epoch / dubbelklik | Eén geldige overgang; stale opdracht geweigerd, alleen view-refresh, geen replay                                          |
+| A zelf gemeld DONE / B FAILED/mismatch/UNKNOWN           | A/B aparte bron/leeftijd, menselijke eerste-reservering/tweede-accounthulp                                                |
+| Beide zelf gemeld                                        | Echte bevestiging op Vue niet geverifieerd; nooit CONFIRMED                                                               |
+| Workerstop + concept-only restore                        | Geen samenmodus/review/A/B-proof; concept vult alleen formulier                                                           |
+| Diagnosepending/succes/geweigerd                         | Exacte allowlistpreview, succes na resolve, bij denied selecteerbare handmatige fallback; geen privévelden/exceptiontekst |
+| GitHub-link                                              | Exact vast issues/new-adres zonder tekstparameters of automatische verzending                                             |
+| Toetsenbord/320px/reduced-motion/live                    | Focus per keuze/review/bevestiging/preview; geen overflow; geen nieuwe live-tekst bij stille polls                        |
+| Gewijzigd fictief schema                                 | Oude fixturewaarneming gewist, UNKNOWN en handmatig verder                                                                |
+| Gegenereerd pakket                                       | MV3 0.6.0, exact sidePanel/storage, CSP/runtime-audit, popup/iconen, ZIP+SHA256                                           |
+
+De Mac-/Windowsgids bevat de menselijke uitvoering na de bouw. Native Linux-CI, renderer-doubles en menselijke VoiceOver/native Mac zijn verschillende bewijsniveaus. Geen echte Vue-test. Lokaal resetten/reviewen annuleert of bevestigt geen reservering.

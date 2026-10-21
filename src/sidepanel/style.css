@@ -505,3 +505,45 @@ details button {
 .fake-cinema {
   border: 1px solid #f4c36b;
 }
+
+/* A stable separate announcer avoids re-reading cards on every status poll. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.planning-mode {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--muted, #c7c1b9);
+  border-radius: 0.6rem;
+}
+.review-persons {
+  padding-left: 1.2rem;
+}
+.review-persons li {
+  margin-block: 0.8rem;
+}
+.rescue {
+  border-left: 3px solid #f4c36b;
+  padding-left: 0.8rem;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+button,
+summary {
+  min-height: 44px;
+}
+.planning-mode [aria-pressed='true'] {
+  border: 2px solid var(--gold);
+}

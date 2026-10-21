@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../privacy/schema';
 
 export const retentionStatusSchema = z.strictObject({
   mode: z.enum(['TEMPORARY', 'REMEMBERED', 'UNAVAILABLE']),

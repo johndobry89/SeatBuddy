@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../privacy/schema';
 import type { ManualState } from './manual-assistant';
 import type { Role, Sessions } from './types';
 

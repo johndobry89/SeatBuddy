@@ -1,5 +1,6 @@
 import {
   emptyManual,
+  invalidateReview,
   applyManual,
   expireManual,
   type ManualCommand,
@@ -68,6 +69,7 @@ export class Coordinator {
     if (error) return { ok: false as const, error };
     if (affectsB) {
       this.buddyEpoch++;
+      invalidateReview(this.manual);
       this.manual.tracks.B = emptyManual().tracks.B;
       this.manual.tracks.B.problem = 'BUDDY_CHANGED';
       this.sessions.B = emptySessions().B;
@@ -89,8 +91,11 @@ export class Coordinator {
     contexts: BrowserContext[],
     allowed: boolean,
   ) {
+    const previousMode = this.manual.planningMode;
     const error = applyManual(this.manual, command, now, contexts, allowed);
     if (!error) {
+      if (previousMode !== this.manual.planningMode || command.type === 'PLAN')
+        this.buddyEpoch++;
       this.mode = 'MANUAL';
       this.sessions = emptySessions();
     }

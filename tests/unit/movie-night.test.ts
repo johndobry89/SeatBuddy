@@ -1,3 +1,4 @@
+import { review, seats } from '../helpers/workflow';
 import { expect, it } from 'vitest';
 import { nextMovieNightStep, checkAge } from '../../src/core/movie-night';
 import {
@@ -17,14 +18,18 @@ function planned() {
     { type: 'PLAN', plan: fictionalObservation('A', now).showtime },
     now,
   );
+  applyManual(
+    state,
+    { type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false },
+    now,
+  );
   return state;
 }
 it('guides missing plan and hall, independent account starts, incomplete seats and mismatch without inventing evidence', () => {
   expect(nextMovieNightStep(emptyManual()).code).toBe('PLAN');
   const state = planned();
   expect(nextMovieNightStep(state)).toMatchObject({
-    code: 'ACCOUNT',
-    role: 'A',
+    code: 'PREFLIGHT',
   });
   state.plan!.hall = null;
   expect(nextMovieNightStep(state).code).toBe('HALL');
@@ -32,9 +37,11 @@ it('guides missing plan and hall, independent account starts, incomplete seats a
   state.tracks.B.reportedShowtime!.time = '21:00';
   expect(nextMovieNightStep(state).code).toBe('MISMATCH');
   state.tracks.B.reportedShowtime!.time = state.plan!.time;
+  seats(state, now);
+  review(state, now);
   applyManual(state, { type: 'ACKNOWLEDGE', role: 'A', step: 'ACCOUNT' }, now);
   applyManual(state, { type: 'ACKNOWLEDGE', role: 'A', step: 'SHOWTIME' }, now);
-  expect(nextMovieNightStep(state)).toMatchObject({ code: 'SEAT', role: 'A' });
+  expect(nextMovieNightStep(state)).toMatchObject({ code: 'SEATS', role: 'A' });
   expect(state.tracks.B.completed).toEqual([]);
 });
 it.each([
@@ -58,6 +65,7 @@ it.each([
 );
 it('partial and both-done remain self-reports, expiry becomes UNKNOWN and consecutive seats never become adjacency proof', () => {
   const state = planned();
+  seats(state, now);
   for (const role of ['A', 'B'] as const) {
     applyManual(
       state,
@@ -69,6 +77,7 @@ it('partial and both-done remain self-reports, expiry becomes UNKNOWN and consec
       },
       now,
     );
+    review(state, now);
     for (const step of manualSteps)
       applyManual(state, { type: 'ACKNOWLEDGE', role, step }, now);
     expect(nextMovieNightStep(state).code).toBe(

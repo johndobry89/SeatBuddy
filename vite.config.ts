@@ -7,6 +7,7 @@ export default defineConfig({
   base: './',
   build: {
     target: 'chrome116',
+    modulePreload: { polyfill: false }, // Chrome 116 supports local modulepreload natively; no fetch shim.
     rollupOptions: {
       input: {
         sidepanel: resolve(import.meta.dirname, 'sidepanel.html'),

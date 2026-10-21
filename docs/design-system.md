@@ -1,4 +1,4 @@
-# SeatBuddies — visuele afspraken 0.5.0-test
+# SeatBuddies — visuele afspraken 0.6.0-test
 
 Twee originele, vereenvoudigde bioscoopstoelen vormen het merk: eigen crimson silhouetten, één warme gouden armleuning en een charcoal ondergrond. Geen Vue-/Netflix-logo, externe merkasset, webfont of glow. De naam en beschrijvende tekst vormen het compacte woordmerk; naam-/merkrechten voor publicatie zijn nog niet beoordeeld.
 
@@ -30,6 +30,16 @@ Ook het [eerder gemaakte fictieve widgetbeeld](images/seatbuddies-widget.png) bl
 
 ## Movie Night HQ
 
-Het Filmavond-overzicht is de eerste hoofdkaart: eigen voorstelling, twee compacte onafhankelijke trajecten, één rustige gouden vervolgstap en twee schematische eigen stoelcodes. Geen officiële plattegrond of beschikbaarheidskleur. CONSECUTIVE_UNVERIFIED blijft expliciet ongeverifieerd; een afgeronde eigen melding blijft NOT SITE VERIFIED. Plan → Twee eigen controles → Samen controleren ordent de bestaande vijf eigen stappen.
+Het Filmavond-overzicht is de eerste hoofdkaart: eigen voorstelling, alleen actieve compacte onafhankelijke trajecten, één rustige gouden vervolgstap en twee schematische eigen stoelcodes. Geen officiële plattegrond of beschikbaarheidskleur. CONSECUTIVE_UNVERIFIED blijft expliciet ongeverifieerd; een afgeronde eigen melding blijft NOT SITE VERIFIED. Plan → Review → Eigen stappen ordent de bestaande vijf eigen stappen.
 
 Privacy staat bij buddybeheer, standaard uit, met volledige uitleg en een door Chrome bevestigde checkbox. Conceptopslag staat afzonderlijk onder een details-element: expliciet bewaren/herstellen/wissen, geen achtergrondautosave. Herstelde invoer heeft een opvallend Concept, opnieuw controleren-label. Bron-/fout-/empty-/onbeschikbaarheidsteksten zijn producttaal; protocolcodes staan alleen waar ze bewijs verduidelijken.
+
+## Projector Ready
+
+Solo en samen zijn afzonderlijke expliciete, toetsenbordbedienbare plankeuzes met tekst én aria-pressed. De nieuwe review hergebruikt de bestaande invoerformulieren, toont eigen bronlabels en laat onbekende zaal/stoelvelden UNKNOWN. Bevestiging voor solo verplaatst focus naar de uitleg en wist uitsluitend B na keuze; het overzicht blijft direct leesbaar. Hersteladvies na gedeeltelijke uitkomst gebruikt rustige openklapbare menselijke instructies. Review leidt naar de eerstvolgende nog open eigen stap; diagnosepreview krijgt focus en blijft selecteerbaar. Een aparte stabiele live-regio volgt betekenisvolle tekst, nooit snapshotidentiteit of doorlopende leeftijd. Fouten gebruiken alert, gewone polling maakt geen nieuwe aankondiging. Alle knoppen/summaries hebben minimaal 44px aanraakhoogte; de bestaande gold focus, niet-kleurgebonden statussen en reduced-motion blijven.
+
+Bovenstaande popup/HQ-beelden zijn bij de Sprint 06-controle daadwerkelijk gemaakt, bekeken en vernieuwd; het widgetbeeld blijft historische referentie. Geen native Mac- of live Vue-screenshotclaim.
+
+Ook de lokale review is werkelijk vastgelegd en bekeken (fictieve invoer, renderer):
+
+![Werkende filmavond-review met bronlabels en A/B-voorkeuren](images/seatbuddies-preflight.png)

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../privacy/schema';
 import { retentionStatusSchema } from './retention-status';
 
 export const nicknameSchema = z

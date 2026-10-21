@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../privacy/schema';
 
 export const roleSchema = z.enum(['A', 'B']);
 export type Role = z.infer<typeof roleSchema>;

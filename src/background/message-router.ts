@@ -77,15 +77,16 @@ export function routeMessage(
     const result = panelCommandSchema.safeParse(raw);
     if (!result.success) return reject();
     if (
-      result.data.type === 'B_COMMAND' &&
+      result.data.type === 'WORKFLOW' &&
       (result.data.generation !== coordinator.generation ||
+        result.data.revision !== coordinator.manual.revision ||
         result.data.buddyEpoch !== coordinator.buddyEpoch)
     )
       return {
         ok: false as const,
-        code: 'STALE_BUDDY' as const,
+        code: 'STALE_WORKFLOW' as const,
         error:
-          'De buddycontext van B is gewijzigd. Controleer B bewust opnieuw; de oude opdracht is vervallen.',
+          'Filmavond gewijzigd of opnieuw gestart. Controleer de actuele gegevens; de opdracht is niet herhaald.',
       };
     if (result.data.type === 'BUDDY_MUTATE') {
       const outcome = coordinator.buddyCommand(result.data);
@@ -96,21 +97,12 @@ export function routeMessage(
       !coordinator.advanceDemo(result.data.role, now)
     )
       return reject();
-    if (
-      result.data.type === 'GET_CONTEXTS' ||
-      result.data.type === 'BIND_CONTEXT'
-    )
-      coordinator.contextChoices = contexts ?? [];
     const manual = manualCommandSchema.safeParse(
-      result.data.type === 'B_COMMAND' ? result.data.command : raw,
+      result.data.type === 'WORKFLOW' ? result.data.command : raw,
     );
+    if (result.data.type === 'B_COMMAND') return reject();
     if (manual.success) {
-      if (
-        'role' in manual.data &&
-        manual.data.role === 'B' &&
-        result.data.type !== 'B_COMMAND'
-      )
-        return reject();
+      if (result.data.type !== 'WORKFLOW') return reject();
       const error = coordinator.manualCommand(
         manual.data,
         now,
@@ -118,7 +110,11 @@ export function routeMessage(
         allowed,
       );
       if (error) return { ok: false as const, error };
+      if (manual.data.type === 'BIND_CONTEXT')
+        coordinator.contextChoices = contexts ?? [];
     }
+    if (result.data.type === 'GET_CONTEXTS')
+      coordinator.contextChoices = contexts ?? [];
     if (result.data.type === 'MANUAL_MODE') {
       coordinator.mode = 'MANUAL';
       coordinator.sessions = emptySessions();
