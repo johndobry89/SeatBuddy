@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import CompanionWidget from './CompanionWidget.vue';
 const fixtureStep = ref('Fictieve voorstelling');
 const showWidget = ref(true);
+const fixtureSchema = ref('v1');
 import { fictionalObservation } from './data';
 import { readFictionalFixture } from '../content/fixture-observer';
 import { fixtureReplySchema, type FixtureCommand } from '../privacy/protocol';
@@ -40,22 +41,25 @@ async function act(kind: 'BIND' | 'OBSERVE') {
       const root = document.createElement('div');
       const node = document.createElement('script');
       node.type = 'application/json';
-      node.dataset.seatmatesFixture = 'v1';
+      node.dataset.seatmatesFixture = fixtureSchema.value;
       node.textContent = JSON.stringify(data);
       root.append(node);
       const observation = readFictionalFixture(root, Date.now());
-      if (!observation) throw new Error('Fictieve gegevens zijn ongeldig.');
+      if (!observation) {
+        await send({ type: 'UNBIND' });
+        feedback.value =
+          'Status UNKNOWN — fictief schema gewijzigd. Handmatig verder: open de assistent en vergelijk eigen gegevens. Oude fictieve waarneming gewist.';
+        return;
+      }
       await send({ type: 'OBSERVE', observation });
     }
     feedback.value =
       kind === 'BIND'
         ? 'Tab gekoppeld. Status UNKNOWN tot je een fictieve waarneming verstuurt.'
         : 'Fictieve waarneming verstuurd. Bekijk A en B apart in het Side Panel.';
-  } catch (error) {
+  } catch {
     feedback.value =
-      error instanceof Error
-        ? error.message
-        : 'Verzoek mislukt. Koppel opnieuw.';
+      'Status UNKNOWN — verzoek geweigerd of verbinding niet beschikbaar. Handmatig verder in de assistent; koppel de fictieve tab zo nodig opnieuw.';
   } finally {
     busy.value = false;
   }
@@ -64,6 +68,11 @@ async function act(kind: 'BIND' | 'OBSERVE') {
 <template>
   <main class="fictional-page">
     <div class="fixture-controls">
+      <label for="fixture-schema">Fictief adapterschema</label
+      ><select id="fixture-schema" v-model="fixtureSchema">
+        <option value="v1">Fictief schema v1</option>
+        <option value="v2">Gewijzigd fictief schema</option>
+      </select>
       <label for="fixture-step">Fictieve schermstap</label
       ><select id="fixture-step" v-model="fixtureStep">
         <option>Fictieve voorstelling</option>
@@ -94,7 +103,10 @@ async function act(kind: 'BIND' | 'OBSERVE') {
         <summary>Probeer SeatBuddies in 90 seconden</summary>
         <ol>
           <li>Open het echte Side Panel met de widgetknop.</li>
-          <li>Bewaar zelf dit fictieve filmplan; vul A F10 en B F11 in.</li>
+          <li>
+            Kies bewust Ook met buddy plannen, bewaar dit fictieve filmplan en
+            vul A F10 en B F11 in; controleer de review.
+          </li>
           <li>
             Doorloop A’s vijf eigen controles; controleer dat B onafhankelijk
             blijft en stoelnummervergelijking geen boekingsbewijs geeft.

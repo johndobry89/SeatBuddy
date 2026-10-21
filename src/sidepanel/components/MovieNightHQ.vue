@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import type { Snapshot } from '../../background/coordinator';
 import { selectedBuddy } from '../../core/buddies';
 import { checkAge, nextMovieNightStep } from '../../core/movie-night';
-import { manualSummary } from '../../core/manual-assistant';
+import { manualSummary, activeRoles } from '../../core/manual-assistant';
 const props = defineProps<{ state: Snapshot }>();
 const next = computed(() => nextMovieNightStep(props.state.manual));
 const buddy = computed(() => selectedBuddy(props.state.buddy));
@@ -11,7 +11,7 @@ const summary = computed(() => manualSummary(props.state.manual));
 </script>
 <template>
   <section class="movie-night-hq" aria-labelledby="hq-title">
-    <p class="eyebrow">Plan → Twee eigen controles → Samen controleren</p>
+    <p class="eyebrow">Plan → Review → Eigen stappen</p>
     <h2 id="hq-title">Filmavond-overzicht</h2>
     <h3>{{ state.manual.plan?.movie ?? 'Jullie volgende filmavond' }}</h3>
     <p>
@@ -26,7 +26,7 @@ const summary = computed(() => manualSummary(props.state.manual));
     </p>
     <div class="journey-grid">
       <article
-        v-for="role in ['A', 'B'] as const"
+        v-for="role in activeRoles(state.manual)"
         :key="role"
         :data-testid="`hq-${role}`"
       >
@@ -37,6 +37,15 @@ const summary = computed(() => manualSummary(props.state.manual));
         </h3>
         <p>
           {{ state.manual.tracks[role].completed.length }}/5 eigen controles
+        </p>
+        <p :data-testid="`hq-status-${role}`">
+          {{
+            state.manual.tracks[role].completed.includes('DONE')
+              ? 'Zelf gemeld afgerond — niet automatisch geverifieerd'
+              : state.manual.tracks[role].problem
+                ? `Probleem gemeld: ${state.manual.tracks[role].problem} — controleer in eigen account`
+                : 'Uitkomst UNKNOWN — nog niet zelf afgerond'
+          }}
         </p>
         <p class="source">
           {{ checkAge(state.manual.tracks[role].reviewedAt, Date.now()) }}
@@ -56,16 +65,47 @@ const summary = computed(() => manualSummary(props.state.manual));
         </p>
       </article>
     </div>
-    <div class="next-action" aria-live="polite" aria-atomic="true">
+    <p v-if="state.manual.planningMode === 'SOLO'" class="source">
+      Solo · buddytraject B niet actief.
+    </p>
+    <aside v-if="summary.partial" class="rescue" aria-labelledby="rescue-title">
+      <h3 id="rescue-title">
+        Partiële eigen melding — controleer elke uitkomst
+      </h3>
+      <details>
+        <summary>Eerste reservering controleren</summary>
+        <p>
+          Open zelf het account van A en bekijk de echte ticketbevestiging voor
+          de bedoelde voorstelling. Bij twijfel eerst op Vue of bij de bioscoop
+          navragen. Deze assistent heeft de uitkomst niet waargenomen.
+        </p>
+      </details>
+      <details>
+        <summary>Tweede account opnieuw nalopen</summary>
+        <p>
+          Bekijk eerst de actuele uitkomst in B’s eigen account voordat je een
+          handeling herhaalt. Controleer voorstelling, stoel en eventuele
+          kosten. Alleen een nieuwe eigen controle mag de lokale checklist
+          opnieuw beginnen.
+        </p>
+      </details>
+      <p class="source">
+        Geen automatische herhaling of annulering, geen terugbetaling beloofd.
+        Lokaal wissen of opnieuw beginnen verandert niets aan een echte boeking
+        of abonnement.
+      </p>
+    </aside>
+    <div class="next-action">
       <h3>Wat moet ik nu doen?</h3>
       <p data-testid="hq-next" :data-step="next.code">{{ next.text }}</p>
     </div>
     <div
+      v-if="state.manual.planningMode === 'TOGETHER'"
       class="seat-pair"
       role="img"
       :aria-label="`Eigen gewenste stoelen: A ${state.manual.tracks.A.seat.row || '?'}${state.manual.tracks.A.seat.number || '?'}, B ${state.manual.tracks.B.seat.row || '?'}${state.manual.tracks.B.seat.number || '?'}. Geen officiële plattegrond of beschikbaarheidsbewijs.`"
     >
-      <span v-for="role in ['A', 'B'] as const" :key="role"
+      <span v-for="role in activeRoles(state.manual)" :key="role"
         >{{ role
         }}<strong
           >{{ state.manual.tracks[role].seat.row || '?'

@@ -10,7 +10,7 @@ export interface SiteObserver {
 const unavailable = (): ObservationResult => ({
   kind: 'UNAVAILABLE',
   reason:
-    'Fictief schema ontbreekt, is gewijzigd of is ambigu. Gebruik handmatige vergelijking.',
+    'Fictief schema ontbreekt, is gewijzigd of is ambigu. Status UNKNOWN; handmatig verder met eigen vergelijking.',
 });
 
 // These are our fictional test contracts, NOT discovered or guessed Vue website selectors.

@@ -14,16 +14,30 @@ const props = defineProps<{
   nickname: string | null;
   state: Snapshot;
   busy: boolean;
+  blocked: boolean;
   offline: boolean;
 }>();
-const emit = defineEmits<{ command: [command: PanelCommand] }>();
+const emit = defineEmits<{
+  command: [command: PanelCommand];
+  dirty: [value: boolean];
+}>();
 const track = computed(() => props.state.manual.tracks[props.role]);
-const detailsOpen = ref(false);
+const detailsOpen = ref(!props.state.manual.review);
 const empty = { movie: null, cinema: null, date: null, time: null, hall: null };
 const showtime = ref({
   ...(track.value.reportedShowtime ?? props.state.manual.plan ?? empty),
 });
 const seat = ref({ ...track.value.seat });
+const isDirty = computed(
+  () =>
+    JSON.stringify({ showtime: showtime.value, seat: seat.value }) !==
+    JSON.stringify({
+      showtime:
+        track.value.reportedShowtime ?? props.state.manual.plan ?? empty,
+      seat: track.value.seat,
+    }),
+);
+watch(isDirty, (value) => emit('dirty', value));
 const selectedContext = ref('');
 const contextFeedback = ref('');
 async function focusSelected() {
@@ -107,7 +121,7 @@ function saveDetails() {
       {{ new Date(track.reviewedAt).toLocaleTimeString('nl-NL') }} · vervalt na
       15 minuten.
     </p>
-    <p v-if="track.problem" role="status" class="notice">
+    <p v-if="track.problem" class="notice">
       {{ recoveryText[track.problem] }}
     </p>
     <p v-if="track.context" class="context-note">
@@ -223,44 +237,51 @@ function saveDetails() {
       Gewenst: {{ track.seat.row || '?' }}{{ track.seat.number || '?' }} ·
       beschikbaarheid en gangpad UNKNOWN.
     </p>
-    <p class="source">
-      {{ track.completed.length }}/5 eigen controles — geen waargenomen
-      bevestiging.
-    </p>
-    <details>
-      <summary>Alle eigen stappen bekijken</summary>
-      <ol class="progress">
-        <li
-          v-for="step in manualSteps"
-          :key="step"
-          :class="{ checked: track.completed.includes(step) }"
-        >
-          {{ stepLabels[step] }}
-          <span v-if="track.completed.includes(step)" class="source"
-            >— zelf gemeld</span
+    <div v-if="state.manual.review && !isDirty">
+      <p class="source">
+        {{ track.completed.length }}/5 eigen controles — geen waargenomen
+        bevestiging.
+      </p>
+      <details>
+        <summary>Alle eigen stappen bekijken</summary>
+        <ol class="progress">
+          <li
+            v-for="step in manualSteps"
+            :key="step"
+            :class="{ checked: track.completed.includes(step) }"
           >
-        </li>
-      </ol>
-    </details>
-    <div class="next-action">
-      <p>
-        <strong>Volgende eigen stap {{ role }}</strong>
-      </p>
-      <p v-if="next">
-        {{ stepLabels[next] }}. Open en controleer de officiële website zelf.
-      </p>
-      <p v-else>
-        Je meldt dat je zelf hebt afgerond. Controleer de echte bevestiging op
-        Vue; de extensie heeft die niet waargenomen.
-      </p>
-      <button
-        v-if="next"
-        :disabled="busy || !state.manual.plan"
-        @click="emit('command', { type: 'ACKNOWLEDGE', role, step: next })"
-      >
-        {{ stepLabels[next] }} — {{ role }}
-      </button>
+            {{ stepLabels[step] }}
+            <span v-if="track.completed.includes(step)" class="source"
+              >— zelf gemeld</span
+            >
+          </li>
+        </ol>
+      </details>
+      <div class="next-action">
+        <p>
+          <strong>Volgende eigen stap {{ role }}</strong>
+        </p>
+        <p v-if="next">
+          {{ stepLabels[next] }}. Open en controleer de officiële website zelf.
+        </p>
+        <p v-else>
+          Je meldt dat je zelf hebt afgerond. Controleer de echte bevestiging op
+          Vue; de extensie heeft die niet waargenomen.
+        </p>
+        <button
+          v-if="next"
+          :id="`next-own-${role}`"
+          :disabled="busy || blocked || !state.manual.plan"
+          @click="emit('command', { type: 'ACKNOWLEDGE', role, step: next })"
+        >
+          {{ stepLabels[next] }} — {{ role }}
+        </button>
+      </div>
     </div>
+    <p v-else class="source">
+      Bewaar de eigen invoer en controleer eerst de filmavond hierboven. Eerdere
+      eigen meldingen blijven zichtbaar in het overzicht.
+    </p>
     <details>
       <summary>Probleem of opnieuw beginnen</summary>
       <div class="actions">

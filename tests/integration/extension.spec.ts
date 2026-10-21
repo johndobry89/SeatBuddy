@@ -1,3 +1,10 @@
+import {
+  enterSeats,
+  reviewViaUI,
+  planViaUI,
+} from '../helpers/browser-workflow';
+import type { Page } from '@playwright/test';
+import type { ManualCommand } from '../../src/core/manual-assistant';
 import { chromium, expect, test } from '@playwright/test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -6,6 +13,22 @@ import { panelReplySchema } from '../../src/privacy/protocol';
 import { savedDraftSchema } from '../../src/core/retained-data';
 
 // The real built MV3 package runs with system Chromium. No production sites are opened.
+async function sendWorkflow(page: Page, command: ManualCommand) {
+  const state = panelReplySchema.parse(
+    await page.evaluate(() =>
+      chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+    ),
+  );
+  if (!state.ok) throw new Error(state.error);
+  return page.evaluate((message) => chrome.runtime.sendMessage(message), {
+    type: 'WORKFLOW',
+    generation: state.state.generation,
+    revision: state.state.manual.revision,
+    buddyEpoch: state.state.buddyEpoch,
+    command,
+  });
+}
+
 test('unpacked MV3: independent simulations, fixture provenance, fallback and navigation invalidation', async () => {
   const profile = await mkdtemp(join(tmpdir(), 'seatmates-browser-'));
   const extension = resolve('dist');
@@ -36,7 +59,7 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
       'SIDE_PANEL_AND_STORAGE',
     );
     await expect(page.getByTestId('diagnostic-report')).toContainText(
-      '"extensionVersion": "0.5.0"',
+      '"extensionVersion": "0.6.0"',
     );
     await expect(page.getByTestId('diagnostic-report')).toContainText(
       'NOT_IMPLEMENTED',
@@ -291,30 +314,19 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     const B = snapshot.state.contexts.find((value) => value.incognito);
     if (!A || !B)
       throw new Error('Normal/incognito active tab metadata missing');
+    expect(
+      await sendWorkflow(page, {
+        type: 'PLANNING_MODE',
+        mode: 'TOGETHER',
+        resetB: false,
+      }),
+    ).toMatchObject({ ok: true });
     for (const [role, tabId] of [
       ['A', A.tabId],
       ['B', B.tabId],
     ] as const) {
       const result = panelReplySchema.parse(
-        await page.evaluate(
-          ({ role, tabId, generation, buddyEpoch }) =>
-            chrome.runtime.sendMessage(
-              role === 'B'
-                ? {
-                    type: 'B_COMMAND',
-                    generation,
-                    buddyEpoch,
-                    command: { type: 'BIND_CONTEXT', role, tabId },
-                  }
-                : { type: 'BIND_CONTEXT', role, tabId },
-            ),
-          {
-            role,
-            tabId,
-            generation: snapshot.state.generation,
-            buddyEpoch: snapshot.state.buddyEpoch,
-          },
-        ),
+        await sendWorkflow(page, { type: 'BIND_CONTEXT', role, tabId }),
       );
       expect(
         result.ok && result.state.manual.tracks[role].context,
@@ -349,18 +361,16 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
       })
       .toBe(true);
     const planned = panelReplySchema.parse(
-      await page.evaluate(() =>
-        chrome.runtime.sendMessage({
-          type: 'PLAN',
-          plan: {
-            movie: 'De maan van papier',
-            cinema: 'Fictief Filmhuis',
-            date: '2030-04-12',
-            time: '19:30',
-            hall: 'Zaal 2',
-          },
-        }),
-      ),
+      await sendWorkflow(page, {
+        type: 'PLAN',
+        plan: {
+          movie: 'De maan van papier',
+          cinema: 'Fictief Filmhuis',
+          date: '2030-04-12',
+          time: '19:30',
+          hall: 'Zaal 2',
+        },
+      }),
     );
     if (!planned.ok) throw new Error(planned.error);
     expect(planned.state.manual.plan?.movie).toBe('De maan van papier');
@@ -390,9 +400,7 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     expect(restarted.ok && restarted.state.generation).not.toBe(
       planned.state.generation,
     );
-    await expect(
-      page.getByText('Chrome-coördinator opnieuw gestart.', { exact: false }),
-    ).toBeVisible();
+    await expect(page.getByTestId('lifecycle-notice')).toBeVisible();
     await expect(page.locator('#plan-movie')).toHaveValue('');
     await expect(page.getByTestId('manual-status-A')).toHaveText(
       'Nog niet gecontroleerd',
@@ -544,6 +552,14 @@ test('real action popup shares one buddy with the panel and opens a native Side 
           page.url().split(/[?#]/)[0] ===
           `chrome-extension://${id}/sidepanel.html`,
       )!;
+    await expect(panel.getByTestId('panel-buddy')).toContainText(
+      'Ik ga alleen',
+    );
+    await expect(panel.getByTestId('inactive-B')).toBeVisible();
+    await panel
+      .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
+      .focus();
+    await panel.keyboard.press('Enter');
     await expect(panel.getByTestId('panel-buddy')).toContainText('Ik + Sanne');
     const state = panelReplySchema.parse(
       await panel.evaluate(() =>
@@ -626,6 +642,11 @@ test('Chrome local/session storage: opt-in nickname survives a real worker stop,
       .getByRole('button', { name: 'Bewaar filmplan', exact: true })
       .click();
     await panel
+      .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
+      .click();
+    await enterSeats(panel, ['A', 'B']);
+    await reviewViaUI(panel);
+    await panel
       .getByRole('button', {
         name: 'Ik gebruik mijn eigen account en geldige pas — A',
         exact: true,
@@ -705,6 +726,8 @@ test('Chrome local/session storage: opt-in nickname survives a real worker stop,
     expect(after.state.buddy.roster[0]?.nickname).toBe('Filmmaatje');
     expect(after.state.buddy.selectedId).toBeNull();
     expect(after.state.manual.plan).toBeNull();
+    expect(after.state.manual.planningMode).toBe('SOLO');
+    expect(after.state.manual.review).toBeNull();
     for (const role of ['A', 'B'] as const) {
       expect(after.state.manual.tracks[role].completed).toEqual([]);
       expect(after.state.manual.tracks[role].context).toBeNull();
@@ -917,5 +940,126 @@ test('spanning Chrome: a real incognito popup cannot read remembered names, chan
     await rm(profile, { recursive: true, force: true });
     if (previous === undefined) delete process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
     else process.env.PW_CHROMIUM_ATTACH_TO_OTHER = previous;
+  }
+});
+
+test('real Chrome Projector Ready: solo intent, two-panel preflight races, partial rescue and local-only diagnostics', async () => {
+  const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-projector-'));
+  const context = await chromium.launchPersistentContext(profile, {
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    ignoreDefaultArgs: ['--disable-extensions'],
+    headless: process.env.HEADED !== '1',
+    args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
+  });
+  try {
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
+    const id = new URL(worker.url()).host;
+    const panel = await context.newPage();
+    const requests: string[] = [];
+    context.on('request', (request) => {
+      if (/^https?:/.test(request.url())) requests.push(request.url());
+    });
+    await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+    await expect(panel.getByTestId('inactive-B')).toBeVisible();
+    await planViaUI(panel, true);
+    await enterSeats(panel, ['A', 'B']);
+    await reviewViaUI(panel);
+    for (let step = 0; step < 5; step++)
+      await panel.locator('#next-own-A').click();
+    await expect(panel.getByTestId('hq-status-A')).toContainText(
+      'Zelf gemeld afgerond',
+    );
+    const before = panelReplySchema.parse(
+      await panel.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+      ),
+    );
+    if (!before.ok) throw new Error(before.error);
+    const stale = {
+      type: 'WORKFLOW',
+      generation: before.state.generation,
+      revision: before.state.manual.revision,
+      buddyEpoch: before.state.buddyEpoch,
+      command: { type: 'ACKNOWLEDGE', role: 'B', step: 'ACCOUNT' },
+    };
+    const peer = await context.newPage();
+    await peer.goto(`chrome-extension://${id}/sidepanel.html`);
+    const original = before.state.manual.plan!;
+    expect(
+      await sendWorkflow(peer, {
+        type: 'MANUAL_DETAILS',
+        role: 'B',
+        showtime: { ...original, time: '21:00' },
+        seat: { row: 'F', number: '11' },
+      }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await panel.evaluate(
+        (message) => chrome.runtime.sendMessage(message),
+        stale,
+      ),
+    ).toMatchObject({ ok: false, code: 'STALE_WORKFLOW' });
+    await expect(panel.getByTestId('hq-next')).toHaveAttribute(
+      'data-step',
+      'MISMATCH',
+    );
+    await expect(panel.getByTestId('hq-A')).toContainText('5/5');
+    await panel
+      .getByText('Eerste reservering controleren', { exact: true })
+      .click();
+    await expect(
+      panel.getByText('Open zelf het account van A', { exact: false }),
+    ).toBeVisible();
+    await panel
+      .getByText('Tweede account opnieuw nalopen', { exact: true })
+      .click();
+    await expect(
+      panel.getByText('Bekijk eerst de actuele uitkomst in B’s eigen account', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    expect(
+      await sendWorkflow(peer, {
+        type: 'MANUAL_DETAILS',
+        role: 'B',
+        showtime: original,
+        seat: { row: 'F', number: '11' },
+      }),
+    ).toMatchObject({ ok: true });
+    await reviewViaUI(peer);
+    for (let step = 0; step < 5; step++)
+      await peer.locator('#next-own-B').click();
+    await expect(peer.getByTestId('hq-next')).toContainText(
+      'Beide zelf gemeld; echte bevestiging op Vue niet geverifieerd',
+    );
+    await peer
+      .getByText('Diagnostiek zonder privégegevens', { exact: true })
+      .click();
+    await peer
+      .getByRole('button', { name: 'Voer zelfcontrole uit', exact: true })
+      .click();
+    const report = peer.getByTestId('diagnostic-report');
+    await expect(report).toBeFocused();
+    const text = await report.innerText();
+    expect(JSON.parse(text)).toMatchObject({
+      extensionVersion: '0.6.0',
+      productionAdapter: 'DISABLED_G0',
+      permissionScope: 'SIDE_PANEL_AND_STORAGE',
+    });
+    expect(text).not.toContain(original.movie!);
+    expect(text).not.toContain(id);
+    await peer
+      .getByRole('button', { name: 'Kopieer technische diagnose', exact: true })
+      .focus();
+    await peer.keyboard.press('Enter');
+    await expect(
+      peer.getByText('Technische diagnose gekopieerd.', { exact: false }),
+    ).toBeVisible();
+    expect(requests).toEqual([]);
+  } finally {
+    await context.close();
+    await rm(profile, { recursive: true, force: true });
   }
 });

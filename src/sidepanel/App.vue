@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useCompanion } from './use-companion';
-import { roles, type Showtime } from '../core/types';
-import { manualSummary, planningSchema } from '../core/manual-assistant';
+import { type Showtime } from '../core/types';
+import {
+  manualSummary,
+  planningSchema,
+  activeRoles,
+  hasBHistory,
+} from '../core/manual-assistant';
+import PreflightReview from './components/PreflightReview.vue';
+import StableAnnouncer from '../components/StableAnnouncer.vue';
+import { nextMovieNightStep } from '../core/movie-night';
 import ShowtimeFields from './components/ShowtimeFields.vue';
 import ManualTrack from './components/ManualTrack.vue';
 import SimulationPanel from './components/SimulationPanel.vue';
@@ -38,6 +46,57 @@ const buddyView = computed(() =>
 const activeBuddy = computed(() =>
   snapshot.value ? selectedBuddy(snapshot.value.buddy) : null,
 );
+const pendingSolo = ref(false);
+const dirty = ref({ A: false, B: false });
+const announcement = computed(
+  () =>
+    lifecycleNotice.value ||
+    (snapshot.value
+      ? `${snapshot.value.manual.planningMode === 'SOLO' ? 'Solo' : 'Samen'} plannen. ${nextMovieNightStep(snapshot.value.manual).text}`
+      : ''),
+);
+watch(
+  () =>
+    `${snapshot.value?.generation}:${snapshot.value?.resetVersion}:${snapshot.value?.buddyEpoch}`,
+  () => {
+    pendingSolo.value = false;
+    dirty.value.B = false;
+  },
+);
+async function chooseMode(mode: 'SOLO' | 'TOGETHER', confirmed = false) {
+  if (!snapshot.value || mode === snapshot.value.manual.planningMode) return;
+  if (
+    mode === 'SOLO' &&
+    !confirmed &&
+    (hasBHistory(snapshot.value.manual) || dirty.value.B)
+  ) {
+    pendingSolo.value = true;
+    await nextTick();
+    document.getElementById('solo-confirm-title')?.focus();
+    return;
+  }
+  if (await command({ type: 'PLANNING_MODE', mode, resetB: confirmed })) {
+    pendingSolo.value = false;
+    await nextTick();
+    document.getElementById('mode-title')?.focus();
+  }
+}
+async function reviewPlan() {
+  if (
+    planDirty.value ||
+    dirty.value.A ||
+    (snapshot.value?.manual.planningMode === 'TOGETHER' && dirty.value.B)
+  )
+    return;
+  if (await command({ type: 'REVIEW_PLAN' })) {
+    await nextTick();
+    (
+      document.getElementById('next-own-A') ??
+      document.getElementById('next-own-B') ??
+      document.getElementById('tracks-title')
+    )?.focus();
+  }
+}
 const view = ref<'manual' | 'simulation'>('manual');
 async function runDiagnostic() {
   await command({ type: 'GET_STATE' });
@@ -50,6 +109,13 @@ const plan = ref<Showtime>({
   time: null,
   hall: null,
 });
+const planDirty = computed(
+  () =>
+    !!snapshot.value?.manual.plan &&
+    (['movie', 'cinema', 'date', 'time', 'hall'] as const).some(
+      (key) => plan.value[key] !== snapshot.value?.manual.plan?.[key],
+    ),
+);
 const formError = ref('');
 const concept = ref(false);
 const draftFeedback = ref('');
@@ -97,6 +163,7 @@ watch(
       formError.value = '';
       concept.value = false;
       draftFeedback.value = '';
+      dirty.value = { A: false, B: false };
     }
   },
 );
@@ -123,6 +190,9 @@ async function clearAll() {
       hall: null,
     };
     formError.value = '';
+    dirty.value = { A: false, B: false };
+    await nextTick();
+    heading.value?.focus();
   }
 }
 const heading = ref<HTMLElement | null>(null);
@@ -148,7 +218,7 @@ async function savePlan() {
     concept.value = false;
     formError.value = '';
     await nextTick();
-    document.getElementById('tracks-title')?.focus();
+    document.getElementById('review-title')?.focus();
   }
 }
 onMounted(async () => {
@@ -164,6 +234,7 @@ onUnmounted(() => clearInterval(timer));
 <template>
   <div class="app-shell">
     <BrandHeader />
+    <StableAnnouncer :message="announcement" />
     <nav aria-label="Werkwijze">
       <button :aria-pressed="view === 'manual'" @click="changeView('manual')">
         Boekingsassistent</button
@@ -180,8 +251,12 @@ onUnmounted(() => clearInterval(timer));
         <p class="eyebrow">Zelf plannen · afzonderlijk controleren</p>
         <h1 ref="heading" tabindex="-1">Samen naar de film</h1>
         <p class="intro" data-testid="panel-buddy">
-          Ik + {{ activeBuddy?.nickname ?? 'een buddy' }} · twee eigen accounts.
-          Jij houdt de regie.
+          {{
+            snapshot?.manual.planningMode === 'TOGETHER'
+              ? `Ik + ${activeBuddy?.nickname ?? 'een buddy'} · twee eigen accounts.`
+              : 'Ik ga alleen · één eigen traject.'
+          }}
+          Jij houdt de regie. Een gekozen bijnaam activeert B niet.
         </p>
       </header>
       <p class="notice">
@@ -207,7 +282,7 @@ onUnmounted(() => clearInterval(timer));
         Verbind opnieuw en wis tijdelijke gegevens
       </button>
       <NormalWindowButton v-if="offline" />
-      <p v-if="lifecycleNotice" role="status" class="notice">
+      <p v-if="lifecycleNotice" class="notice" data-testid="lifecycle-notice">
         {{ lifecycleNotice }}
       </p>
       <p v-if="error" role="alert" class="error">{{ error }}</p>
@@ -220,7 +295,8 @@ onUnmounted(() => clearInterval(timer));
             2 in en bewaar het plan.
           </li>
           <li>
-            Vul A F10 en B F11 in; doorloop zelf de vijf stappen van A. B moet
+            Kies Ook met buddy plannen. Vul A F10 en B F11 in; controleer eerst
+            de filmavond en doorloop daarna zelf de vijf stappen van A. B moet
             zelfstandig blijven.
           </li>
           <li>
@@ -251,6 +327,65 @@ onUnmounted(() => clearInterval(timer));
       </details>
       <section aria-labelledby="plan-title">
         <h2 id="plan-title">1. Kies jullie voorstelling</h2>
+        <fieldset v-if="snapshot" class="planning-mode">
+          <legend id="mode-title" tabindex="-1">
+            Hoe plan je deze filmavond?
+          </legend>
+          <div class="actions">
+            <button
+              type="button"
+              class="secondary"
+              :aria-pressed="snapshot.manual.planningMode === 'SOLO'"
+              :disabled="busy"
+              @click="chooseMode('SOLO')"
+            >
+              Ik ga alleen
+            </button>
+            <button
+              type="button"
+              class="secondary"
+              :aria-pressed="snapshot.manual.planningMode === 'TOGETHER'"
+              :disabled="busy"
+              @click="chooseMode('TOGETHER')"
+            >
+              Ook met buddy plannen
+            </button>
+          </div>
+          <p class="source">
+            B heeft een eigen account en eigen menselijke stappen. Een nieuw
+            ander filmplan begint weer solo; dezelfde voorstelling bewerken
+            behoudt de keuze.
+          </p>
+        </fieldset>
+        <div
+          v-if="pendingSolo"
+          role="group"
+          aria-labelledby="solo-confirm-title"
+          class="notice"
+        >
+          <h3 id="solo-confirm-title" tabindex="-1">
+            Alleen B’s lokale gegevens wissen?
+          </h3>
+          <p>
+            Solo kiezen wist B’s invoer (ook onopgeslagen), koppeling en
+            controles. A blijft behouden. Dit annuleert geen echte boeking.
+          </p>
+          <button :disabled="busy" @click="chooseMode('SOLO', true)">
+            Wis lokaal B en plan solo
+          </button>
+          <button
+            class="secondary"
+            @click="
+              pendingSolo = false;
+              ($event.target as HTMLElement)
+                .closest('section')
+                ?.querySelector('legend')
+                ?.focus();
+            "
+          >
+            Behoud buddytraject
+          </button>
+        </div>
         <p>
           Vul alleen filmgegevens in. Geen namen, pasnummers, wachtwoorden of
           betaalgegevens.
@@ -316,14 +451,30 @@ onUnmounted(() => clearInterval(timer));
           in zodra je die zelf weet.
         </p>
       </section>
+      <PreflightReview
+        v-if="snapshot"
+        :state="snapshot.manual"
+        :busy="busy"
+        :dirty="
+          planDirty ||
+          dirty.A ||
+          (snapshot.manual.planningMode === 'TOGETHER' && dirty.B)
+        "
+        @review="reviewPlan"
+      />
       <section v-if="snapshot" aria-labelledby="tracks-title">
         <h2 id="tracks-title" tabindex="-1">
-          2. Controleer A en B afzonderlijk
+          {{
+            snapshot.manual.review
+              ? '3. Eigen stappen — afzonderlijk controleren'
+              : 'Eigen invoer voor de review'
+          }}
         </h2>
         <p>
-          Open zelf een normaal venster voor A en een incognitovenster voor B.
-          Als dat niet kan, gebruik je aparte eigen profielen en volg je de
-          handmatige stappen. De extensie bewijst geen accountisolatie.
+          Open zelf een normaal venster voor A. Alleen bij samen plannen: een
+          incognitovenster voor B. Als dat niet kan, gebruik je aparte eigen
+          profielen en volg je de handmatige stappen. De extensie bewijst geen
+          accountisolatie.
         </p>
         <a
           href="https://www.vuecinemas.nl/"
@@ -338,19 +489,29 @@ onUnmounted(() => clearInterval(timer));
         </p>
         <div class="sessions">
           <ManualTrack
-            v-for="role in roles"
-            :key="`${role}-${snapshot.generation}-${snapshot.resetVersion}-${role === 'B' ? `${activeBuddy?.id ?? 'manual'}:${activeBuddy?.nickname ?? ''}` : ''}`"
+            v-for="role in activeRoles(snapshot.manual)"
+            :key="`${role}-${snapshot.generation}-${snapshot.resetVersion}-${role === 'B' ? `${snapshot.buddyEpoch}:${activeBuddy?.id ?? 'manual'}:${activeBuddy?.nickname ?? ''}` : ''}`"
             :role="role"
             :nickname="role === 'B' ? (activeBuddy?.nickname ?? null) : null"
             :state="snapshot"
             :busy="busy"
+            :blocked="planDirty || dirty.A || dirty.B"
             :offline="offline"
             @command="command"
+            @dirty="dirty[role] = $event"
           />
         </div>
+        <p
+          v-if="snapshot.manual.planningMode === 'SOLO'"
+          class="source"
+          data-testid="inactive-B"
+        >
+          Buddy (B) is niet actief. Kies bewust Ook met buddy plannen voor een
+          tweede onafhankelijk traject.
+        </p>
       </section>
       <section aria-labelledby="comparison-title">
-        <h2 id="comparison-title">3. Vergelijk voor je zelf afrondt</h2>
+        <h2 id="comparison-title">Vergelijking van eigen meldingen</h2>
         <dl>
           <dt>Voorstelling volgens eigen controles</dt>
           <dd data-testid="manual-match">
@@ -371,15 +532,15 @@ onUnmounted(() => clearInterval(timer));
           Gangpad, stoelcategorie, beschikbaarheid en echte aangrenzendheid zijn
           niet vastgesteld. Opeenvolgende nummers zijn onvoldoende bewijs.
         </p>
-        <aside v-if="summary?.partial" role="status" class="notice">
+        <aside v-if="summary?.partial" class="notice">
           Partiële eigen melding: {{ summary.done[0] }} meldt afgerond; de ander
           is nog niet klaar. Controleer iedere uitkomst apart. Geen automatische
           herhaling, annulering of rollback.
         </aside>
         <aside v-else-if="summary?.done.length === 2" class="notice">
-          Beiden melden zelf afgerond. Werkelijke bevestigingen blijven UNKNOWN
-          totdat jullie die zelf op Vue controleren. De extensie heeft geen
-          bevestiging waargenomen.
+          Beide zelf gemeld; echte bevestiging op Vue niet geverifieerd.
+          Werkelijke bevestigingen blijven UNKNOWN totdat jullie die zelf op Vue
+          controleren. De extensie heeft geen bevestiging waargenomen.
         </aside>
       </section>
       <details class="reset-area">
@@ -395,7 +556,8 @@ onUnmounted(() => clearInterval(timer));
       <footer>
         Onafhankelijke assistent, niet verbonden aan of goedgekeurd door Vue
         Cinemas. Twee afzonderlijke reserveringen; alleen echte afzonderlijke
-        bevestigingen op Vue gelden. Testbuild {{ version }}.
+        bevestigingen op Vue gelden. Vue kan wijzigen; deze niet-officiële
+        assistent kan dan ophouden te werken. Testbuild {{ version }}.
       </footer>
     </main>
     <SimulationPanel v-else />

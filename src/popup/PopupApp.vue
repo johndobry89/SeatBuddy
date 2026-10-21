@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
+import StableAnnouncer from '../components/StableAnnouncer.vue';
+import { selectedBuddy } from '../core/buddies';
 import BrandHeader from '../components/BrandHeader.vue';
 import BuddyManager from '../components/BuddyManager.vue';
 import RetentionControls from '../components/RetentionControls.vue';
@@ -9,6 +11,13 @@ import { usePanelLauncher } from '../chrome/use-panel-launcher';
 import { version } from '../../package.json';
 const { state, error, notice, busy, load } = useBuddies();
 const launcher = usePanelLauncher();
+const announcement = computed(
+  () =>
+    notice.value ||
+    (state.value
+      ? `Bijnaam: ${selectedBuddy(state.value)?.nickname ?? 'geen gekozen'}. Kies solo of samen in de assistent.`
+      : ''),
+);
 let timer: ReturnType<typeof setInterval> | undefined;
 onMounted(() => {
   void load();
@@ -19,13 +28,15 @@ onUnmounted(() => clearInterval(timer));
 <template>
   <main class="popup-shell">
     <BrandHeader compact />
+    <StableAnnouncer :message="announcement" />
     <p class="eyebrow">Samen naar de film</p>
     <h1>Met wie ga je naar de film?</h1>
     <p class="intro">
-      Kies één buddy. Jullie houden allebei je eigen account en eigen stappen.
+      Kies optioneel een bijnaam. Kies pas in de assistent bewust solo of samen;
+      een bijnaam activeert geen tweede traject.
     </p>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
-    <p v-if="notice" class="notice">{{ notice }}</p>
+    <p v-if="notice" class="notice" data-testid="popup-notice">{{ notice }}</p>
     <div class="popup-launch">
       <button @click="launcher.open">Open boekingsassistent</button>
       <NormalWindowButton v-if="error" />
