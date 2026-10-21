@@ -18,7 +18,7 @@ export function bindSession(
     binding: { ...binding },
     observation: null,
     lastObservedAt: null,
-    evidence: 'NONE',
+    evidence: 'UNKNOWN',
   };
   return true;
 }
@@ -44,7 +44,7 @@ export function invalidateTab(sessions: Sessions, tabId: number): void {
         binding: null,
         observation: null,
         lastObservedAt: null,
-        evidence: 'NONE',
+        evidence: 'UNKNOWN',
       };
     }
 }

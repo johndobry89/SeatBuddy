@@ -6,8 +6,16 @@ import { manualSummary, planningSchema } from '../core/manual-assistant';
 import ShowtimeFields from './components/ShowtimeFields.vue';
 import ManualTrack from './components/ManualTrack.vue';
 import SimulationPanel from './components/SimulationPanel.vue';
-const { snapshot, offline, error, busy, command } = useCompanion();
+import DiagnosticsPanel from './components/DiagnosticsPanel.vue';
+import { version } from '../../package.json';
+import { selfCheck } from '../privacy/diagnostics';
+const { snapshot, offline, error, busy, lifecycleNotice, command, reconnect } =
+  useCompanion();
 const view = ref<'manual' | 'simulation'>('manual');
+async function runDiagnostic() {
+  await command({ type: 'GET_STATE' });
+  return selfCheck(snapshot.value, offline.value);
+}
 const plan = ref<Showtime>({
   movie: null,
   cinema: null,
@@ -105,7 +113,19 @@ onUnmounted(() => clearInterval(timer));
       </p>
       <p v-if="offline" class="notice">
         Alleen lokaal in dit paneel. Browserkoppeling is niet beschikbaar; bij
-        herladen verdwijnt je invoer.
+        herladen verdwijnt je invoer. Opnieuw verbinden wist ook de tijdelijke
+        gegevens in andere SeatMates-panelen.
+      </p>
+      <button
+        v-if="offline"
+        class="secondary"
+        :disabled="busy"
+        @click="reconnect"
+      >
+        Verbind opnieuw en wis tijdelijke gegevens
+      </button>
+      <p v-if="lifecycleNotice" role="status" class="notice">
+        {{ lifecycleNotice }}
       </p>
       <p v-if="error" role="alert" class="error">{{ error }}</p>
       <section aria-labelledby="plan-title">
@@ -205,9 +225,10 @@ onUnmounted(() => clearInterval(timer));
       <footer>
         Onafhankelijke assistent, niet verbonden aan of goedgekeurd door Vue
         Cinemas. Twee afzonderlijke reserveringen; alleen echte afzonderlijke
-        bevestigingen op Vue gelden. Testbuild 0.2.0.
+        bevestigingen op Vue gelden. Testbuild {{ version }}.
       </footer>
     </main>
     <SimulationPanel v-else />
+    <DiagnosticsPanel :run="runDiagnostic" :busy="busy" />
   </div>
 </template>

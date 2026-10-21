@@ -5,6 +5,7 @@ import {
 } from '../core/manual-assistant';
 import { z } from 'zod';
 import { observationSchema, roleSchema, scenarioSchema } from '../core/types';
+import { roleEvidenceSchema } from '../core/evidence';
 
 // Strict schemas reject extra fields (including claimed tab IDs, credentials and live evidence).
 export const panelCommandSchema = z.discriminatedUnion('type', [
@@ -45,9 +46,11 @@ const sessionSchema = z.strictObject({
   binding: bindingSchema.nullable(),
   observation: observationSchema.nullable(),
   lastObservedAt: z.number().int().nonnegative().nullable(),
-  evidence: z.enum(['NONE', 'SIMULATION']),
+  evidence: z.enum(['UNKNOWN', 'SIMULATION']),
 });
 export const snapshotSchema = z.strictObject({
+  generation: z.uuid(),
+  evidence: z.strictObject({ A: roleEvidenceSchema, B: roleEvidenceSchema }),
   manual: manualStateSchema,
   contexts: z.array(browserContextSchema).max(100),
   mode: z.enum(['MANUAL', 'DEMO', 'FIXTURE']),

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SeatMates — handmatige A/B-assistent (test)",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Plan één filmavond met twee onafhankelijke handmatige stappenlijsten. Geen live boekingsintegratie.",
   "minimum_chrome_version": "116",
   "permissions": ["sidePanel"],
@@ -19,5 +19,5 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'"
   },
-  "version_name": "0.2.0-test (Sprint 02)"
+  "version_name": "0.3.0-test (Sprint 03)"
 }

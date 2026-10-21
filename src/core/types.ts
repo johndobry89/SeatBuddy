@@ -60,7 +60,7 @@ export interface Session {
   binding: Binding | null;
   observation: Observation | null;
   lastObservedAt: number | null;
-  evidence: 'NONE' | 'SIMULATION';
+  evidence: 'UNKNOWN' | 'SIMULATION';
 }
 export type Sessions = Record<Role, Session>;
 export type Mode = 'MANUAL' | 'DEMO' | 'FIXTURE';
@@ -91,14 +91,14 @@ export function emptySessions(): Sessions {
       binding: null,
       observation: null,
       lastObservedAt: null,
-      evidence: 'NONE',
+      evidence: 'UNKNOWN',
     },
     B: {
       role: 'B',
       binding: null,
       observation: null,
       lastObservedAt: null,
-      evidence: 'NONE',
+      evidence: 'UNKNOWN',
     },
   };
 }

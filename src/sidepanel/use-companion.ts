@@ -3,12 +3,59 @@ import { Coordinator, type Snapshot } from '../background/coordinator';
 import { panelReplySchema, type PanelCommand } from '../privacy/protocol';
 import { manualCommandSchema } from '../core/manual-assistant';
 
+async function send(message: PanelCommand) {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const raw: unknown = await Promise.race([
+      chrome.runtime.sendMessage(message),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Browser timeout')), 4000);
+      }),
+    ]);
+    return panelReplySchema.parse(raw);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 export function useCompanion() {
   const snapshot = ref<Snapshot | null>(null);
   const offline = ref(false);
   const error = ref('');
   const busy = ref(false);
+  const lifecycleNotice = ref('');
   const local = new Coordinator();
+  function disconnect() {
+    offline.value = true;
+    local.reset();
+    snapshot.value = local.snapshot(Date.now(), false);
+    lifecycleNotice.value = '';
+    error.value =
+      'Browserverbinding niet beschikbaar. Status UNKNOWN; eerdere voortgang is vervallen. De assistent werkt nu alleen tijdelijk in dit paneel.';
+  }
+  // A deliberate user action discards both local and worker drafts. No failed
+  // PLAN/ACKNOWLEDGE is queued, merged or replayed after a transport failure.
+  async function reconnect() {
+    if (busy.value || !offline.value) return false;
+    busy.value = true;
+    try {
+      const reply = await send({ type: 'RESET' });
+      if (!reply.ok) throw new Error('Unavailable');
+      local.reset();
+      snapshot.value = reply.state;
+      offline.value = false;
+      error.value = '';
+      lifecycleNotice.value =
+        'Browserverbinding hersteld. Tijdelijke gegevens zijn gewist; vul het filmplan opnieuw in en controleer A en B zelf.';
+      return true;
+    } catch {
+      // Keep the user's local draft if a reconnect attempt is unsuccessful.
+      error.value =
+        'Opnieuw verbinden is niet gelukt. Je kunt lokaal verder; heropen of herlaad de extensie via chrome://extensions.';
+      return false;
+    } finally {
+      busy.value = false;
+    }
+  }
   async function command(message: PanelCommand) {
     if (busy.value) return false;
     busy.value = true;
@@ -36,26 +83,37 @@ export function useCompanion() {
         error.value = '';
         return true;
       }
-      const raw: unknown = await chrome.runtime.sendMessage(message);
-      const reply = panelReplySchema.parse(raw);
+      const reply = await send(message);
       if (!reply.ok) {
         if (reply.code === 'BROWSER_UNAVAILABLE') throw new Error(reply.error);
         error.value = reply.error;
         return false;
       }
+      if (
+        snapshot.value &&
+        snapshot.value.generation !== reply.state.generation
+      )
+        lifecycleNotice.value =
+          'Chrome-coördinator opnieuw gestart. Eerdere voortgang en koppelingen zijn vervallen; controleer je filmplan en A/B-stappen opnieuw. Er is niets automatisch uitgevoerd.';
       snapshot.value = reply.state;
+      if (message.type === 'PLAN' || message.type === 'RESET')
+        lifecycleNotice.value = '';
       if (message.type !== 'GET_STATE') error.value = '';
       return true;
     } catch {
-      offline.value = true;
-      local.reset();
-      snapshot.value = local.snapshot(Date.now(), false);
-      error.value =
-        'Browserverbinding niet beschikbaar. Status UNKNOWN; eerdere voortgang is vervallen. De assistent werkt nu alleen tijdelijk in dit paneel.';
+      disconnect();
       return false;
     } finally {
       busy.value = false;
     }
   }
-  return { snapshot, offline, error, busy, command };
+  return {
+    snapshot,
+    offline,
+    error,
+    busy,
+    lifecycleNotice,
+    command,
+    reconnect,
+  };
 }

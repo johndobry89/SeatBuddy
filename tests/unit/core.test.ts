@@ -69,7 +69,7 @@ describe('independent simulation state', () => {
     const state = c.snapshot(now + MAX_AGE_MS, true);
     expect(state.match).toBe('UNKNOWN');
     expect(state.adjacency).toBe('UNKNOWN');
-    expect(state.sessions.A.evidence).toBe('NONE');
+    expect(state.sessions.A.evidence).toBe('UNKNOWN');
   });
   it('keeps the current independent A status when B is stale', () => {
     const c = new Coordinator();

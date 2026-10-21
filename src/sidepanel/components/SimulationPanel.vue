@@ -110,7 +110,7 @@ onUnmounted(() => clearInterval(timer));
           <p class="status" :data-testid="`status-${role}`">
             {{ state?.sessions[role].observation?.status ?? 'UNKNOWN' }}
           </p>
-          <p>Bron: {{ state?.sessions[role].evidence ?? 'NONE' }}</p>
+          <p>Bron: {{ state?.sessions[role].evidence ?? 'UNKNOWN' }}</p>
           <template v-if="state?.sessions[role].observation">
             <p>
               {{ state.sessions[role].observation?.showtime.movie }}<br />{{

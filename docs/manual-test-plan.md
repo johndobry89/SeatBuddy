@@ -1,6 +1,6 @@
-# Sprint 02 — handmatige Chrome- en Windows-proef
+# Sprint 03 — handmatige Chrome-proef op Mac en Windows
 
-Gebruik alleen fictieve film-/stoelgegevens en neutrale tabs. Geen echte accounts, live checkoutacties of aankoop. Noteer per stap datum/tijd/tijdzone, OS, Chrome-versie, commit, extensieversie en de werkelijk geziene uitkomst. Installatie: [Windows-testgids](windows-test-guide.md).
+Gebruik alleen fictieve film-/stoelgegevens en neutrale tabs. Geen echte accounts, live checkoutacties of aankoop. Noteer per stap datum/tijd/tijdzone, OS, Chrome-versie, commit, extensieversie en de werkelijk geziene uitkomst. Installatie: [Mac-testgids](macos-test-guide.md) of [Windows-testgids](windows-test-guide.md). Bewijs vastleggen: [QA-formulier](qa-evidence-template.md).
 
 | Proef                                                  | Verwacht gedrag                                                                                                                   |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -29,3 +29,19 @@ Gebruik alleen fictieve film-/stoelgegevens en neutrale tabs. Geen echte account
 Automatische echte-extensietests openen het Side Panel vanuit een expliciete klik en controleren echte browserzenders. Een tweede test schakelt via de normale Chrome-instellingen in een eigen wegwerpprofiel expliciet incognitotoegang in/uit, koppelt neutrale Chrome-contexten en stopt de worker via testinstrumentatie. Dit wijzigt geen beheerd browserbeleid en gebruikt geen productiepagina. Leg PASS alleen vast als die test werkelijk in die omgeving heeft gedraaid.
 
 Voor G0 is de volgende menselijke stap: actuele publieke Vue-voorwaarden/help beoordelen en toestemming/scope vastleggen, daarna alleen een toegestane handmatige observatie van de benodigde velden. Geen G0-GO uit fixturetests, publieke marketingtekst of Chrome-contextmetadata afleiden.
+
+## Aanvullende Sprint 03-regressies
+
+| Proef                                     | Verwacht gedrag                                                                                                      |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Nieuwe workergeneratie in een open paneel | Snapshot vervangen, eerdere voortgang UNKNOWN, hersteladvies; geen automatisch plan/acknowledgement                  |
+| Transport hangt of antwoord is ongeldig   | Na maximaal vier seconden lokale fallback, busy vrij, oude claims weg; late antwoorden herstellen niets              |
+| Expliciet opnieuw verbinden               | Alleen reset van alle tijdelijke lokale/gedeelde gegevens; geen merge/replay van eerdere opdrachten                  |
+| Herverbinden mislukt                      | Bestaande lokale conceptinvoer blijft bruikbaar                                                                      |
+| Diagnostiek openen zonder uitvoeren       | Geen rapport; pas na bewuste zelfcontrole een gereduceerde momentopname                                              |
+| Zelfcontrole                              | Versie, capabilities, scope, toestemming, modus en bewijssoorten; geen film, identiteit, titels, URL’s of tabnummers |
+| Bewijslabels                              | MANUAL_SELF_REPORT, BROWSER_CONTEXT_ONLY, SIMULATION of UNKNOWN; echte Vue-bevestiging NOT_IMPLEMENTED               |
+| Productieadapter met voorbeeldmarkup      | Altijd UNAVAILABLE, geen DOM-toegang of hostrechten                                                                  |
+| Runtime-ZIP                               | Platformneutrale naam; manifest aan root; checksum/bytes kloppen; geen broncode, .env, logs, caches of symlinks      |
+
+Een geslaagde macOS-build/unit/UI-job valideert geen menselijke Side Panel-bediening, incognito of VoiceOver op Mac. De echte extensieproeven draaien afzonderlijk op Linux. Gebruik de G0-gids voor toegestane echte observaties; die volgen niet automatisch uit deze matrix.

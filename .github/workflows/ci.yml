@@ -1,4 +1,4 @@
-name: Companion checks and Windows test build
+name: Companion checks and Chrome test build
 on:
   push:
   pull_request:
@@ -6,7 +6,12 @@ permissions:
   contents: read
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    name: Checks (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -17,13 +22,17 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run package
-      - run: npm exec playwright install -- --with-deps chromium
+      - if: runner.os == 'Linux'
+        run: npm exec playwright install -- --with-deps chromium
+      - if: runner.os == 'macOS'
+        run: npm exec playwright install -- chromium
       - run: npm run test:ui
-      - run: HEADED=1 xvfb-run -a npm run test:e2e
+      - if: runner.os == 'Linux'
+        run: HEADED=1 xvfb-run -a npm run test:e2e
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: success() && runner.os == 'Linux'
         with:
-          name: seatmates-windows-test
+          name: seatmates-chrome-test
           path: |
-            build/*-windows-test.zip
-            build/*-windows-test.zip.sha256
+            build/*-chrome-test.zip
+            build/*-chrome-test.zip.sha256

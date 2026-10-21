@@ -22,6 +22,9 @@ export default ts.config(
       parserOptions: { parser: ts.parser },
     },
   },
-  { files: ['scripts/**/*.mjs'], languageOptions: { globals: globals.node } },
+  {
+    files: ['scripts/**/*.mjs', 'tests/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
   prettier,
 );
