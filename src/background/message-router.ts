@@ -8,8 +8,10 @@ import {
   boundedPayload,
   fixtureCommandSchema,
   panelCommandSchema,
+  popupCommandSchema,
 } from '../privacy/protocol';
 import { emptySessions, type Binding } from '../core/types';
+import { selectedBuddy } from '../core/buddies';
 
 export interface Sender {
   id?: string | undefined;
@@ -24,6 +26,13 @@ export function isPanelSender(sender: Sender, extensionId: string) {
   return (
     sender.id === extensionId &&
     sender.url === `chrome-extension://${extensionId}/sidepanel.html` &&
+    (sender.frameId === undefined || sender.frameId === 0)
+  );
+}
+export function isPopupSender(sender: Sender, extensionId: string) {
+  return (
+    sender.id === extensionId &&
+    sender.url === `chrome-extension://${extensionId}/popup.html` &&
     (sender.frameId === undefined || sender.frameId === 0)
   );
 }
@@ -42,10 +51,25 @@ export function routeMessage(
   });
   if (sender.id !== extensionId) return reject();
   const base = `chrome-extension://${extensionId}/`;
+  if (isPopupSender(sender, extensionId)) {
+    if (!boundedPayload(raw)) return reject();
+    const result = popupCommandSchema.safeParse(raw);
+    if (!result.success) return reject();
+    if (result.data.type === 'BUDDY_MUTATE') {
+      const outcome = coordinator.buddyCommand(result.data);
+      if (!outcome.ok) return outcome;
+    }
+    // Popup sees nicknames only: never a plan, role state or incognito metadata.
+    return { ok: true as const, buddy: coordinator.buddyView() };
+  }
   if (isPanelSender(sender, extensionId)) {
     if (!boundedPayload(raw)) return reject();
     const result = panelCommandSchema.safeParse(raw);
     if (!result.success) return reject();
+    if (result.data.type === 'BUDDY_MUTATE') {
+      const outcome = coordinator.buddyCommand(result.data);
+      if (!outcome.ok) return outcome;
+    }
     if (
       result.data.type === 'DEMO_STEP' &&
       !coordinator.advanceDemo(result.data.role, now)
@@ -103,6 +127,13 @@ export function routeMessage(
   if (binding.incognito && !allowed) {
     invalidateTab(coordinator.sessions, binding.tabId);
     return reject();
+  }
+  if (result.data.type === 'GET_BUDDY') {
+    const buddy = selectedBuddy(coordinator.buddy);
+    return {
+      ok: true as const,
+      buddy: buddy ? { nickname: buddy.nickname, demo: buddy.demo } : null,
+    };
   }
   if (result.data.type === 'UNBIND') {
     invalidateTab(coordinator.sessions, binding.tabId);

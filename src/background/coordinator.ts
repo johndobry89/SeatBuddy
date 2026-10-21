@@ -20,6 +20,12 @@ import { adjacent } from '../core/seats';
 import { scenarioObservations } from '../fixtures/data';
 import { boundRole } from './session-registry';
 import { roleEvidence } from '../core/evidence';
+import {
+  applyBuddy,
+  changesSelectedBuddy,
+  emptyBuddies,
+  type BuddyMutation,
+} from '../core/buddies';
 
 export class Coordinator {
   readonly generation: string = crypto.randomUUID();
@@ -27,7 +33,42 @@ export class Coordinator {
   manual = emptyManual();
   contextChoices: BrowserContext[] = [];
   mode: Mode = 'MANUAL';
+  buddy = emptyBuddies();
+  resetVersion = 0;
+  buddyView() {
+    return structuredClone({ ...this.buddy, generation: this.generation });
+  }
+  buddyCommand(command: BuddyMutation) {
+    if (
+      command.generation !== this.generation ||
+      command.revision !== this.buddy.revision
+    )
+      return {
+        ok: false as const,
+        code: 'STALE_BUDDY' as const,
+        error:
+          'Buddygegevens zijn gewijzigd of opnieuw gestart. Vernieuw de lijst en kies bewust opnieuw.',
+      };
+    const affectsB = changesSelectedBuddy(this.buddy, command.action);
+    if (affectsB && !command.resetB)
+      return {
+        ok: false as const,
+        code: 'BUDDY_REVIEW' as const,
+        error:
+          'Bevestig eerst dat B opnieuw moet controleren. A blijft ongewijzigd.',
+      };
+    const error = applyBuddy(this.buddy, command.action);
+    if (error) return { ok: false as const, error };
+    if (affectsB) {
+      this.manual.tracks.B = emptyManual().tracks.B;
+      this.manual.tracks.B.problem = 'BUDDY_CHANGED';
+      this.sessions.B = emptySessions().B;
+    }
+    return { ok: true as const };
+  }
   reset(): void {
+    this.resetVersion++;
+    this.buddy = emptyBuddies(this.buddy.revision + 1);
     this.sessions = emptySessions();
     this.mode = 'MANUAL';
     this.manual = emptyManual();
@@ -133,6 +174,8 @@ export class Coordinator {
                 : 'Vergelijk A en B afzonderlijk. Dit is alleen een simulatie, geen reservering of seat hold.';
     return structuredClone({
       generation: this.generation,
+      resetVersion: this.resetVersion,
+      buddy: this.buddy,
       evidence: {
         A: roleEvidence(this.manual, this.sessions, 'A'),
         B: roleEvidence(this.manual, this.sessions, 'B'),

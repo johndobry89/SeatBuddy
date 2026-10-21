@@ -1,7 +1,7 @@
 import { invalidateManualTab } from '../core/manual-assistant';
 import { Coordinator } from './coordinator';
 import { routeMessage, isPanelSender } from './message-router';
-import { panelCommandSchema } from '../privacy/protocol';
+import { panelCommandSchema, boundedPayload } from '../privacy/protocol';
 import type { BrowserContext } from '../core/manual-assistant';
 import { invalidateTab } from './session-registry';
 
@@ -19,11 +19,13 @@ function invalidateContext(
 }
 chrome.runtime.onMessage.addListener(
   (message: unknown, sender, sendResponse) => {
-    const parsed = panelCommandSchema.safeParse(message);
+    const parsed = boundedPayload(message)
+      ? panelCommandSchema.safeParse(message)
+      : null;
     const privileged = isPanelSender(sender, chrome.runtime.id);
     // Establish a synchronous barrier before any asynchronous Chrome call.
     // Only a validated panel RESET can cancel earlier in-flight commands.
-    if (privileged && parsed.success && parsed.data.type === 'RESET') {
+    if (privileged && parsed?.success && parsed.data.type === 'RESET') {
       resetEpoch++;
       coordinator.reset();
     }
@@ -44,7 +46,7 @@ chrome.runtime.onMessage.addListener(
         let contexts: BrowserContext[] | undefined;
         if (
           privileged &&
-          parsed.success &&
+          parsed?.success &&
           ['GET_CONTEXTS', 'BIND_CONTEXT'].includes(parsed.data.type)
         ) {
           const tabs = await chrome.tabs.query({ active: true });
@@ -102,5 +104,5 @@ chrome.tabs.onReplaced.addListener((_addedTabId, removedTabId) => {
   invalidateContext(removedTabId);
 });
 chrome.runtime.onInstalled.addListener(() => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
 });

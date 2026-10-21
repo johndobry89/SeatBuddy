@@ -1,21 +1,11 @@
 import { ref } from 'vue';
+import { sendRuntime } from '../chrome/messaging';
 import { Coordinator, type Snapshot } from '../background/coordinator';
 import { panelReplySchema, type PanelCommand } from '../privacy/protocol';
 import { manualCommandSchema } from '../core/manual-assistant';
 
 async function send(message: PanelCommand) {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const raw: unknown = await Promise.race([
-      chrome.runtime.sendMessage(message),
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error('Browser timeout')), 4000);
-      }),
-    ]);
-    return panelReplySchema.parse(raw);
-  } finally {
-    clearTimeout(timeout);
-  }
+  return panelReplySchema.parse(await sendRuntime(message));
 }
 export function useCompanion() {
   const snapshot = ref<Snapshot | null>(null);

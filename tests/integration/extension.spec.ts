@@ -35,7 +35,7 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
       'SIDE_PANEL_ONLY',
     );
     await expect(page.getByTestId('diagnostic-report')).toContainText(
-      '"extensionVersion": "0.3.0"',
+      '"extensionVersion": "0.4.0"',
     );
     await expect(page.getByTestId('diagnostic-report')).toContainText(
       'NOT_IMPLEMENTED',
@@ -144,7 +144,7 @@ test('unpacked MV3: independent simulations, fixture provenance, fallback and na
       await worker.evaluate(
         async () => await chrome.sidePanel.getPanelBehavior(),
       ),
-    ).toMatchObject({ openPanelOnActionClick: true });
+    ).toMatchObject({ openPanelOnActionClick: false });
     expect(failures).toEqual([]);
     expect(external).toEqual([]);
     await page.reload();
@@ -382,6 +382,91 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     await expect(page.getByTestId('manual-status-A')).toHaveText(
       'Nog niet gecontroleerd',
     );
+  } finally {
+    await context.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+test('real action popup shares one buddy with the panel and opens a native Side Panel through its button', async () => {
+  const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-popup-'));
+  const context = await chromium.launchPersistentContext(profile, {
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    ignoreDefaultArgs: ['--disable-extensions'],
+    headless: process.env.HEADED !== '1',
+    args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
+  });
+  try {
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
+    const id = new URL(worker.url()).host;
+    const neutral = context.pages()[0] ?? (await context.newPage());
+    const cdp = await context.newCDPSession(neutral);
+    const manifest = await worker.evaluate(() => chrome.runtime.getManifest());
+    expect(manifest.action?.default_popup).toBe('popup.html');
+    expect(manifest.permissions).toEqual(['sidePanel']);
+    for (const size of [16, 32, 48, 128])
+      expect(manifest.icons?.[size]).toBe(`icons/icon-${size}.png`);
+    const popupReady = context.waitForEvent('page', {
+      predicate: (page) => page.url() === `chrome-extension://${id}/popup.html`,
+      timeout: 10_000,
+    });
+    // Native action opening in this modern test browser, not a popup.html tab.
+    // openPopup is test instrumentation (Chrome 127+); the shipped UI needs no such API.
+    await worker.evaluate(() => chrome.action.openPopup());
+    const popup = await popupReady;
+    await expect(
+      popup.getByRole('heading', { name: 'Met wie ga je naar de film?' }),
+    ).toBeVisible();
+    await popup
+      .getByRole('button', { name: 'Probeer fictieve buddy’s Sanne en Mark' })
+      .click();
+    await popup
+      .getByRole('button', { name: 'Kies Sanne', exact: true })
+      .click();
+    await popup
+      .getByRole('button', { name: 'Bevestig wijziging en wis B', exact: true })
+      .click();
+    await expect(popup.getByTestId('popup-selection')).toContainText(
+      'Ik + Sanne',
+    );
+    expect(
+      await popup.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+      ),
+    ).toMatchObject({ ok: false });
+    const before = (await cdp.send('Target.getTargets')).targetInfos.map(
+      (target) => target.targetId,
+    );
+    await popup
+      .getByRole('button', { name: 'Open boekingsassistent', exact: true })
+      .click();
+    await expect
+      .poll(async () =>
+        (await cdp.send('Target.getTargets')).targetInfos.some(
+          (target) =>
+            target.url === `chrome-extension://${id}/sidepanel.html` &&
+            !before.includes(target.targetId),
+        ),
+      )
+      .toBe(true);
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+    await expect(panel.getByTestId('panel-buddy')).toContainText('Ik + Sanne');
+    const state = panelReplySchema.parse(
+      await panel.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+      ),
+    );
+    expect(state.ok && state.state.buddy.selectedId).toBeTruthy();
+    expect(state.ok && state.state.manual.tracks.B.completed).toEqual([]);
+    expect(state.ok && state.state.evidence.B.context).toBe('UNKNOWN');
+    expect(
+      await worker.evaluate(
+        () => chrome.runtime.getManifest().host_permissions ?? [],
+      ),
+    ).toEqual([]);
   } finally {
     await context.close();
     await rm(profile, { recursive: true, force: true });

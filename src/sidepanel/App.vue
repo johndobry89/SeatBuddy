@@ -8,9 +8,20 @@ import ManualTrack from './components/ManualTrack.vue';
 import SimulationPanel from './components/SimulationPanel.vue';
 import DiagnosticsPanel from './components/DiagnosticsPanel.vue';
 import { version } from '../../package.json';
+import BrandHeader from '../components/BrandHeader.vue';
+import BuddyManager from '../components/BuddyManager.vue';
+import { selectedBuddy } from '../core/buddies';
 import { selfCheck } from '../privacy/diagnostics';
 const { snapshot, offline, error, busy, lifecycleNotice, command, reconnect } =
   useCompanion();
+const buddyView = computed(() =>
+  snapshot.value
+    ? { ...snapshot.value.buddy, generation: snapshot.value.generation }
+    : null,
+);
+const activeBuddy = computed(() =>
+  snapshot.value ? selectedBuddy(snapshot.value.buddy) : null,
+);
 const view = ref<'manual' | 'simulation'>('manual');
 async function runDiagnostic() {
   await command({ type: 'GET_STATE' });
@@ -24,6 +35,21 @@ const plan = ref<Showtime>({
   hall: null,
 });
 const formError = ref('');
+watch(
+  () => `${snapshot.value?.generation}:${snapshot.value?.resetVersion}`,
+  (current, previous) => {
+    if (current !== previous) {
+      plan.value = {
+        movie: null,
+        cinema: null,
+        date: null,
+        time: null,
+        hall: null,
+      };
+      formError.value = '';
+    }
+  },
+);
 watch(
   () => snapshot.value?.manual.plan,
   (current, previous) => {
@@ -86,6 +112,7 @@ onUnmounted(() => clearInterval(timer));
 </script>
 <template>
   <div class="app-shell">
+    <BrandHeader />
     <nav aria-label="Werkwijze">
       <button :aria-pressed="view === 'manual'" @click="changeView('manual')">
         Boekingsassistent</button
@@ -101,7 +128,10 @@ onUnmounted(() => clearInterval(timer));
       <header>
         <p class="eyebrow">Zelf plannen · afzonderlijk controleren</p>
         <h1 ref="heading" tabindex="-1">Samen naar de film</h1>
-        <p class="intro">Eén plan. Twee eigen accounts. Jij houdt de regie.</p>
+        <p class="intro" data-testid="panel-buddy">
+          Ik + {{ activeBuddy?.nickname ?? 'een buddy' }} · twee eigen accounts.
+          Jij houdt de regie.
+        </p>
       </header>
       <p class="notice">
         Deze assistent leest Vue niet en boekt niets.
@@ -114,7 +144,7 @@ onUnmounted(() => clearInterval(timer));
       <p v-if="offline" class="notice">
         Alleen lokaal in dit paneel. Browserkoppeling is niet beschikbaar; bij
         herladen verdwijnt je invoer. Opnieuw verbinden wist ook de tijdelijke
-        gegevens in andere SeatMates-panelen.
+        gegevens in andere SeatBuddies-panelen.
       </p>
       <button
         v-if="offline"
@@ -128,6 +158,16 @@ onUnmounted(() => clearInterval(timer));
         {{ lifecycleNotice }}
       </p>
       <p v-if="error" role="alert" class="error">{{ error }}</p>
+      <details class="panel-buddies">
+        <summary>Buddy kiezen of beheren</summary>
+        <BuddyManager
+          :state="buddyView"
+          :busy="busy"
+          :disabled="offline"
+          prefix="panel"
+          @command="command"
+        />
+      </details>
       <section aria-labelledby="plan-title">
         <h2 id="plan-title">1. Kies jullie voorstelling</h2>
         <p>
@@ -174,8 +214,9 @@ onUnmounted(() => clearInterval(timer));
         <div class="sessions">
           <ManualTrack
             v-for="role in roles"
-            :key="role"
+            :key="`${role}-${snapshot.generation}-${snapshot.resetVersion}-${role === 'B' ? `${activeBuddy?.id ?? 'manual'}:${activeBuddy?.nickname ?? ''}` : ''}`"
             :role="role"
+            :nickname="role === 'B' ? (activeBuddy?.nickname ?? null) : null"
             :state="snapshot"
             :busy="busy"
             :offline="offline"

@@ -54,7 +54,7 @@ onUnmounted(() => clearInterval(timer));
   <main>
     <header>
       <p class="eyebrow">Twee personen · twee onafhankelijke transacties</p>
-      <h1 id="simulation-title" tabindex="-1">SeatMates — simulatie</h1>
+      <h1 id="simulation-title" tabindex="-1">SeatBuddies — simulatie</h1>
       <p>Een rustige checklist naast je filmavond.</p>
     </header>
     <p class="notice">

@@ -40,6 +40,7 @@ export const problemSchema = z.enum([
   'CLOSED',
   'PERMISSION',
   'STALE',
+  'BUDDY_CHANGED',
 ]);
 export const MANUAL_AGE_MS = 15 * 60_000;
 export const manualTrackSchema = z.strictObject({
@@ -238,6 +239,8 @@ export const stepLabels: Record<ManualStep, string> = {
   DONE: 'Ik meld dat ik zelf op Vue heb afgerond',
 };
 export const recoveryText: Record<z.infer<typeof problemSchema>, string> = {
+  BUDDY_CHANGED:
+    'Buddykeuze gewijzigd. B’s invoer, koppeling en controles zijn gewist; controleer B opnieuw. A blijft zelfstandig. Een bijnaam bewijst geen account.',
   LOGOUT:
     'Log zelf opnieuw in op je eigen account. Controleer daarna alle stappen opnieuw.',
   MISMATCH:
