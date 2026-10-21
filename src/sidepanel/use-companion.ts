@@ -16,6 +16,8 @@ export function useCompanion() {
   const lifecycleNotice = ref('');
   const restoredDraft = ref<Showtime | null>(null);
   const local = new Coordinator();
+  let operation = 0;
+  let reading = false;
   function disconnect() {
     offline.value = true;
     local.reset();
@@ -30,6 +32,7 @@ export function useCompanion() {
   async function reconnect() {
     if (busy.value || !offline.value) return false;
     busy.value = true;
+    operation++; // Invalidate a read already in flight before explicit reconnect.
     try {
       const reply = await send({ type: 'RESET' });
       if (!reply.ok) throw new Error('Unavailable');
@@ -50,8 +53,13 @@ export function useCompanion() {
     }
   }
   async function command(message: PanelCommand) {
-    if (busy.value) return false;
-    busy.value = true;
+    const read = message.type === 'GET_STATE';
+    if (busy.value || (read && reading)) return false;
+    const current = ++operation;
+    // Background reads must not disable a focused button or drop a user action.
+    // A mutation supersedes an in-flight read; its late reply is ignored.
+    if (read) reading = true;
+    else busy.value = true;
     try {
       if (offline.value) {
         const parsed = manualCommandSchema.safeParse(message);
@@ -88,6 +96,7 @@ export function useCompanion() {
             }
           : message;
       const reply = await send(request);
+      if (current !== operation) return false;
       if (!reply.ok) {
         if (reply.code === 'BROWSER_UNAVAILABLE') throw new Error(reply.error);
         if (reply.code === 'STALE_BUDDY' || reply.code === 'STALE_WORKFLOW') {
@@ -114,10 +123,11 @@ export function useCompanion() {
       if (message.type !== 'GET_STATE') error.value = '';
       return true;
     } catch {
-      disconnect();
+      if (current === operation) disconnect();
       return false;
     } finally {
-      busy.value = false;
+      if (read) reading = false;
+      else busy.value = false;
     }
   }
   return {

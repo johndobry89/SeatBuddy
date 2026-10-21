@@ -1366,12 +1366,14 @@ test('First-Run Forge: isolated local self-test preserves the real plan, remembe
     await page
       .getByRole('button', { name: 'Voeg buddy toe', exact: true })
       .click();
-    await page
-      .getByRole('checkbox', {
-        name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
-        exact: true,
-      })
-      .check();
+    const remember = page.getByRole('checkbox', {
+      name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+      exact: true,
+    });
+    // Consent is controlled by the asynchronously acknowledged storage result.
+    await expect(remember).not.toBeChecked();
+    await remember.click();
+    await expect(remember).toBeChecked();
     await page
       .getByRole('button', { name: 'Kies Fictief maatje', exact: true })
       .click();

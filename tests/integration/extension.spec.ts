@@ -1129,12 +1129,14 @@ test(
       await panel
         .getByRole('button', { name: 'Voeg buddy toe', exact: true })
         .click();
-      await panel
-        .getByRole('checkbox', {
-          name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
-          exact: true,
-        })
-        .check();
+      const remember = panel.getByRole('checkbox', {
+        name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+        exact: true,
+      });
+      // Consent is controlled by the asynchronously acknowledged storage result.
+      await expect(remember).not.toBeChecked();
+      await remember.click();
+      await expect(remember).toBeChecked();
       await panel
         .getByRole('button', { name: 'Kies Fictief maatje', exact: true })
         .click();
