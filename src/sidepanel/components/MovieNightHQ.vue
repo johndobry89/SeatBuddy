@@ -13,6 +13,23 @@ const summary = computed(() => manualSummary(props.state.manual));
   <section class="movie-night-hq" aria-labelledby="hq-title">
     <p class="eyebrow">Plan → Review → Eigen stappen</p>
     <h2 id="hq-title">Filmavond-overzicht</h2>
+    <details v-if="!state.manual.plan" class="first-run">
+      <summary>Wat doet SeatBuddies?</summary>
+      <p>
+        Je plant een filmavond en controleert zelf één of twee afzonderlijke
+        trajecten. Geen accounts, tickets of websiteboekingen worden gekoppeld.
+        Begin hieronder met een filmplan of probeer uitsluitend fictieve
+        gegevens.
+      </p>
+    </details>
+    <a
+      v-if="!state.manual.plan"
+      href="./fixture.html"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="site-link"
+      >Start met een fictieve proef ↗</a
+    >
     <h3>{{ state.manual.plan?.movie ?? 'Jullie volgende filmavond' }}</h3>
     <p>
       {{ state.manual.plan?.cinema ?? 'Bioscoop UNKNOWN' }} ·
@@ -65,7 +82,11 @@ const summary = computed(() => manualSummary(props.state.manual));
         </p>
       </article>
     </div>
-    <p v-if="state.manual.planningMode === 'SOLO'" class="source">
+    <p
+      v-if="state.manual.planningMode === 'SOLO'"
+      class="source"
+      data-testid="inactive-B"
+    >
       Solo · buddytraject B niet actief.
     </p>
     <aside v-if="summary.partial" class="rescue" aria-labelledby="rescue-title">
@@ -113,7 +134,11 @@ const summary = computed(() => manualSummary(props.state.manual));
         ></span
       >
     </div>
-    <p class="source" data-testid="hq-seats">
+    <p
+      v-show="state.manual.planningMode === 'TOGETHER'"
+      class="source"
+      data-testid="hq-seats"
+    >
       {{
         summary.adjacency === 'CONSECUTIVE_UNVERIFIED'
           ? 'CONSECUTIVE_UNVERIFIED — zelfde rij, opeenvolgende nummers; niet bewezen naast elkaar.'

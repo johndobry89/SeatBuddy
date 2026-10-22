@@ -1,4 +1,4 @@
-name: SeatBuddies Projector Ready checks and Chrome test build
+name: SeatBuddies First-Run Forge checks and Chrome test build
 on:
   push:
   pull_request:
@@ -34,6 +34,9 @@ jobs:
       - run: npm run test:ui
       - if: runner.os == 'Linux'
         run: HEADED=1 xvfb-run -a npm run test:e2e
+      - name: Native Chrome smoke on macOS Intel
+        if: runner.os == 'macOS'
+        run: HEADED=1 npm run test:smoke:chrome
       - uses: actions/upload-artifact@v4
         if: success() && runner.os == 'Linux'
         with:

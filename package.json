@@ -1,6 +1,6 @@
 {
   "name": "seatbuddy",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -20,7 +20,9 @@
     "test:ui": "npm run build && playwright test --project=ui",
     "package": "npm run build && node scripts/package.mjs",
     "icons": "node scripts/icons.mjs",
-    "icons:check": "node scripts/icons.mjs --check"
+    "icons:check": "node scripts/icons.mjs --check",
+    "test:adversarial": "vitest run tests/unit/companion.test.ts tests/unit/retention.test.ts tests/unit/buddies.test.ts tests/unit/adapter.test.ts tests/unit/normal-context.test.ts tests/unit/worker.test.ts tests/unit/self-test.test.ts",
+    "test:smoke:chrome": "npm run build && playwright test --project=extension --grep @smoke"
   },
   "dependencies": {
     "vue": "3.5.44",

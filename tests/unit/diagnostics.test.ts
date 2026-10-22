@@ -9,7 +9,7 @@ it('reduces diagnostics to an explicit allowlist without enumerating tabs or exp
     runtime: {
       getManifest: () => ({
         manifest_version: 3,
-        version: '0.6.0',
+        version: '0.7.0',
         permissions: ['sidePanel', 'storage'],
         author: 'fictional-private-name',
       }),
@@ -41,7 +41,7 @@ it('reduces diagnostics to an explicit allowlist without enumerating tabs or exp
   });
   const report = selfCheck(c.snapshot(now, true), false);
   expect(report).toMatchObject({
-    extensionVersion: '0.6.0',
+    extensionVersion: '0.7.0',
     permissionScope: 'SIDE_PANEL_AND_STORAGE',
     transport: 'EXTENSION',
     realVueConfirmation: 'NOT_IMPLEMENTED',

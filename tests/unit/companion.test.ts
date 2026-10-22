@@ -1,5 +1,6 @@
 import { workflow } from '../helpers/workflow';
 import { afterEach, expect, it, vi } from 'vitest';
+import { useBuddies } from '../../src/popup/use-buddies';
 import { useCompanion } from '../../src/sidepanel/use-companion';
 import { Coordinator } from '../../src/background/coordinator';
 import { fictionalObservation } from '../../src/fixtures/data';
@@ -10,9 +11,9 @@ const panel = {
   url: 'chrome-extension://test/sidepanel.html',
   frameId: 0,
 };
-function runtime(c: Coordinator) {
+function runtime(c: Coordinator, sender = panel) {
   const sendMessage = vi.fn(async (message: unknown) =>
-    routeMessage(c, message, panel, 'test', false, Date.now()),
+    routeMessage(c, message, sender, 'test', false, Date.now()),
   );
   vi.stubGlobal('chrome', { runtime: { sendMessage } });
   return sendMessage;
@@ -126,4 +127,131 @@ it('fails closed on malformed replies and keeps local planning usable without Ch
   expect(await ui.command({ type: 'PLAN', plan })).toBe(true);
   expect(ui.snapshot.value?.manual.plan).toEqual(plan);
   expect(await ui.command({ type: 'GET_CONTEXTS' })).toBe(false);
+});
+
+for (const fail of [false, true]) {
+  it(`a pending panel poll keeps user actions available and ignores its late ${fail ? 'failure' : 'snapshot'}`, async () => {
+    const worker = new Coordinator();
+    const send = runtime(worker);
+    const ui = useCompanion();
+    await ui.command({ type: 'GET_STATE' });
+    const old = routeMessage(
+      worker,
+      { type: 'GET_STATE' },
+      panel,
+      'test',
+      false,
+      Date.now(),
+    );
+    let resolve!: (value: ReturnType<typeof routeMessage>) => void;
+    let reject!: (reason: Error) => void;
+    send.mockImplementationOnce(
+      () =>
+        new Promise((yes, no) => {
+          resolve = yes;
+          reject = no;
+        }),
+    );
+    const pending = ui.command({ type: 'GET_STATE' });
+    expect(ui.busy.value).toBe(false);
+    expect(await ui.command({ type: 'GET_STATE' })).toBe(false); // Coalesce polls.
+    expect(await ui.command({ type: 'PLAN', plan })).toBe(true);
+    if (fail) reject(new Error('Late fictional poll failure'));
+    else resolve(old);
+    expect(await pending).toBe(false);
+    expect(ui.snapshot.value?.manual.plan).toEqual(plan);
+    expect(ui.offline.value).toBe(false);
+    expect(ui.error.value).toBe('');
+    expect(send).toHaveBeenCalledTimes(3); // One read, held read, one mutation; no replay.
+  });
+  it(`a pending popup poll keeps confirmation available and ignores its late ${fail ? 'failure' : 'roster'}`, async () => {
+    const worker = new Coordinator();
+    const sender = { ...panel, url: 'chrome-extension://test/popup.html' };
+    const send = runtime(worker, sender);
+    const ui = useBuddies();
+    await ui.load();
+    const old = routeMessage(
+      worker,
+      { type: 'BUDDY_READ' },
+      sender,
+      'test',
+      false,
+      Date.now(),
+    );
+    let resolve!: (value: ReturnType<typeof routeMessage>) => void;
+    let reject!: (reason: Error) => void;
+    send.mockImplementationOnce(
+      () =>
+        new Promise((yes, no) => {
+          resolve = yes;
+          reject = no;
+        }),
+    );
+    const pending = ui.load();
+    expect(ui.busy.value).toBe(false);
+    await ui.load(); // Coalesce polls, never send another read.
+    await ui.load({
+      type: 'BUDDY_MUTATE',
+      generation: worker.generation,
+      revision: 0,
+      resetB: false,
+      action: { kind: 'ADD', nickname: 'Filmmaatje' },
+    });
+    if (fail) reject(new Error('Late fictional poll failure'));
+    else resolve(old);
+    await pending;
+    expect(ui.state.value?.roster.map((b) => b.nickname)).toEqual([
+      'Filmmaatje',
+    ]);
+    expect(ui.error.value).toBe('');
+    expect(send).toHaveBeenCalledTimes(3);
+  });
+}
+it('completion of an older read cannot release an active mutation busy barrier', async () => {
+  const worker = new Coordinator();
+  const send = runtime(worker);
+  const ui = useCompanion();
+  await ui.command({ type: 'GET_STATE' });
+  let releaseRead!: (value: ReturnType<typeof routeMessage>) => void;
+  let releaseMutation!: (value: ReturnType<typeof routeMessage>) => void;
+  send.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        releaseRead = done;
+      }),
+  );
+  const read = ui.command({ type: 'GET_STATE' });
+  const old = routeMessage(
+    worker,
+    { type: 'GET_STATE' },
+    panel,
+    'test',
+    false,
+    Date.now(),
+  );
+  send.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        releaseMutation = done;
+      }),
+  );
+  const mutation = ui.command({ type: 'PLAN', plan });
+  releaseRead(old);
+  await read;
+  expect(ui.busy.value).toBe(true);
+  expect(await ui.command({ type: 'PLAN', plan })).toBe(false);
+  expect(await ui.command({ type: 'GET_STATE' })).toBe(false);
+  releaseMutation(
+    routeMessage(
+      worker,
+      workflow(worker, { type: 'PLAN', plan }),
+      panel,
+      'test',
+      false,
+      Date.now(),
+    ),
+  );
+  expect(await mutation).toBe(true);
+  expect(ui.busy.value).toBe(false);
+  expect(ui.snapshot.value?.manual.plan).toEqual(plan);
 });

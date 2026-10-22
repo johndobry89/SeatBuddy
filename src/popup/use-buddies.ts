@@ -8,11 +8,17 @@ export function useBuddies() {
   const error = ref('');
   const notice = ref('');
   const busy = ref(false);
+  let operation = 0;
+  let reading = false;
   async function load(message: PopupCommand = { type: 'BUDDY_READ' }) {
-    if (busy.value) return;
-    busy.value = true;
+    const read = message.type === 'BUDDY_READ';
+    if (busy.value || (read && reading)) return;
+    const current = ++operation;
+    if (read) reading = true;
+    else busy.value = true;
     try {
       const result = popupReplySchema.parse(await sendRuntime(message));
+      if (current !== operation) return;
       if (!result.ok) {
         error.value = result.error;
         if (result.code === 'BROWSER_UNAVAILABLE') state.value = null;
@@ -31,11 +37,13 @@ export function useBuddies() {
       state.value = result.buddy;
       if (message.type !== 'BUDDY_READ') error.value = '';
     } catch {
+      if (current !== operation) return;
       state.value = null;
       error.value =
         'Browserverbinding niet beschikbaar. Heropen of herlaad SeatBuddies; er wordt niets automatisch herhaald. De handmatige assistent blijft een aparte route.';
     } finally {
-      busy.value = false;
+      if (read) reading = false;
+      else busy.value = false;
     }
   }
   return { state, error, notice, busy, load };

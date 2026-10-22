@@ -36,7 +36,7 @@ async function fixture() {
       extension_pages:
         "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'",
     },
-    version: '0.6.0',
+    version: '0.7.0',
     permissions: ['sidePanel', 'storage'],
     icons,
     action: { default_popup: 'popup.html', default_icon: icons },
@@ -45,7 +45,7 @@ async function fixture() {
   };
   await writeFile(
     join(root, 'package.json'),
-    JSON.stringify({ version: '0.6.0' }),
+    JSON.stringify({ version: '0.7.0' }),
   );
   await writeFile(join(root, 'dist/manifest.json'), JSON.stringify(manifest));
   for (const file of [
@@ -76,7 +76,7 @@ afterEach(async () => {
 it('produces only deterministic runtime bytes with a root manifest and a correct platform-neutral checksum', async () => {
   const { root } = await fixture();
   const result = await packageRuntime(root);
-  expect(result.name).toBe('seatbuddies-0.6.0-chrome-test.zip');
+  expect(result.name).toBe('seatbuddies-0.7.0-chrome-test.zip');
   expect(await readdir(join(root, 'build'))).toEqual([
     result.name,
     `${result.name}.sha256`,
@@ -204,4 +204,28 @@ it('refuses a new generated update URL outside the reviewed manifest contract', 
     }),
   );
   await expect(packageRuntime(root)).rejects.toThrow(/manifest field/);
+});
+
+it.each([
+  ['sidepanel.html', '<img src="https://fictional.invalid/pixel.png">'],
+  [
+    'sidepanel.html',
+    '<script type="module" src="./assets/missing.js"></script>',
+  ],
+  ['sidepanel.html', '<script>throw new Error("fictional")</script>'],
+  ['assets/broken.js', 'import "../../outside.js";'],
+  ['assets/broken.js', 'import "./missing.js";'],
+  ['sidepanel.html', '<img srcset="https://fictional.invalid/pixel.png 1x">'],
+])(
+  'rejects missing/local-escaping/passive remote resources: %s %s',
+  async (file, source) => {
+    const { root } = await fixture();
+    await writeFile(join(root, 'dist', file), source);
+    await expect(packageRuntime(root)).rejects.toThrow();
+  },
+);
+it('rejects syntactically broken generated JavaScript', async () => {
+  const { root } = await fixture();
+  await writeFile(join(root, 'dist/assets/broken.js'), 'export {');
+  await expect(packageRuntime(root)).rejects.toThrow(/Invalid generated/);
 });

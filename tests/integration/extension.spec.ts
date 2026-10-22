@@ -1,4 +1,6 @@
+import { openSimulation } from '../helpers/browser-workflow';
 import {
+  firstPlanViaUI,
   enterSeats,
   reviewViaUI,
   planViaUI,
@@ -29,181 +31,199 @@ async function sendWorkflow(page: Page, command: ManualCommand) {
   });
 }
 
-test('unpacked MV3: independent simulations, fixture provenance, fallback and navigation invalidation', async () => {
-  const profile = await mkdtemp(join(tmpdir(), 'seatmates-browser-'));
-  const extension = resolve('dist');
-  const context = await chromium.launchPersistentContext(profile, {
-    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
-    ignoreDefaultArgs: ['--disable-extensions'],
-    headless: process.env.HEADED !== '1',
-    args: [`--load-extension=${extension}`, '--no-sandbox'],
-  });
-  try {
-    const worker =
-      context.serviceWorkers()[0] ??
-      (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
-    const id = new URL(worker.url()).host;
-    const page = await context.newPage();
-    const failures: string[] = [];
-    const external: string[] = [];
-    page.on('pageerror', (error) => failures.push(error.message));
-    context.on('request', (request) => {
-      if (/^https?:/.test(request.url())) external.push(request.url());
+test(
+  'unpacked MV3: independent simulations, fixture provenance, fallback and navigation invalidation',
+  { tag: '@smoke' },
+  async () => {
+    const profile = await mkdtemp(join(tmpdir(), 'seatmates-browser-'));
+    const extension = resolve('dist');
+    const context = await chromium.launchPersistentContext(profile, {
+      executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+      ignoreDefaultArgs: ['--disable-extensions'],
+      headless: process.env.HEADED !== '1',
+      args: [`--load-extension=${extension}`, '--no-sandbox'],
     });
-    await page.goto(`chrome-extension://${id}/sidepanel.html`);
-    await page
-      .getByText('Diagnostiek zonder privégegevens', { exact: true })
-      .click();
-    await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).click();
-    await expect(page.getByTestId('diagnostic-report')).toContainText(
-      'SIDE_PANEL_AND_STORAGE',
-    );
-    await expect(page.getByTestId('diagnostic-report')).toContainText(
-      '"extensionVersion": "0.6.0"',
-    );
-    await expect(page.getByTestId('diagnostic-report')).toContainText(
-      'NOT_IMPLEMENTED',
-    );
-    await page
-      .getByRole('button', { name: 'Simulatie / technische proef' })
-      .click();
-    await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
-    await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
-    await page.getByRole('button', { name: 'Start simulatie' }).click();
-    await expect(page.getByTestId('match')).toHaveText('MATCH');
-    await expect(page.getByTestId('adjacency')).toHaveText('MOCK_ADJACENT');
-    await expect(page.getByTestId('status-A')).toHaveText('SELECTED');
-    await page.getByLabel('Scenario', { exact: true }).selectOption('partial');
-    await page.getByRole('button', { name: 'Start simulatie' }).click();
-    await expect(page.getByTestId('status-A')).toHaveText('SIMULATED_COMPLETE');
-    await expect(page.getByTestId('status-B')).toHaveText('FAILED');
-    await expect(
-      page.getByText('Partiële simulatie:', { exact: false }),
-    ).toBeVisible();
-    await page.getByLabel('Scenario', { exact: true }).selectOption('mismatch');
-    await page.getByRole('button', { name: 'Start simulatie' }).click();
-    await expect(page.getByTestId('match')).toHaveText('MISMATCH');
-    await page.getByLabel('Scenario', { exact: true }).selectOption('aisle');
-    await page.getByRole('button', { name: 'Start simulatie' }).click();
-    await expect(page.getByTestId('adjacency')).toHaveText('NOT_ADJACENT');
-    await page.getByLabel('Scenario', { exact: true }).selectOption('stale');
-    await page.getByRole('button', { name: 'Start simulatie' }).click();
-    await expect(page.getByTestId('status-A')).toHaveText('SELECTED');
-    await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
-    await page.getByRole('button', { name: 'Wis sessies / handmatig' }).click();
-    const firstChecklist = page.getByRole('group', {
-      name: 'Checklist persoon A',
-    });
-    await firstChecklist.getByRole('checkbox').first().check();
-    await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
-    await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
-    await page.setViewportSize({ width: 320, height: 900 });
-    const width = await page.evaluate(() => ({
-      scroll: document.documentElement.scrollWidth,
-      client: document.documentElement.clientWidth,
-    }));
-    expect(width.scroll).toBeLessThanOrEqual(width.client);
-    await page.screenshot({
-      path: 'test-results/panel-manual.png',
-      fullPage: true,
-    });
-    const fixture = await context.newPage();
-    fixture.on('pageerror', (error) => failures.push(error.message));
-    await fixture.goto(`chrome-extension://${id}/fixture.html`);
-    await fixture
-      .getByRole('button', { name: 'Koppel deze fictieve tab' })
-      .click();
-    await expect(fixture.getByRole('status')).toContainText('Tab gekoppeld');
-    await fixture
-      .getByRole('button', { name: 'Verstuur fictieve waarneming' })
-      .click();
-    await expect(fixture.getByRole('status')).toContainText(
-      'Fictieve waarneming verstuurd',
-    );
-    await expect(page.getByTestId('status-A')).toHaveText('SELECTED');
-    await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
-    const actual = panelReplySchema.parse(
-      await page.evaluate(
-        async () => await chrome.runtime.sendMessage({ type: 'GET_STATE' }),
-      ),
-    );
-    if (!actual.ok) throw new Error(actual.error);
-    if (!actual.state.sessions.A.binding)
-      throw new Error('Fixture binding missing');
-    expect(actual.state.sessions.A.binding).toMatchObject({ incognito: false });
-    expect(actual.state.sessions.A.binding.tabId).toBeGreaterThanOrEqual(0);
-    expect(actual.state.sessions.A.binding.windowId).toBeGreaterThanOrEqual(0);
-    expect(actual.state.sessions.A.binding.documentId).toEqual(
-      expect.any(String),
-    );
-    // A real sidePanel.open call from an explicit click must create its own browser target.
-    const cdp = await context.newCDPSession(fixture);
-    const before = (await cdp.send('Target.getTargets')).targetInfos.map(
-      (t) => t.targetId,
-    );
-    await fixture.getByRole('button', { name: 'Open echt Side Panel' }).click();
-    await expect
-      .poll(async () =>
-        (await cdp.send('Target.getTargets')).targetInfos.some(
-          (t) =>
-            t.url.split(/[?#]/)[0] ===
-              `chrome-extension://${id}/sidepanel.html` &&
-            !before.includes(t.targetId),
+    try {
+      const worker =
+        context.serviceWorkers()[0] ??
+        (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
+      const id = new URL(worker.url()).host;
+      const page = await context.newPage();
+      const failures: string[] = [];
+      const external: string[] = [];
+      page.on('pageerror', (error) => failures.push(error.message));
+      context.on('request', (request) => {
+        if (/^https?:/.test(request.url())) external.push(request.url());
+      });
+      await page.goto(`chrome-extension://${id}/sidepanel.html`);
+      await page
+        .getByText('Diagnostiek zonder privégegevens', { exact: true })
+        .click();
+      await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).click();
+      await expect(page.getByTestId('diagnostic-report')).toContainText(
+        'SIDE_PANEL_AND_STORAGE',
+      );
+      await expect(page.getByTestId('diagnostic-report')).toContainText(
+        '"extensionVersion": "0.7.0"',
+      );
+      await expect(page.getByTestId('diagnostic-report')).toContainText(
+        'NOT_IMPLEMENTED',
+      );
+      await openSimulation(page);
+      await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
+      await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
+      await page.getByRole('button', { name: 'Start simulatie' }).click();
+      await expect(page.getByTestId('match')).toHaveText('MATCH');
+      await expect(page.getByTestId('adjacency')).toHaveText('MOCK_ADJACENT');
+      await expect(page.getByTestId('status-A')).toHaveText('SELECTED');
+      await page
+        .getByLabel('Scenario', { exact: true })
+        .selectOption('partial');
+      await page.getByRole('button', { name: 'Start simulatie' }).click();
+      await expect(page.getByTestId('status-A')).toHaveText(
+        'SIMULATED_COMPLETE',
+      );
+      await expect(page.getByTestId('status-B')).toHaveText('FAILED');
+      await expect(
+        page.getByText('Partiële simulatie:', { exact: false }),
+      ).toBeVisible();
+      await page
+        .getByLabel('Scenario', { exact: true })
+        .selectOption('mismatch');
+      await page.getByRole('button', { name: 'Start simulatie' }).click();
+      await expect(page.getByTestId('match')).toHaveText('MISMATCH');
+      await page.getByLabel('Scenario', { exact: true }).selectOption('aisle');
+      await page.getByRole('button', { name: 'Start simulatie' }).click();
+      await expect(page.getByTestId('adjacency')).toHaveText('NOT_ADJACENT');
+      await page.getByLabel('Scenario', { exact: true }).selectOption('stale');
+      await page.getByRole('button', { name: 'Start simulatie' }).click();
+      await expect(page.getByTestId('status-A')).toHaveText('SELECTED');
+      await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
+      await page
+        .getByRole('button', { name: 'Wis sessies / handmatig' })
+        .click();
+      const firstChecklist = page.getByRole('group', {
+        name: 'Checklist persoon A',
+      });
+      await firstChecklist.getByRole('checkbox').first().check();
+      await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
+      await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
+      await page.setViewportSize({ width: 320, height: 900 });
+      const width = await page.evaluate(() => ({
+        scroll: document.documentElement.scrollWidth,
+        client: document.documentElement.clientWidth,
+      }));
+      expect(width.scroll).toBeLessThanOrEqual(width.client);
+      await page.screenshot({
+        path: 'test-results/panel-manual.png',
+        fullPage: true,
+      });
+      const fixture = await context.newPage();
+      fixture.on('pageerror', (error) => failures.push(error.message));
+      await fixture.goto(`chrome-extension://${id}/fixture.html`);
+      await fixture
+        .getByRole('button', { name: 'Koppel deze fictieve tab' })
+        .click();
+      await expect(fixture.getByRole('status')).toContainText('Tab gekoppeld');
+      await fixture
+        .getByRole('button', { name: 'Verstuur fictieve waarneming' })
+        .click();
+      await expect(fixture.getByRole('status')).toContainText(
+        'Fictieve waarneming verstuurd',
+      );
+      await expect(page.getByTestId('status-A')).toHaveText('SELECTED');
+      await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
+      const actual = panelReplySchema.parse(
+        await page.evaluate(
+          async () => await chrome.runtime.sendMessage({ type: 'GET_STATE' }),
         ),
-      )
-      .toBe(true);
-    await fixture.getByLabel('Rol voor deze tab').selectOption('B');
-    await fixture
-      .getByRole('button', { name: 'Koppel deze fictieve tab' })
-      .click();
-    await expect(fixture.getByRole('status')).toContainText('Status UNKNOWN');
-    await expect(fixture.getByRole('status')).toContainText('Handmatig verder');
-    const refusedB = panelReplySchema.parse(
-      await page.evaluate(() =>
-        chrome.runtime.sendMessage({ type: 'GET_STATE' }),
-      ),
-    );
-    expect(refusedB.ok && refusedB.state.sessions.B.binding).toBeNull();
-    expect(refusedB.ok && refusedB.state.sessions.B.observation).toBeNull();
-    expect(refusedB.ok && refusedB.state.sessions.A.binding?.incognito).toBe(
-      false,
-    );
-    await fixture.reload();
-    await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
-    // Exercise the actual browser sidePanel configuration, beyond just the Vue page.
-    expect(
-      await worker.evaluate(async () => await chrome.sidePanel.getOptions({})),
-    ).toMatchObject({ path: 'sidepanel.html', enabled: true });
-    expect(
-      await worker.evaluate(
-        async () => await chrome.sidePanel.getPanelBehavior(),
-      ),
-    ).toMatchObject({ openPanelOnActionClick: false });
-    expect(failures).toEqual([]);
-    expect(external).toEqual([]);
-    await page.reload();
-    await page
-      .getByRole('button', { name: 'Simulatie / technische proef' })
-      .click();
-    await expect(
-      firstChecklist.getByRole('checkbox').first(),
-    ).not.toBeChecked();
-    await page
-      .getByRole('button', { name: 'Boekingsassistent', exact: true })
-      .click();
-    await expect(page.getByTestId('manual-status-A')).toHaveText(
-      'Nog niet gecontroleerd',
-    );
-    expect(
-      await worker.evaluate(
-        () => chrome.runtime.getManifest().host_permissions ?? [],
-      ),
-    ).toEqual([]);
-  } finally {
-    await context.close();
-    await rm(profile, { recursive: true, force: true });
-  }
-});
+      );
+      if (!actual.ok) throw new Error(actual.error);
+      if (!actual.state.sessions.A.binding)
+        throw new Error('Fixture binding missing');
+      expect(actual.state.sessions.A.binding).toMatchObject({
+        incognito: false,
+      });
+      expect(actual.state.sessions.A.binding.tabId).toBeGreaterThanOrEqual(0);
+      expect(actual.state.sessions.A.binding.windowId).toBeGreaterThanOrEqual(
+        0,
+      );
+      expect(actual.state.sessions.A.binding.documentId).toEqual(
+        expect.any(String),
+      );
+      // A real sidePanel.open call from an explicit click must create its own browser target.
+      const cdp = await context.newCDPSession(fixture);
+      const before = (await cdp.send('Target.getTargets')).targetInfos.map(
+        (t) => t.targetId,
+      );
+      await fixture
+        .getByRole('button', { name: 'Open echt Side Panel' })
+        .click();
+      await expect
+        .poll(async () =>
+          (await cdp.send('Target.getTargets')).targetInfos.some(
+            (t) =>
+              t.url.split(/[?#]/)[0] ===
+                `chrome-extension://${id}/sidepanel.html` &&
+              !before.includes(t.targetId),
+          ),
+        )
+        .toBe(true);
+      await fixture.getByLabel('Rol voor deze tab').selectOption('B');
+      await fixture
+        .getByRole('button', { name: 'Koppel deze fictieve tab' })
+        .click();
+      await expect(fixture.getByRole('status')).toContainText('Status UNKNOWN');
+      await expect(fixture.getByRole('status')).toContainText(
+        'Handmatig verder',
+      );
+      const refusedB = panelReplySchema.parse(
+        await page.evaluate(() =>
+          chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+        ),
+      );
+      expect(refusedB.ok && refusedB.state.sessions.B.binding).toBeNull();
+      expect(refusedB.ok && refusedB.state.sessions.B.observation).toBeNull();
+      expect(refusedB.ok && refusedB.state.sessions.A.binding?.incognito).toBe(
+        false,
+      );
+      await fixture.reload();
+      await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
+      // Exercise the actual browser sidePanel configuration, beyond just the Vue page.
+      expect(
+        await worker.evaluate(
+          async () => await chrome.sidePanel.getOptions({}),
+        ),
+      ).toMatchObject({ path: 'sidepanel.html', enabled: true });
+      expect(
+        await worker.evaluate(
+          async () => await chrome.sidePanel.getPanelBehavior(),
+        ),
+      ).toMatchObject({ openPanelOnActionClick: false });
+      expect(failures).toEqual([]);
+      expect(external).toEqual([]);
+      await page.reload();
+      await openSimulation(page);
+      await expect(
+        firstChecklist.getByRole('checkbox').first(),
+      ).not.toBeChecked();
+      await page
+        .getByRole('button', { name: 'Boekingsassistent', exact: true })
+        .click();
+      await expect(page.getByTestId('manual-status-A')).toHaveText(
+        'Nog niet gecontroleerd',
+      );
+      expect(
+        await worker.evaluate(
+          () => chrome.runtime.getManifest().host_permissions ?? [],
+        ),
+      ).toEqual([]);
+    } finally {
+      await context.close();
+      await rm(profile, { recursive: true, force: true });
+    }
+  },
+);
 
 test('real Chrome context pairing with explicit incognito opt-in, revocation and worker suspension', async () => {
   test.setTimeout(60_000);
@@ -1054,7 +1074,7 @@ test('real Chrome Projector Ready: solo intent, two-panel preflight races, parti
     await expect(report).toBeFocused();
     const text = await report.innerText();
     expect(JSON.parse(text)).toMatchObject({
-      extensionVersion: '0.6.0',
+      extensionVersion: '0.7.0',
       productionAdapter: 'DISABLED_G0',
       permissionScope: 'SIDE_PANEL_AND_STORAGE',
     });
@@ -1073,3 +1093,121 @@ test('real Chrome Projector Ready: solo intent, two-panel preflight races, parti
     await rm(profile, { recursive: true, force: true });
   }
 });
+
+test(
+  'First-Run Forge native local self-test cannot mutate current Chrome storage, selected buddy, plan, manual proof or incognito consent',
+  { tag: '@smoke' },
+  async () => {
+    const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-first-run-'));
+    const context = await chromium.launchPersistentContext(profile, {
+      executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+      ignoreDefaultArgs: ['--disable-extensions'],
+      headless: process.env.HEADED !== '1',
+      args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
+    });
+    try {
+      const worker =
+        context.serviceWorkers()[0] ??
+        (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
+      const id = new URL(worker.url()).host;
+      const panel = await context.newPage();
+      const external: string[] = [];
+      context.on('request', (request) => {
+        if (/^https?:/.test(request.url())) external.push(request.url());
+      });
+      await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+      await expect(
+        panel.getByRole('link', {
+          name: 'Start met een fictieve proef ↗',
+          exact: true,
+        }),
+      ).toHaveAttribute('href', './fixture.html');
+      await panel.getByText('Buddy kiezen of beheren', { exact: true }).click();
+      await panel
+        .getByLabel('Bijnaam toevoegen', { exact: true })
+        .fill('Fictief maatje');
+      await panel
+        .getByRole('button', { name: 'Voeg buddy toe', exact: true })
+        .click();
+      const remember = panel.getByRole('checkbox', {
+        name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+        exact: true,
+      });
+      // Consent is controlled by the asynchronously acknowledged storage result.
+      await expect(remember).not.toBeChecked();
+      await remember.click();
+      await expect(remember).toBeChecked();
+      await panel
+        .getByRole('button', { name: 'Kies Fictief maatje', exact: true })
+        .click();
+      await panel
+        .getByRole('button', {
+          name: 'Bevestig wijziging en wis B',
+          exact: true,
+        })
+        .click();
+      await firstPlanViaUI(panel, true);
+      await reviewViaUI(panel);
+      await panel.locator('#next-own-A').click();
+      await panel
+        .getByText('Filmplan-concept veilig bewaren of herstellen', {
+          exact: true,
+        })
+        .click();
+      await panel
+        .getByRole('button', {
+          name: 'Bewaar tijdelijk filmplan-concept',
+          exact: true,
+        })
+        .click();
+      const inspect = () =>
+        panel.evaluate(async () => ({
+          state: await chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+          local: await chrome.storage.local.get(null),
+          session: await chrome.storage.session.get(null),
+          allowed: await chrome.extension.isAllowedIncognitoAccess(),
+        }));
+      const before = await inspect();
+      await panel
+        .getByText('Diagnostiek zonder privégegevens', { exact: true })
+        .click();
+      for (let i = 0; i < 2; i++) {
+        await panel
+          .getByRole('button', { name: 'Controleer SeatBuddies', exact: true })
+          .click();
+        await expect(panel.getByTestId('local-test-result')).toHaveText(
+          'Lokale proef geslaagd',
+        );
+        expect(await inspect()).toEqual(before);
+      }
+      const text = await panel.getByTestId('local-test-report').innerText();
+      expect(JSON.parse(text)).toMatchObject({
+        kind: 'FICTIONAL_TEST',
+        extensionVersion: '0.7.0',
+        adapterVersion: 'FICTIONAL_V1',
+      });
+      for (const secret of [
+        'Fictief maatje',
+        'De maan van papier',
+        '2030-04-12',
+        'F10',
+        id,
+      ])
+        expect(text).not.toContain(secret);
+      await panel
+        .getByRole('button', {
+          name: 'Kopieer lokale testsamenvatting',
+          exact: true,
+        })
+        .click();
+      await expect(
+        panel.getByText('Technische diagnose gekopieerd.', { exact: false }),
+      ).toBeVisible();
+      expect(await inspect()).toEqual(before);
+      expect(external).toEqual([]);
+    } finally {
+      await context.close();
+      await rm(profile, { recursive: true, force: true });
+    }
+  },
+);

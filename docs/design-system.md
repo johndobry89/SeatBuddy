@@ -1,4 +1,4 @@
-# SeatBuddies — visuele afspraken 0.6.0-test
+# SeatBuddies — visuele afspraken 0.7.0-test
 
 Twee originele, vereenvoudigde bioscoopstoelen vormen het merk: eigen crimson silhouetten, één warme gouden armleuning en een charcoal ondergrond. Geen Vue-/Netflix-logo, externe merkasset, webfont of glow. De naam en beschrijvende tekst vormen het compacte woordmerk; naam-/merkrechten voor publicatie zijn nog niet beoordeeld.
 
@@ -38,8 +38,18 @@ Privacy staat bij buddybeheer, standaard uit, met volledige uitleg en een door C
 
 Solo en samen zijn afzonderlijke expliciete, toetsenbordbedienbare plankeuzes met tekst én aria-pressed. De nieuwe review hergebruikt de bestaande invoerformulieren, toont eigen bronlabels en laat onbekende zaal/stoelvelden UNKNOWN. Bevestiging voor solo verplaatst focus naar de uitleg en wist uitsluitend B na keuze; het overzicht blijft direct leesbaar. Hersteladvies na gedeeltelijke uitkomst gebruikt rustige openklapbare menselijke instructies. Review leidt naar de eerstvolgende nog open eigen stap; diagnosepreview krijgt focus en blijft selecteerbaar. Een aparte stabiele live-regio volgt betekenisvolle tekst, nooit snapshotidentiteit of doorlopende leeftijd. Fouten gebruiken alert, gewone polling maakt geen nieuwe aankondiging. Alle knoppen/summaries hebben minimaal 44px aanraakhoogte; de bestaande gold focus, niet-kleurgebonden statussen en reduced-motion blijven.
 
-Bovenstaande popup/HQ-beelden zijn bij de Sprint 06-controle daadwerkelijk gemaakt, bekeken en vernieuwd; het widgetbeeld blijft historische referentie. Geen native Mac- of live Vue-screenshotclaim.
+Popup/HQ/preflight-beelden zijn bij de Sprint 07-controle daadwerkelijk gemaakt, bekeken en vernieuwd; het widgetbeeld blijft historische referentie. Geen native Mac- of live Vue-screenshotclaim.
 
 Ook de lokale review is werkelijk vastgelegd en bekeken (fictieve invoer, renderer):
 
 ![Werkende filmavond-review met bronlabels en A/B-voorkeuren](images/seatbuddies-preflight.png)
+
+## First-Run Forge
+
+De hoofdroute toont direct solo/samen en bij een leeg plan de gewenste stoelen in hetzelfde formulier. Review en eigen stappen blijven dezelfde schermdelen; geen wizard. Technische simulatie is verplaatst naar bestaande diagnostiek. De fictieve proeflink en korte startuitleg gebruiken bestaande details-elementen. V-show houdt onopgeslagen formulieren bij technische viewwissels in leven; workerherstel onderscheidt zichtbaar concept van feitelijke voortgang.
+
+De nieuwe lokale proef staat in dezelfde diagnostiek, duidelijk FICTIONAL_TEST. Geen groen account-/boekingssucces: tekstuele PASS/FAIL/NOT_TESTED en scope staan bij elk resultaat. De preview hergebruikt de gewone diagnosekopieerder. Ook op 320px blijven de vaste technische codes leesbaar via de bestaande selecteerbare preview. Onderstaand beeld is daadwerkelijk gerenderd en bekeken met fictieve data en een **transportdouble**; het bewijst geen native Chrome-API-werking.
+
+![Geïsoleerde lokale proef met uitsluitend allowlistpreview](images/seatbuddies-local-test.png)
+
+Popup/HQ/preflight-afbeeldingen hierboven zijn vernieuwd vanuit de 0.7.0-UI-suite. Het widgetbeeld blijft historisch. Native en menselijke status staan uitsluitend in feasibility; de [UX-audit](ux-friction-audit.md) geeft de werkelijk gemeten route.

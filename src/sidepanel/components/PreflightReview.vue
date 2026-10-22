@@ -19,7 +19,7 @@ const fields = {
 const issue = computed(() => preflightIssue(props.state));
 </script>
 <template>
-  <section aria-labelledby="review-title" class="preflight">
+  <section v-show="state.plan" aria-labelledby="review-title" class="preflight">
     <h2 id="review-title" tabindex="-1">2. Controleer jullie filmavond</h2>
     <p v-if="!state.plan">
       Bewaar eerst je filmplan. Daarna vul je hieronder de gewenste stoelen in.

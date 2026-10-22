@@ -5,7 +5,7 @@
 | Documentcontrole | Waarde |
 | --- | --- |
 | Document-ID | `SEATMATES.MASTERPLAN.v0.2` |
-| Productversie | **0.6.0-test — Projector Ready: expliciet solo/samen, lokale review en veilig herstel; G0 live open** |
+| Productversie | **0.7.0-test — First-Run Forge: kortere planning, geïsoleerde lokale proef en reproduceerbare installatie; G0 live open** |
 | Datum | Ontwerp 20 oktober 2026; implementatiestatus bijgewerkt 21 oktober 2026 |
 | Project | SeatBuddies (voorheen SeatMates; naam-/merkrechten niet onderzocht) |
 | Productdoel | Twee geldige Vue Movie Pass-houders begeleiden naar dezelfde voorstelling en waar mogelijk aangrenzende stoelen |
