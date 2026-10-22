@@ -16,7 +16,7 @@ import {
 import { fictionalObservation } from '../../src/fixtures/data';
 const manifest = {
   manifest_version: 3,
-  version: '0.7.0',
+  version: '0.8.0',
   permissions: ['sidePanel', 'storage'],
 };
 function environment(): LocalTestEnvironment {
@@ -44,7 +44,7 @@ it('executes every isolated check and copies only strict technical allowlist fie
   const text = localTestText(result);
   expect(JSON.parse(text)).toMatchObject({
     kind: 'FICTIONAL_TEST',
-    extensionVersion: '0.7.0',
+    extensionVersion: '0.8.0',
     adapterVersion: 'FICTIONAL_V1',
   });
   for (const value of [

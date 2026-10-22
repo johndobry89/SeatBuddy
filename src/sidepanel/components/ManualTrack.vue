@@ -61,22 +61,37 @@ const canonical = () =>
     showtime: track.value.reportedShowtime ?? props.state.manual.plan ?? empty,
     seat: track.value.seat,
   });
-watch(canonical, (current, previous) => {
-  const local = JSON.stringify({ showtime: showtime.value, seat: seat.value });
-  if (props.role === 'A' && local !== previous && local !== current) {
-    retainedDraft.value = true;
-    selectedContext.value = '';
-    contextFeedback.value = '';
-    return;
-  }
-  showtime.value = {
-    ...(track.value.reportedShowtime ?? props.state.manual.plan ?? empty),
-  };
-  seat.value = { ...track.value.seat };
-  retainedDraft.value = false;
-  if (track.value.seat.row && track.value.seat.number)
-    detailsOpen.value = false;
-});
+watch(
+  [canonical, () => props.state.generation],
+  ([current, generation], [previous, previousGeneration]) => {
+    const local = JSON.stringify({
+      showtime: showtime.value,
+      seat: seat.value,
+    });
+    if (generation !== previousGeneration) {
+      selectedContext.value = '';
+      contextFeedback.value = '';
+    }
+    if (
+      props.role === 'A' &&
+      generation !== previousGeneration &&
+      local !== previous &&
+      local !== current
+    ) {
+      retainedDraft.value = true;
+      selectedContext.value = '';
+      contextFeedback.value = '';
+      return;
+    }
+    showtime.value = {
+      ...(track.value.reportedShowtime ?? props.state.manual.plan ?? empty),
+    };
+    seat.value = { ...track.value.seat };
+    retainedDraft.value = false;
+    if (track.value.seat.row && track.value.seat.number)
+      detailsOpen.value = false;
+  },
+);
 const next = computed(() => manualSteps[track.value.completed.length]);
 const choices = computed(() =>
   props.state.contexts.filter(

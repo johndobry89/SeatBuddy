@@ -1,7 +1,10 @@
-name: SeatBuddies First-Run Forge checks and Chrome test build
+name: SeatBuddies Integration Forge checks and Chrome test build
 on:
   push:
   pull_request:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:

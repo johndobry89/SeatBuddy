@@ -540,3 +540,81 @@ it('a B edit delayed in Chrome cannot revive after mode off/on and popup cannot 
   ).toMatchObject({ ok: false });
   expect(api.extension.isAllowedIncognitoAccess).toHaveBeenCalledTimes(calls);
 });
+
+it('refuses a concept expiring during a pending Chrome storage read at the actual worker boundary', async () => {
+  let time = 1_000_000;
+  const clock = vi.spyOn(Date, 'now').mockImplementation(() => time);
+  try {
+    const storage = memoryStorage();
+    const { DRAFT_KEY, DRAFT_TTL_MS } =
+      await import('../../src/core/retained-data');
+    storage.session.values[DRAFT_KEY] = {
+      version: 1,
+      createdAt: time,
+      plan: fictionalObservation('A', time).showtime,
+    };
+    const { send } = await boot(storage);
+    const initial = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+    if (!initial.ok) throw new Error(initial.error);
+    let release!: () => void;
+    const get = storage.session.get.bind(storage.session);
+    vi.spyOn(storage.session, 'get').mockImplementationOnce(async (key) => {
+      const value = await get(key);
+      await new Promise<void>((done) => {
+        release = done;
+      });
+      return value;
+    });
+    const pending = send({
+      type: 'DRAFT_RESTORE',
+      generation: initial.state.generation,
+      revision: initial.state.buddy.revision,
+    });
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    time += DRAFT_TTL_MS;
+    release();
+    const result = await pending;
+    expect(result).toMatchObject({ ok: false });
+    expect(result).not.toHaveProperty('restoredDraft');
+    expect(storage.session.values[DRAFT_KEY]).toBeUndefined();
+  } finally {
+    clock.mockRestore();
+  }
+});
+
+it.each(['expired', 'backwards'] as const)(
+  'does not acknowledge a draft save after a %s clock transition during storage',
+  async (transition) => {
+    let time = 1_000_000;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => time);
+    try {
+      const storage = memoryStorage();
+      const { DRAFT_KEY, DRAFT_TTL_MS } =
+        await import('../../src/core/retained-data');
+      const { send } = await boot(storage);
+      const initial = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+      if (!initial.ok) throw new Error(initial.error);
+      let release!: () => void;
+      const set = storage.session.set.bind(storage.session);
+      vi.spyOn(storage.session, 'set').mockImplementationOnce(async (items) => {
+        await new Promise<void>((done) => {
+          release = done;
+        });
+        await set(items);
+      });
+      const pending = send({
+        type: 'DRAFT_SAVE',
+        generation: initial.state.generation,
+        revision: initial.state.buddy.revision,
+        plan: fictionalObservation('A', time).showtime,
+      });
+      await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+      time += transition === 'expired' ? DRAFT_TTL_MS : -1;
+      release();
+      expect(await pending).toMatchObject({ ok: false });
+      expect(storage.session.values[DRAFT_KEY]).toBeUndefined();
+    } finally {
+      clock.mockRestore();
+    }
+  },
+);

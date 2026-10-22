@@ -144,7 +144,7 @@ chrome.runtime.onMessage.addListener(
           sendResponse(
             await retained.execute(
               message,
-              Date.now(),
+              Date.now,
               allowed,
               () =>
                 privileged && parsed?.success && parsed.data.type === 'RESET'

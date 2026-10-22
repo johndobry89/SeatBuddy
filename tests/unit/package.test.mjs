@@ -11,7 +11,8 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { unzipSync } from 'fflate';
+import { unpackPackagedExtension } from '../helpers/packaged-extension';
+import { zipSync, unzipSync } from 'fflate';
 import { packageRuntime } from '../../scripts/package.mjs';
 
 const roots = [];
@@ -30,13 +31,21 @@ async function fixture() {
         new URL(`../../public/icons/icon-${size}.png`, import.meta.url),
       ),
     );
+  const license = await readFile(new URL('../../LICENSE', import.meta.url));
+  await writeFile(join(root, 'LICENSE'), license);
+  await writeFile(join(root, 'dist/LICENSE'), license);
+  await writeFile(
+    join(root, 'dist/THIRD_PARTY_NOTICES.txt'),
+    'Fictional package fixture\nPermission is hereby granted',
+  );
   const manifest = {
     manifest_version: 3,
+    incognito: 'spanning',
     content_security_policy: {
       extension_pages:
         "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'",
     },
-    version: '0.7.0',
+    version: '0.8.0',
     permissions: ['sidePanel', 'storage'],
     icons,
     action: { default_popup: 'popup.html', default_icon: icons },
@@ -45,7 +54,7 @@ async function fixture() {
   };
   await writeFile(
     join(root, 'package.json'),
-    JSON.stringify({ version: '0.7.0' }),
+    JSON.stringify({ version: '0.8.0' }),
   );
   await writeFile(join(root, 'dist/manifest.json'), JSON.stringify(manifest));
   for (const file of [
@@ -76,7 +85,7 @@ afterEach(async () => {
 it('produces only deterministic runtime bytes with a root manifest and a correct platform-neutral checksum', async () => {
   const { root } = await fixture();
   const result = await packageRuntime(root);
-  expect(result.name).toBe('seatbuddies-0.7.0-chrome-test.zip');
+  expect(result.name).toBe('seatbuddies-0.8.0-chrome-test.zip');
   expect(await readdir(join(root, 'build'))).toEqual([
     result.name,
     `${result.name}.sha256`,
@@ -88,6 +97,8 @@ it('produces only deterministic runtime bytes with a root manifest and a correct
   ).toBe(`${checksum}  ${result.name}\n`);
   const files = unzipSync(bytes);
   expect(Object.keys(files).sort()).toEqual([
+    'LICENSE',
+    'THIRD_PARTY_NOTICES.txt',
     'assets/panel.js',
     'background.js',
     'fixture.html',
@@ -228,4 +239,56 @@ it('rejects syntactically broken generated JavaScript', async () => {
   const { root } = await fixture();
   await writeFile(join(root, 'dist/assets/broken.js'), 'export {');
   await expect(packageRuntime(root)).rejects.toThrow(/Invalid generated/);
+});
+
+it.each(['LICENSE', 'THIRD_PARTY_NOTICES.txt'])(
+  'refuses missing runtime attribution: %s',
+  async (file) => {
+    const { root } = await fixture();
+    await rm(join(root, 'dist', file));
+    await expect(packageRuntime(root)).rejects.toThrow(/license notices/);
+  },
+);
+it('rejects changing the reviewed spanning mode', async () => {
+  const { root, manifest } = await fixture();
+  await writeFile(
+    join(root, 'dist/manifest.json'),
+    JSON.stringify({ ...manifest, incognito: 'split' }),
+  );
+  await expect(packageRuntime(root)).rejects.toThrow(/incognito mode/);
+});
+
+it('native installation unpacks the checksum-verified runtime archive into its own disposable directory', async () => {
+  const { root } = await fixture();
+  const pkg = await packageRuntime(root);
+  const unpacked = await unpackPackagedExtension(root);
+  try {
+    expect(unpacked.sha256).toBe(pkg.sha256);
+    for (const file of pkg.files)
+      expect(await readFile(join(unpacked.directory, file))).toEqual(
+        await readFile(join(root, 'dist', file)),
+      );
+  } finally {
+    await unpacked.cleanup();
+  }
+});
+it('native installation rejects an altered archive even before Chrome can load it', async () => {
+  const { root } = await fixture();
+  const pkg = await packageRuntime(root);
+  await writeFile(join(root, 'build', pkg.name), 'fictional altered ZIP');
+  await expect(unpackPackagedExtension(root)).rejects.toThrow(/checksum/);
+});
+it('native installation refuses traversal even with a matching checksum', async () => {
+  const { root } = await fixture();
+  const pkg = await packageRuntime(root);
+  const path = join(root, 'build', pkg.name);
+  const files = unzipSync(await readFile(path));
+  files['../outside.js'] = new TextEncoder().encode('fictional');
+  const bytes = zipSync(files);
+  await writeFile(path, bytes);
+  await writeFile(
+    `${path}.sha256`,
+    `${createHash('sha256').update(bytes).digest('hex')}  ${pkg.name}\n`,
+  );
+  await expect(unpackPackagedExtension(root)).rejects.toThrow(/path/);
 });

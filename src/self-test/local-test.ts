@@ -1,4 +1,5 @@
 import { z } from '../privacy/schema';
+import { reviewedManifestScope } from '../privacy/manifest';
 import { Coordinator } from '../background/coordinator';
 import { manualSteps, MANUAL_AGE_MS } from '../core/manual-assistant';
 import { routeMessage } from '../background/message-router';
@@ -327,21 +328,7 @@ export async function runLocalSelfTest(
   for (const id of testIds) {
     await breathe(signal);
     if (id === 'CHROME_MANIFEST') {
-      const parsed = z
-        .object({
-          manifest_version: z.literal(3),
-          version: diagnosticSchema.shape.extensionVersion.refine(
-            (version) => version !== null,
-          ),
-          permissions: z.tuple([z.literal('sidePanel'), z.literal('storage')]),
-          host_permissions: z.array(z.never()).optional(),
-          optional_host_permissions: z.array(z.never()).optional(),
-          optional_permissions: z.array(z.never()).optional(),
-          content_scripts: z.array(z.never()).optional(),
-          web_accessible_resources: z.array(z.never()).optional(),
-          externally_connectable: z.never().optional(),
-        })
-        .safeParse(capability?.manifest);
+      const parsed = reviewedManifestScope.safeParse(capability?.manifest);
       const safe = parsed.success;
       extensionVersion = parsed.success ? parsed.data.version : null;
       checks.push({

@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import { runtimeNotices } from './scripts/runtime-notices.ts';
 import { resolve } from 'node:path';
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), runtimeNotices()],
   base: './',
   build: {
     target: 'chrome116',

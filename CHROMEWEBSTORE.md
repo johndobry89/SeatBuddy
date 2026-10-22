@@ -1,6 +1,6 @@
 # Chrome Web Store — SeatBuddies (voorbereiding)
 
-Bijgewerkt **21 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.7.0**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.
+Bijgewerkt **22 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.8.0**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.
 
 ## Conceptlisting
 
@@ -53,18 +53,24 @@ Vóór gebruik beperkt de worker local én session tot TRUSTED_CONTEXTS; een mis
 - [x] Alleen gebruik voor de beschreven lokale assistentfunctie.
 - [x] Geen gebruik voor kredietwaardigheid of leningen.
 
+## Licenties en technische integratie
+
+De test-ZIP bevat eigen LICENSE en gegenereerde THIRD_PARTY_NOTICES.txt voor daadwerkelijk gebundelde MIT-modules. Dependencies blijven lockfile-pinned; inspectie/advisoryresultaat in [S08-review](docs/security-review-sprint08.md). Dit is geen juridische vrijgave of supply-chain-attestatie. Beide integratiepaden zijn uitsluitend lokaal gerepeteerd; geen branch/PR is gemerged. Store- en publieke distributie blijven NO-GO zonder afzonderlijke gates/toestemming.
+
 ## Indieningsvoorwaarden en assets
 
 Originele SVG en PNG-iconen 16/32/48/128px zijn aanwezig. [Designsystem](docs/design-system.md) bevat werkelijk gemaakte fictieve rendererbeelden, geen authentieke Vue-/Macbeelden. Store-screenshots/promotieassets in vereiste formaten, publishernaam/contact, naam-/merkrechtcontrole, publieke privacybeleid-URL en actuele Store-policyreview moeten vóór eventuele indiening nog worden afgerond. Geen gegevens verzinnen of deze test-ZIP als Storepakket presenteren.
 
 Support/homepage: https://github.com/johndobry89/SeatBuddy. Huidige distributie is broncode en unpacked test-ZIP/checksum via Actions. Geen accountinstellingen, zichtbaarheid of Storepublicatie wijzigen binnen deze sprint.
 
-| Versie     | Datum      | Wijziging                                                                 | Storestatus           |
-| ---------- | ---------- | ------------------------------------------------------------------------- | --------------------- |
-| 0.7.0-test | 2026-10-21 | Projector Ready: solo/samen, lokale preflight, herstel en diagnosekopie   | Draft, niet ingediend |
-| 0.5.0-test | 2026-10-21 | Movie Night HQ, expliciet nickname-onthouden en concept-only herstel      | Draft, niet ingediend |
-| 0.4.0-test | 2026-10-21 | Werkende Buddy Manager, popup/paneel, originele iconen en fictieve widget | Niet ingediend        |
-| 0.3.0-test | 2026-10-21 | Platformneutrale testbuild, Mac-QA, herstel en diagnostiek                | Niet ingediend        |
-| 0.2.0-test | 2026-10-20 | Handmatige A/B-assistent                                                  | Niet ingediend        |
+| Versie     | Datum      | Wijziging                                                                                         | Storestatus           |
+| ---------- | ---------- | ------------------------------------------------------------------------------------------------- | --------------------- |
+| 0.8.0-test | 2026-10-22 | Integration Forge: reset/TTL/diagnosehardening, echte verpakte native testbron en runtime-notices | Draft, niet ingediend |
+| 0.7.0-test | 2026-10-21 | First-Run Forge: kortere planning en geïsoleerde lokale proef                                     | Draft, niet ingediend |
+| 0.6.0-test | 2026-10-21 | Projector Ready: solo/samen, lokale review, herstel en diagnosekopie                              | Draft, niet ingediend |
+| 0.5.0-test | 2026-10-21 | Movie Night HQ, expliciet nickname-onthouden en concept-only herstel                              | Draft, niet ingediend |
+| 0.4.0-test | 2026-10-21 | Werkende Buddy Manager, popup/paneel, originele iconen en fictieve widget                         | Niet ingediend        |
+| 0.3.0-test | 2026-10-21 | Platformneutrale testbuild, Mac-QA, herstel en diagnostiek                                        | Niet ingediend        |
+| 0.2.0-test | 2026-10-20 | Handmatige A/B-assistent                                                                          | Niet ingediend        |
 
 Feitelijke controles en platformgrenzen: [feasibility](docs/feasibility.md). G0 live Vue **NOT PASSED**. Geen Storebeoordeling, echte boekingsbevestiging of menselijke Mac-acceptatie geclaimd. De op 20 oktober gemelde opening blijft USER_REPORTED_PARTIAL_SMOKE.

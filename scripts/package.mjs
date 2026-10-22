@@ -35,6 +35,8 @@ export async function packageRuntime(root) {
         dir === dist &&
         ![
           'assets',
+          'LICENSE',
+          'THIRD_PARTY_NOTICES.txt',
           'icons',
           'manifest.json',
           'background.js',
@@ -57,7 +59,11 @@ export async function packageRuntime(root) {
           !/^icons\/(icon-(16|32|48|128)\.png|seatbuddies\.svg)$/.test(name)
         )
           throw new Error('Unexpected icon file');
-        if (!/\.(js|css|html|json|png|svg)$/.test(name) || name.includes('..'))
+        if (
+          (!/\.(js|css|html|json|png|svg)$/.test(name) &&
+            !['LICENSE', 'THIRD_PARTY_NOTICES.txt'].includes(name)) ||
+          name.includes('..')
+        )
           throw new Error(`Unexpected runtime file: ${name}`);
         files[name] = await readFile(path);
       }
@@ -87,6 +93,13 @@ export async function packageRuntime(root) {
     )
       throw new Error(`Missing or invalid ${size}px icon`);
   }
+  if (
+    !files.LICENSE?.equals(await readFile(resolve(root, 'LICENSE'))) ||
+    !files['THIRD_PARTY_NOTICES.txt']
+      ?.toString('utf8')
+      .includes('Permission is hereby granted')
+  )
+    throw new Error('Missing or invalid runtime license notices');
   auditRuntime(manifest, files);
   const bytes = zipSync(files, {
     level: 9,
