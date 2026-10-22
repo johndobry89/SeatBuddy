@@ -1772,3 +1772,58 @@ test('Reality Gate: seven local fixture shapes fail closed without network, writ
     await browser.close();
   }
 });
+
+test('Reality Gate: actual Chrome ISOLATED world reads only the exact localhost fixture, without MAIN globals or DOM writes', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  const page = await browser.newPage();
+  try {
+    await page.goto('http://127.0.0.1:4173/fixture.html');
+    await page.evaluate(() =>
+      Reflect.set(
+        globalThis,
+        'fictionalMainWorldSentinel',
+        'must-not-cross-world',
+      ),
+    );
+    const client = await page.context().newCDPSession(page);
+    const tree = await client.send('Page.getFrameTree');
+    const world = await client.send('Page.createIsolatedWorld', {
+      frameId: tree.frameTree.frame.id,
+      worldName: 'SeatBuddies local fixture-only test',
+    });
+    const result = await client.send('Runtime.evaluate', {
+      contextId: world.executionContextId,
+      awaitPromise: true,
+      returnByValue: true,
+      expression: `(async()=>{
+        const m=await import('http://127.0.0.1:4173/fixture-reader.js');
+        const r=m.createFixtureReader(document,{kind:'LOCAL_PREVIEW',world:'LOCAL_PREVIEW',permitted:true});
+        const before=document.documentElement.outerHTML;
+        const observed=r.read(100000);
+        const o={observed,unchanged:before===document.documentElement.outerHTML,mainSentinel:typeof globalThis.fictionalMainWorldSentinel};
+        r.dispose();return o;
+      })()`,
+    });
+    expect(result.exceptionDetails).toBeUndefined();
+    expect(result.result.value).toMatchObject({
+      unchanged: true,
+      mainSentinel: 'undefined',
+      observed: {
+        status: 'UNKNOWN',
+        compatibility: 'READABLE_FICTION',
+        provenance: { world: 'LOCAL_PREVIEW' },
+        seatDisplay: {
+          labels: ['F10', 'F11'],
+          geometry: 'UNKNOWN',
+          availability: 'UNKNOWN',
+        },
+      },
+    });
+    await client.detach();
+  } finally {
+    await browser.close();
+  }
+});

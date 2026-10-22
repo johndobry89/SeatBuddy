@@ -618,3 +618,36 @@ it.each(['expired', 'backwards'] as const)(
     }
   },
 );
+
+it.each(['BIND', 'READONLY_BIND'])(
+  'refuses a pending fictional B %s after the B epoch changes during Chrome permission lookup',
+  async (type) => {
+    const { api, send } = await boot();
+    await send({ type: 'GET_STATE' });
+    api.extension.isAllowedIncognitoAccess.mockResolvedValue(true);
+    let finish: ((allowed: boolean) => void) | undefined;
+    api.extension.isAllowedIncognitoAccess.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const pending = send(
+      { type, role: 'B' },
+      {
+        ...fixture,
+        documentId: 'fictional-b',
+        tab: { id: 8, windowId: 2, incognito: true },
+      },
+    );
+    await vi.waitFor(() =>
+      expect(api.extension.isAllowedIncognitoAccess).toHaveBeenCalledTimes(2),
+    );
+    expect(
+      await send({ type: 'PLANNING_MODE', mode: 'TOGETHER', resetB: false }),
+    ).toMatchObject({ ok: true });
+    finish?.(true);
+    expect(await pending).toMatchObject({ ok: false });
+    const state = panelReplySchema.parse(await send({ type: 'GET_STATE' }));
+    expect(state.ok && state.state.sessions.B.binding).toBeNull();
+  },
+);

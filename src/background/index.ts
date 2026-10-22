@@ -57,14 +57,24 @@ chrome.runtime.onMessage.addListener(
     }
     let receivedEpoch = resetEpoch;
     const receivedBuddyEpoch = coordinator.buddyEpoch;
-    const protectsB = Boolean(
-      privileged &&
-      parsed?.success &&
-      (parsed.data.type === 'B_COMMAND' ||
-        (parsed.data.type === 'WORKFLOW' &&
-          'role' in parsed.data.command &&
-          parsed.data.command.role === 'B')),
-    );
+    const fixtureBinding = !trustedPage
+      ? fixtureCommandSchema.safeParse(message)
+      : null;
+    const protectsFixtureB =
+      fixtureBinding?.success &&
+      (fixtureBinding.data.type === 'BIND' ||
+        fixtureBinding.data.type === 'READONLY_BIND') &&
+      fixtureBinding.data.role === 'B';
+    const protectsB =
+      Boolean(protectsFixtureB) ||
+      Boolean(
+        privileged &&
+        parsed?.success &&
+        (parsed.data.type === 'B_COMMAND' ||
+          (parsed.data.type === 'WORKFLOW' &&
+            'role' in parsed.data.command &&
+            parsed.data.command.role === 'B')),
+      );
     const obsolete = () =>
       receivedEpoch !== resetEpoch ||
       (protectsB && receivedBuddyEpoch !== coordinator.buddyEpoch);
