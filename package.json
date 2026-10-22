@@ -1,6 +1,6 @@
 {
   "name": "seatbuddy",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -21,7 +21,7 @@
     "package": "npm run build && node scripts/package.mjs",
     "icons": "node scripts/icons.mjs",
     "icons:check": "node scripts/icons.mjs --check",
-    "test:adversarial": "vitest run tests/unit/companion.test.ts tests/unit/retention.test.ts tests/unit/buddies.test.ts tests/unit/adapter.test.ts tests/unit/normal-context.test.ts tests/unit/worker.test.ts tests/unit/self-test.test.ts",
+    "test:adversarial": "vitest run tests/unit/companion.test.ts tests/unit/retention.test.ts tests/unit/buddies.test.ts tests/unit/adapter.test.ts tests/unit/read-only.test.ts tests/unit/read-only-messages.test.ts tests/unit/normal-context.test.ts tests/unit/worker.test.ts tests/unit/self-test.test.ts",
     "test:smoke:chrome": "npm run package && playwright test --project=extension --grep @smoke"
   },
   "dependencies": {

@@ -35,7 +35,7 @@ export async function unpackPackagedExtension(root = process.cwd()) {
     if (
       path.includes('\\') ||
       path.split('/').some((part) => !part || part === '..' || part === '.') ||
-      !/^(?:LICENSE|THIRD_PARTY_NOTICES\.txt|manifest\.json|(?:background|sidepanel|popup|fixture)\.(?:js|html)|(?:assets|icons)\/[a-zA-Z0-9_.-]+\.(?:js|css|svg|png))$/.test(
+      !/^(?:LICENSE|THIRD_PARTY_NOTICES\.txt|manifest\.json|(?:background|sidepanel|popup|fixture|fixture-reader)\.(?:js|html)|(?:assets|icons)\/[a-zA-Z0-9_.-]+\.(?:js|css|svg|png))$/.test(
         path,
       )
     )

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0-test — 22 oktober 2026 (Sprint 09, The Reality Gate)
+
+- Alleen-lezende fictieve port met screening/stoellabels, provenance/freshness en compatibility. UNKNOWN is de enige status; geen omzetting naar boeking, selectie, beschikbaarheid of geverifieerde geometrie.
+- Zeven lokale fixturevarianten in de bestaande verpakte testpagina, strikte scope/zichtbaarheid, mutatie-/navigatie-/TTL-invalidatie, canvas/ambiguïteit/foutfallback. Afzonderlijke verpakte parser-export voor echte ISOLATED-world Chrome-tests, geen content script of extra recht.
+- Per-binding tijdelijke A/B-ontvangstbewijzen weigeren verwisseling, replay, oude documenten/workers en oude B-buddy. Geen gelezen velden in coördinatortoestand/opslag of diagnose.
+- Gedateerd openbaar onderzoek: voorwaardenindex proxy-403, werkelijk gelinkte Movie Pass-tekst/FAQ/toestemming UNKNOWN. Onverzonden verduidelijkingsconcept, expliciete G0-beslismatrix en twee aparte korte menselijke kaarten. Geen live succesclaim; productie blijft uit.
+- Gerichte adversariële review vond verborgen kindtekst en ontsnappende DOM-excepties in de nieuwe port; gereproduceerd en gerepareerd. Alle Sprint 08-regressies behouden. Feitelijke test-/CI-/pakketuitslagen in feasibility.
+
 ## 0.8.0-test — 22 oktober 2026 (Sprint 08, Integration Forge)
 
 - Gezamenlijke zeven-sprintreview en twee uitsluitend lokaal uitgevoerde integratiepaden, met exacte tree-identiteit en opnieuw geteste gecombineerde boom. Geen remote merge, retarget, tag of publicatie.

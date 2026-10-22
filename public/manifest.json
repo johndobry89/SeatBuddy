@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SeatBuddies \u2014 samen naar de film (test)",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Plan solo of samen. Controleer je filmavond en volg de eigen stappen. Geen live boekingsintegratie.",
   "minimum_chrome_version": "116",
   "permissions": ["sidePanel", "storage"],
@@ -26,7 +26,7 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'"
   },
-  "version_name": "0.8.0-test (Sprint 08)",
+  "version_name": "0.9.0-test (Sprint 09)",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",

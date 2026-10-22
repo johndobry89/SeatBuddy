@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import ReadOnlyLab from './ReadOnlyLab.vue';
 import CompanionWidget from './CompanionWidget.vue';
 const fixtureStep = ref('Fictieve voorstelling');
 const showWidget = ref(true);
@@ -84,6 +85,7 @@ async function act(kind: 'BIND' | 'OBSERVE') {
       >
     </div>
     <CompanionWidget v-if="showWidget" :step="fixtureStep" />
+    <ReadOnlyLab />
     <p class="eyebrow">SIMULATION · uitsluitend fictieve gegevens</p>
     <h1>Lokale testpagina</h1>
     <section class="fake-cinema" aria-label="Fictief bioscoopscherm">

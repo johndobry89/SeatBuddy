@@ -44,6 +44,7 @@ export async function packageRuntime(root) {
           'sidepanel.js',
           'fixture.html',
           'fixture.js',
+          'fixture-reader.js',
           'popup.html',
           'popup.js',
         ].includes(name)

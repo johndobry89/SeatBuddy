@@ -109,7 +109,7 @@ async function attachMockTransport(
           id: 'fictional-extension',
           getManifest: () => ({
             manifest_version: 3,
-            version: '0.8.0',
+            version: '0.9.0',
             permissions: ['sidePanel', 'storage'],
           }),
           sendMessage: (message: unknown) => {
@@ -244,7 +244,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).focus();
     await page.keyboard.press('Enter');
     const report = page.getByTestId('diagnostic-report');
-    await expect(report).toContainText('"extensionVersion": "0.8.0"');
+    await expect(report).toContainText('"extensionVersion": "0.9.0"');
     await expect(report).toContainText('NOT_IMPLEMENTED');
     await expect(report).toContainText('SIDE_PANEL_AND_STORAGE');
     await expect(report).not.toContainText('De maan van papier');
@@ -1165,7 +1165,7 @@ test('diagnostic copy previews exact allowlisted text, waits for clipboard succe
     await expect(report).toBeFocused();
     const preview = await report.innerText();
     expect(JSON.parse(preview)).toMatchObject({
-      build: { version: '0.8.0' },
+      build: { version: '0.9.0' },
       productionAdapter: 'DISABLED_G0',
     });
     for (const secret of [
@@ -1698,6 +1698,131 @@ test('Integration Forge: Begin A opnieuw discards dirty A fields and preserves B
     await expect(page.locator('#row-A')).toHaveValue('');
     await expect(page.getByTestId('retained-track-draft')).toHaveCount(0);
     expect(worker.manual.tracks.B).toEqual(beforeB);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Reality Gate: seven local fixture shapes fail closed without network, writes or manual status promotion', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  const page = await browser.newPage();
+  const c = new Coordinator();
+  await attachMockTransport(page, c);
+  const external: string[] = [];
+  page.on('request', (request) => {
+    if (!request.url().startsWith('http://127.0.0.1:4173/'))
+      external.push(request.url());
+  });
+  try {
+    await page.goto('http://127.0.0.1:4173/fixture.html');
+    const lab = page.getByRole('region', {
+      name: 'Alleen-lezend fictief adapterlab',
+    });
+    for (const [scenario, reason] of [
+      ['valid', 'READABLE_FICTION'],
+      ['rerender', 'DOM_CHANGED'],
+      ['canvas', 'CANVAS'],
+      ['ambiguous', 'AMBIGUOUS'],
+      ['mismatch', 'SCREENING_MISMATCH'],
+      ['missing', 'MISSING_FIELDS'],
+      ['server', 'SERVER_UNAVAILABLE'],
+    ]) {
+      await lab.getByLabel('Lokale bioscoopfixture').selectOption(scenario!);
+      await expect(lab.getByTestId('readonly-result')).toHaveCount(0);
+      await lab
+        .getByRole('button', { name: 'Lees uitsluitend lokale fixture' })
+        .click();
+      await expect(lab.getByTestId('readonly-result')).toContainText(reason!);
+      await expect(lab.getByTestId('readonly-result')).toContainText(
+        'Status UNKNOWN',
+      );
+    }
+    await page.clock.install();
+    await lab.getByLabel('Lokale bioscoopfixture').selectOption('valid');
+    await lab
+      .getByRole('button', { name: 'Lees uitsluitend lokale fixture' })
+      .click();
+    await expect(lab.getByTestId('readonly-result')).toContainText(
+      'READABLE_FICTION',
+    );
+    await page.clock.fastForward(31_000);
+    await expect(lab.getByTestId('readonly-result')).toContainText('STALE');
+    await lab
+      .getByRole('button', { name: 'Lees uitsluitend lokale fixture' })
+      .click();
+    await page.locator('[data-field="time"]').evaluate((node) => {
+      node.textContent = '20:00';
+    });
+    await page.clock.fastForward(1001);
+    await expect(lab.getByTestId('readonly-result')).toContainText(
+      'DOM_CHANGED',
+    );
+    expect(c.mode).toBe('MANUAL');
+    expect(c.sessions.A.observation).toBeNull();
+    expect(c.sessions.B.observation).toBeNull();
+    expect(external).toEqual([]);
+    await page.screenshot({
+      path: 'test-results/reality-gate-fixture.png',
+      fullPage: true,
+    });
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Reality Gate: actual Chrome ISOLATED world reads only the exact localhost fixture, without MAIN globals or DOM writes', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  const page = await browser.newPage();
+  try {
+    await page.goto('http://127.0.0.1:4173/fixture.html');
+    await page.evaluate(() =>
+      Reflect.set(
+        globalThis,
+        'fictionalMainWorldSentinel',
+        'must-not-cross-world',
+      ),
+    );
+    const client = await page.context().newCDPSession(page);
+    const tree = await client.send('Page.getFrameTree');
+    const world = await client.send('Page.createIsolatedWorld', {
+      frameId: tree.frameTree.frame.id,
+      worldName: 'SeatBuddies local fixture-only test',
+    });
+    const result = await client.send('Runtime.evaluate', {
+      contextId: world.executionContextId,
+      awaitPromise: true,
+      returnByValue: true,
+      expression: `(async()=>{
+        const m=await import('http://127.0.0.1:4173/fixture-reader.js');
+        const r=m.createFixtureReader(document,{kind:'LOCAL_PREVIEW',world:'LOCAL_PREVIEW',permitted:true});
+        const before=document.documentElement.outerHTML;
+        const observed=r.read(100000);
+        const o={observed,unchanged:before===document.documentElement.outerHTML,mainSentinel:typeof globalThis.fictionalMainWorldSentinel};
+        r.dispose();return o;
+      })()`,
+    });
+    expect(result.exceptionDetails).toBeUndefined();
+    expect(result.result.value).toMatchObject({
+      unchanged: true,
+      mainSentinel: 'undefined',
+      observed: {
+        status: 'UNKNOWN',
+        compatibility: 'READABLE_FICTION',
+        provenance: { world: 'LOCAL_PREVIEW' },
+        seatDisplay: {
+          labels: ['F10', 'F11'],
+          geometry: 'UNKNOWN',
+          availability: 'UNKNOWN',
+        },
+      },
+    });
+    await client.detach();
   } finally {
     await browser.close();
   }

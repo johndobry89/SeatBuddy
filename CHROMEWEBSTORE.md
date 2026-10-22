@@ -1,6 +1,6 @@
 # Chrome Web Store — SeatBuddies (voorbereiding)
 
-Bijgewerkt **22 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.8.0**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.
+Bijgewerkt **22 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.9.0**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.
 
 ## Conceptlisting
 
@@ -15,6 +15,8 @@ De Chrome-popup beheert optionele korte buddybijnamen en opent het Side Panel. H
 Bijnamen zijn standaard tijdelijk. Alleen na expliciet inschakelen worden nickname/ID-paren lokaal onthouden. Een afzonderlijke knop kan uitsluitend filmplan-conceptvelden maximaal vier uur in Chrome-sessiegeheugen bewaren. Herstellen vult alleen bewerkbare invoer; nooit een actief plan, stoelen, A/B-controles of bevestigingen. Het product werkt zonder buddy of opslag. Geen extra-pass-autofill, accountvalidatie, checkout, betalingen of automatische reserveringen. De widget en 90-secondenproef staan uitsluitend op de verpakte fictieve testpagina.
 
 Independent third-party tool. Not affiliated with or endorsed by Vue Cinemas. Reservations remain separate and are only final when independently confirmed by Vue.
+
+**Sprint 09:** alleen een verpakt fictief read-only adapterlab; geen echte Vue-observer of injectie. Openbaar voorwaardenonderzoek BLOCKED; FAQ/voorwaarden/toestemming onbekend. Observaties blijven UNKNOWN, worden niet bewaard of in diagnose gekopieerd. Geen aangezette Vue-integratie adverteren.
 
 ## Lokale eerste proef
 
@@ -65,6 +67,7 @@ Support/homepage: https://github.com/johndobry89/SeatBuddy. Huidige distributie 
 
 | Versie     | Datum      | Wijziging                                                                                         | Storestatus           |
 | ---------- | ---------- | ------------------------------------------------------------------------------------------------- | --------------------- |
+| 0.9.0-test | 2026-10-22 | The Reality Gate: fictieve read-only port, openbaar onderzoek BLOCKED, G0-matrix                  | Draft, niet ingediend |
 | 0.8.0-test | 2026-10-22 | Integration Forge: reset/TTL/diagnosehardening, echte verpakte native testbron en runtime-notices | Draft, niet ingediend |
 | 0.7.0-test | 2026-10-21 | First-Run Forge: kortere planning en geïsoleerde lokale proef                                     | Draft, niet ingediend |
 | 0.6.0-test | 2026-10-21 | Projector Ready: solo/samen, lokale review, herstel en diagnosekopie                              | Draft, niet ingediend |
