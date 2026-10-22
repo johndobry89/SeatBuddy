@@ -35,3 +35,5 @@ Visual inspection: actual built320×640 screenshot reviewed, not a mockup; final
 ## Kill criteria and next decision
 
 To reverse PRODUCT_VALUE NO-GO, a later lawful real-task comparison must demonstrate fewer human actions/time **or genuinely new, correct, actionable coordination information**, with equal milestone, contexts and safeguards. We have neither. Opening an official URL and showing generic reminders is insufficient. Do not add more internal administration or simulate an advantage. Prefer permission-first read-only source support; if unavailable, stop/pivot. A brief owner check of the quieter shell is optional and **NOT_RUN**; do not ask for a repeat of the failed long flow.
+
+Automatische implementatievalidatie op ebfdae8: [run 39864149479](https://github.com/johndobry89/SeatBuddy/actions/runs/39864149479) SUCCESS; Linux 31 UI / 11 native, Mac Intel 31 UI / 7 native, inclusief compacte native start. Dit wijzigt **PRODUCT_VALUE NO-GO** en **HUMAN_NOT_RUN** niet.
