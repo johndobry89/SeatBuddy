@@ -8,6 +8,8 @@ Lees zelf de actuele [Vue-voorwaardenindex](https://www.vuecinemas.nl/voorwaarde
 
 Op 21 oktober 2026 kon deze cloud beide publieke adressen niet bereiken: proxy CONNECT 403. De inhoud en geldende voorwaarden zijn hier niet gelezen. Dat is geen oordeel dat Vue deze toepassing verbiedt of toestaat.
 
+**Sprint 09, 22 oktober:** nieuwe gewone GET naar de index opnieuw CONNECT-proxy-403; geen primaire tekst gelezen. [Gedateerd record](g0-public-research-2026-10.md), [beslismatrix](g0-decision-matrix.md) en [korte publieke kaart voor later](g0-owner-observation-card.md). Deze oudere uitgebreide gids is geen opdracht om nu accounts te gebruiken.
+
 ## Begrensde observatie door de gebruiker zelf
 
 1. Begin met publieke pagina's in je eigen Chrome. Noteer uitsluitend of film, bioscoop, datum, tijd en zaal zichtbaar zijn; geen screenshots of HTML-export nodig.

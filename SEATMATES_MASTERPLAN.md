@@ -5,7 +5,7 @@
 | Documentcontrole | Waarde |
 | --- | --- |
 | Document-ID | `SEATMATES.MASTERPLAN.v0.2` |
-| Productversie | **0.8.0-test — Integration Forge: gezamenlijke hardening, lokale integratieproef en verpakte browsertests; G0 live open** |
+| Productversie | **0.9.0-test — The Reality Gate: fictieve read-only port; openbaar voorwaardenonderzoek BLOCKED; G0 live open** |
 | Datum | Ontwerp 20 oktober 2026; implementatiestatus bijgewerkt 22 oktober 2026 |
 | Project | SeatBuddies (voorheen SeatMates; naam-/merkrechten niet onderzocht) |
 | Productdoel | Twee geldige Vue Movie Pass-houders begeleiden naar dezelfde voorstelling en waar mogelijk aangrenzende stoelen |
@@ -27,6 +27,8 @@
 **Implementatiestand 22 oktober 2026:** de handmatige assistent en fictieve tests zijn gebouwd; bronlabels onderscheiden SIMULATION, MANUAL_SELF_REPORT, BROWSER_CONTEXT_ONLY en UNKNOWN. Echte Vue-bevestiging is NOT_IMPLEMENTED. De historische ontwerpvoorbeelden hieronder zijn geen actuele live API’s of bewijs. Alle uitgevoerde platformresultaten staan in feasibility.
 
 **Sprint 08:** technische/securityreview en twee lokaal gerepeteerde integratiepaden, met exacte tree-identiteit en gerichte reset-/TTL-/diagnosefixes. Geen echte merge of release. Actuele go/no-go en grenzen in `docs/integration-readiness.md`, `docs/security-review-sprint08.md`, `docs/merge-plan.md` en `docs/project-readiness.md`.
+
+**Sprint 09:** openbare voorwaardenindex opnieuw proxy-403, geen gelezen primaire Movie Pass-tekst/toestemming. Alleen de lokale fictieve read-only port en haar compatibility-/provenancegrenzen gebouwd; productie uit, geen extra rechten. Zie [onderzoek](docs/g0-public-research-2026-10.md), [beslismatrix](docs/g0-decision-matrix.md) en [ADR-008](docs/decisions/ADR-008-fiction-only-read-port.md). Twee korte menselijke kaarten blijven NOT_RUN.
 
 **Interpretatie:** dit document beschrijft een kandidaatproduct en duidelijke beslisgates. Een ontwerpkeuze is geen bewezen Chrome/Vue-integratie. `UNKNOWN` blijft onbekend tot een reproduceerbare waarneming het oplost. Het OF-ontwerpkader en `AGENTS.md` geven geen bijzondere browserrechten of toestemming voor live boekingen.
 
@@ -104,6 +106,7 @@ SeatMates helpt twee legitieme, afzonderlijk ingelogde gebruikers dezelfde voors
 - `ADR-005`: tijdelijke buddybijnamen, begrensde popup en bewuste B-reset — [`docs/decisions/ADR-005-buddy-manager-popup.md`](docs/decisions/ADR-005-buddy-manager-popup.md).
 - `ADR-006`: expliciet lokaal onthouden van nickname/ID en herstel van uitsluitend ongecommitteerde filmplan-conceptvelden — [`docs/decisions/ADR-006-explicit-local-retention.md`](docs/decisions/ADR-006-explicit-local-retention.md).
 - `ADR-007`: vluchtige solo/samenkeuze, review en generatie/revisie/B-epoch op alle handmatige mutaties — [`docs/decisions/ADR-007-ephemeral-planning-review.md`](docs/decisions/ADR-007-ephemeral-planning-review.md).
+- `ADR-008`: fictieve read-only port zonder boekingsbewijs of productieautoriteit — [`docs/decisions/ADR-008-fiction-only-read-port.md`](docs/decisions/ADR-008-fiction-only-read-port.md).
 - Een besluit mag wijzigen als de feiten veranderen; leg motivatie, impact, bewijs en vervangende ADR vast.
 
 ---

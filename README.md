@@ -1,12 +1,14 @@
-# SeatBuddies — Integration Forge 0.8.0-test
+# SeatBuddies — The Reality Gate 0.9.0-test
 
 Een onafhankelijke Chrome Manifest V3-assistent met Vue 3/strict TypeScript voor één filmavond en **solo of twee zelfstandige boekingstrajecten**. Geen backend, accountsysteem of automatische boeking. **G0 live Vue is niet gehaald.** Alleen eigen invoer en fictieve testpagina’s; zelfmeldingen zijn geen websitebevestiging.
 
-## Integratie en review
+## The Reality Gate
 
-Sprint 08 controleert de gezamenlijke zeven-sprintboom en herstelt concrete reset-, concept-TTL- en diagnosefouten. De ZIP bevat nu eigen/derdepartijlicenties en wordt daadwerkelijk uitgepakt voor de native browsertests. **0.8.0-test is hardening, geen nieuwe live Vue-feature.** [Integratiebewijs](docs/integration-readiness.md) · [beveiligingsreview](docs/security-review-sprint08.md) · [twee mergepaden](docs/merge-plan.md) · [projectstatus in één pagina](docs/project-readiness.md).
+Sprint 09 voegt een **alleen-lezend fictief adapterlab** op de eigen testpagina toe: zichtbare voorstelling, gewijzigd DOM, canvas, dubbelzinnige labels/zaal, mismatch, ontbrekende gegevens en gesimuleerde serverfout. Begrensde typed output heeft uitsluitend status UNKNOWN; labels bewijzen geen selectie, beschikbaarheid of boeking. Nieuwe tijdelijke A/B-ontvangstbewijzen kunnen geen werkende filmavond verhogen of gelezen velden opslaan. [Ontwerp en grenzen](docs/decisions/ADR-008-fiction-only-read-port.md).
 
-De integratie is uitsluitend lokaal gerepeteerd; er is geen remote merge, deployment of publieke release uitgevoerd. Technische gereedheid van de handmatige testboom is apart van menselijke acceptatie, G0 en toestemming voor merge/distributie. De oude #9-workflow is rood door Mac-runnercapaciteit en mag niet als geheel groen worden beschouwd.
+Het [gedateerde openbare Vue-onderzoek](docs/g0-public-research-2026-10.md) is **BLOCKED** door proxy-403 op de voorwaardenindex. De actuele Movie Pass-voorwaarden, FAQ-antwoorden en read-only toestemming zijn niet geverifieerd. Geen voorwaarden-PASS of werkende Vue-integratie geclaimd. [G0-beslismatrix](docs/g0-decision-matrix.md) · [onverzonden verduidelijkingsconcept](docs/vue-clarification-draft.md) · [latere publieke observatiekaart](docs/g0-owner-observation-card.md).
+
+Sprint 08's reset-/TTL-/diagnosefixes, licentienotices en native tests uit de SHA256-gecontroleerde ZIP blijven behouden. [Historisch integratiebewijs](docs/integration-readiness.md) · [beveiligingsreview](docs/security-review-sprint08.md) · [mergeplan](docs/merge-plan.md). Geen merge, deployment of release. Menselijke Mac-acceptatie blijft NOT_RUN.
 
 ## Wat werkt
 
@@ -39,7 +41,7 @@ De integratie is uitsluitend lokaal gerepeteerd; er is geen remote merge, deploy
 
 ## Installeren en bouwen
 
-Download **seatbuddies-chrome-test** uit [Sprint 08 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-19-sprint-08). Pak het Actions-archief én **seatbuddies-0.8.0-chrome-test.zip** uit. Open Chrome 116+ → chrome://extensions → Ontwikkelaarsmodus → Uitgepakte extensie laden → kies de map met manifest.json aan de root. Pin SeatBuddies, open de popup en klik **Open boekingsassistent**. Checksum staat naast de binnenste ZIP.
+Download **seatbuddies-chrome-test** uit [Sprint 09 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-21-sprint-09). Pak het Actions-archief én **seatbuddies-0.9.0-chrome-test.zip** uit. Open Chrome 116+ → chrome://extensions → Ontwikkelaarsmodus → Uitgepakte extensie laden → kies de map met manifest.json aan de root. Pin SeatBuddies, open de popup en klik **Open boekingsassistent**. Checksum staat naast de binnenste ZIP.
 
 [Van ZIP tot eerste filmavond (Mac, 5–8 min)](docs/macos-test-guide.md) · [Windows](docs/windows-test-guide.md) · [QA-formulier](docs/qa-evidence-template.md). Menselijke Mac-QA is niet vooraf vereist en wordt niet als uitgevoerd geclaimd.
 
@@ -54,13 +56,13 @@ npm run test:adversarial
 npm run package
 ```
 
-`dist/` is direct unpacked laadbaar; native tests installeren uitsluitend de checksum-gecontroleerde, eigen uitgepakte ZIP. LICENSE en THIRD_PARTY_NOTICES.txt horen bij de runtime. `build/seatbuddies-0.8.0-chrome-test.zip` bevat alleen runtime, manifest, popup en iconen. Packaging controleert versies, exact verwachte rechten, runtime-allowlist, PNG-afmetingen, archiefbytes en checksum. Een audit van de gegenereerde bestanden weigert netwerkprimitieven/remote executable resources en afwijkende CSP; Zod gebruikt de interpreter zonder JIT. Statische audits zijn geen volledige securityaudit. De aangescherpte audit weigert ook ontbrekende/ontsnappende lokale imports, remote afbeeldingen en ongeldige gegenereerde JS. [Nieuwe technische review](docs/security-review-sprint08.md). `npm run icons` reproduceert de PNG’s; `npm run icons:check` vergelijkt exacte bytes met de vastgelegde dev-only resvg-rasterizer. `npm run dev` bouwt bij wijzigingen; herlaad daarna de extensie en heropen de UI.
+`dist/` is direct unpacked laadbaar; native tests installeren uitsluitend de checksum-gecontroleerde, eigen uitgepakte ZIP. LICENSE en THIRD_PARTY_NOTICES.txt horen bij de runtime. `build/seatbuddies-0.9.0-chrome-test.zip` bevat alleen runtime, manifest, popup en iconen. Packaging controleert versies, exact verwachte rechten, runtime-allowlist, PNG-afmetingen, archiefbytes en checksum. Een audit van de gegenereerde bestanden weigert netwerkprimitieven/remote executable resources en afwijkende CSP; Zod gebruikt de interpreter zonder JIT. Statische audits zijn geen volledige securityaudit. De aangescherpte audit weigert ook ontbrekende/ontsnappende lokale imports, remote afbeeldingen en ongeldige gegenereerde JS. [Nieuwe technische review](docs/security-review-sprint08.md). `npm run icons` reproduceert de PNG’s; `npm run icons:check` vergelijkt exacte bytes met de vastgelegde dev-only resvg-rasterizer. `npm run dev` bouwt bij wijzigingen; herlaad daarna de extensie en heropen de UI.
 
 Browsertests: `npm exec playwright install -- --with-deps chromium` op Linux, `npm exec playwright install -- chromium` op Mac. Gerichte native smoke: `HEADED=1 npm run test:smoke:chrome` (Linux met xvfb). Native Linux: `HEADED=1 xvfb-run -a npm run test:e2e`; Mac: `HEADED=1 npm run test:e2e`. Deze beheerde cloud blokkeert unpacked extensies/incognito; dat beleid wordt niet gewijzigd. Renderercontrole kan met `CHROMIUM_PATH=/usr/bin/chromium XDG_CONFIG_HOME=/tmp/seatbuddy-chromium-config XDG_CACHE_HOME=/tmp/seatbuddy-chromium-cache npm run test:ui`. Gebruik zo nodig `npm ci --cache /tmp/seatbuddy-npm`.
 
 ## Uitvoering en grenzen
 
-Linux en macOS Intel CI behouden installatie/check/unit/iconen/build/package en renderer-UI-tests; Linux draait daarnaast de volledige native suite; macOS Intel ook twee native smoketests. Transportdoubles bewijzen geen native API-werking; Mac-renderertests bewijzen geen native Mac-popup/incognito/VoiceOver; de nieuwe native smoke heeft een eigen beperkte scope en afzonderlijke uitslag. [Feasibility](docs/feasibility.md) bevat de werkelijke head-SHA’s, runlinks, uitslagen en lokale blokkades. Oudere SeatMates/SeatBuddies-builds houden historische artifactnamen; gebruik die niet als 0.8.0.
+Linux en macOS Intel CI behouden installatie/check/unit/iconen/build/package en renderer-UI-tests; Linux draait daarnaast de volledige native suite; macOS Intel ook twee native smoketests. Transportdoubles bewijzen geen native API-werking; Mac-renderertests bewijzen geen native Mac-popup/incognito/VoiceOver; de nieuwe native smoke heeft een eigen beperkte scope en afzonderlijke uitslag. [Feasibility](docs/feasibility.md) bevat de werkelijke head-SHA’s, runlinks, uitslagen en lokale blokkades. Oudere SeatMates/SeatBuddies-builds houden historische artifactnamen; gebruik die niet als 0.9.0.
 
 **G0 live Vue NOT PASSED:** voorwaarden, echte accounts/DOM/seatmap/holds/checkout/bevestigingen zijn niet gevalideerd. Geen echte website-interacties, pas-autofill, accountomzeiling, betaling, annulering of definitieve reservering. Opeenvolgende stoelnummers bewijzen geen aangrenzende beschikbaarheid. Alleen de gebruiker handelt en controleert iedere echte boeking zelfstandig.
 
