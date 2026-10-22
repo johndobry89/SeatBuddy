@@ -72,8 +72,18 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/seatbuddies-sprint10/node_modules"
           (cd "$RUNNER_TEMP/seatbuddies-sprint10" && npm run package)
           echo "SEATBUDDIES_BASELINE_ZIP=$RUNNER_TEMP/seatbuddies-sprint10/build/seatbuddies-0.10.0-chrome-test.zip" >> "$GITHUB_ENV"
-      - if: runner.os == 'Linux'
-        run: npm exec playwright install -- --with-deps chromium
+      - name: Install Chromium system dependencies on Linux
+        if: runner.os == 'Linux'
+        timeout-minutes: 3
+        run: npm exec playwright install-deps -- chromium
+      - name: Install Chromium on Linux
+        if: runner.os == 'Linux'
+        timeout-minutes: 4
+        run: |
+          if ! timeout --kill-after=10s 90s npm exec playwright install -- chromium; then
+            echo "::warning::Chromium download failed or timed out; retrying this idempotent download once."
+            timeout --kill-after=10s 90s npm exec playwright install -- chromium
+          fi
       - name: Install Chromium on macOS
         if: runner.os == 'macOS'
         run: |

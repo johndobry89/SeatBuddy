@@ -47,6 +47,12 @@ De echte Actions-wrapperdownload, digest, inner checksum, rootextractie, eigen t
 - **G0 echte Vue NO-GO / INCONCLUSIVE.** Geen officiële actuele fee-/stoel-/account- of toestemmingsbron bewezen, geen productiehosts of rechten toegevoegd.
 - **Merge/deploy/publicatie NOT_AUTHORIZED.** Geen bestaande PR gemerged/geretarget, geen main-PR, release/tag/Store/deploy. De stapel blijft draft.
 
+## Geobserveerde laatste installatieblokkade en CI-reparatie
+
+[Run 39808717095](https://github.com/johndobry89/SeatBuddy/actions/runs/39808717095), documentatiehead 5fbc282: **Mac Intel SUCCESS 7m48s, 27 UI/6 native**. Linux werd na tien minuten **CANCELLED tijdens de gecombineerde Playwright dependency-/browserinstallatie**, vóór de browsertests. Geen Linux-PASS voor die run. Raw logs niet toegankelijk; oorzaak/subfase INCONCLUSIVE. Gerichte herstart via officiële gh-API geprobeerd, eveneens REST Forbidden.
+
+De workflow splitst nu Linux-systeemdependencies (max drie minuten) en browserdownload (max 90 seconden per poging, één idempotente retry). De globale tienminutengrens en alle tests blijven. Geen apt-retry met onzekere installatiestatus, geen policywijziging, overgeslagen test of verzonnen root cause. De nieuwe definitieve run wordt op zijn eigen commit gecontroleerd en gerapporteerd.
+
 ## PR-overdracht
 
 Draft-aanmaak is **daadwerkelijk geprobeerd** met base `feat/issue-23-sprint-10`, head `feat/issue-25-sprint-11`, --draft en de volledige voorbereide body. **POST https://api.github.com/graphql: Forbidden**. Er is door Codex geen PR aangemaakt; geen auth-/accountomweg geprobeerd. Issue #25 staat deze fallback expliciet toe: [exacte gestapelde compare](https://github.com/johndobry89/SeatBuddy/compare/feat/issue-23-sprint-10...feat/issue-25-sprint-11?expand=1) en [volledige klaarstaande titel/body](sprint11-pr.md). Kies Create draft pull request, niets mergen. De gepushte GitHub-bron is voor de eigenaar bereikbaar; geen lokale workspace-links of verzonnen PR-nummer.
