@@ -1731,6 +1731,26 @@ test(
           await panel.evaluate(() => chrome.storage.session.get(null)),
         ),
       ).toEqual(['seatbuddies.draft.v1']);
+      // Match the owner's documented Load unpacked prerequisite. Chrome rejects
+      // re-registration after reload if developer mode was never enabled.
+      // Use the ordinary UI in this disposable profile; never edit policy/profile files.
+      const settings = await context.newPage();
+      await settings.goto(`chrome://extensions/?id=${id}`);
+      const developerMode = settings.locator('extensions-toolbar #devMode');
+      await expect(developerMode).toBeVisible();
+      if (
+        !(await developerMode.evaluate((element) =>
+          Boolean(Reflect.get(element, 'checked')),
+        ))
+      )
+        await developerMode.click();
+      await expect
+        .poll(() =>
+          developerMode.evaluate((element) =>
+            Boolean(Reflect.get(element, 'checked')),
+          ),
+        )
+        .toBe(true);
       // Chrome's unpacked ID is derived from the path. Replace ALL old runtime files at that SAME path.
       for (const entry of await readdir(baseline.directory))
         await rm(join(baseline.directory, entry), {
