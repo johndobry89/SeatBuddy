@@ -167,12 +167,26 @@ export function routeMessage(
     invalidateTab(coordinator.sessions, binding.tabId);
     return { ok: true as const };
   }
-  if (result.data.type === 'BIND') {
+  if (result.data.type === 'BIND' || result.data.type === 'READONLY_BIND') {
     if (coordinator.mode !== 'FIXTURE') {
       coordinator.sessions = emptySessions();
       coordinator.mode = 'FIXTURE';
     }
     if (!bindSession(coordinator.sessions, result.data.role, binding, allowed))
+      return reject();
+    if (result.data.type === 'READONLY_BIND') {
+      const lease = coordinator.issueFixtureLease(binding);
+      return lease ? { ok: true as const, lease } : reject();
+    }
+  } else if (result.data.type === 'READONLY_OBSERVE') {
+    if (
+      !coordinator.acceptFixtureRead(
+        binding,
+        result.data.lease,
+        result.data.observation,
+        now,
+      )
+    )
       return reject();
   } else if (!coordinator.observe(binding, result.data.observation, now))
     return reject();

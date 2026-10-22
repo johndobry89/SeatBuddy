@@ -4,6 +4,7 @@ import {
   browserContextSchema,
 } from '../core/manual-assistant';
 import { z } from './schema';
+import { readOnlyObservationSchema } from '../adapters/read-only/contract';
 import { observationSchema, roleSchema, scenarioSchema } from '../core/types';
 import { roleEvidenceSchema } from '../core/evidence';
 import { retentionStatusSchema } from '../core/retention-status';
@@ -80,8 +81,18 @@ export const panelCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('DEMO_STEP'), role: roleSchema }),
   z.strictObject({ type: z.literal('DEMO'), scenario: scenarioSchema }),
 ]);
+export const fixtureLeaseReplySchema = z.discriminatedUnion('ok', [
+  z.strictObject({ ok: z.literal(true), lease: z.uuid() }),
+  replyErrorSchema,
+]);
 export const fixtureCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('GET_BUDDY') }),
+  z.strictObject({ type: z.literal('READONLY_BIND'), role: roleSchema }),
+  z.strictObject({
+    type: z.literal('READONLY_OBSERVE'),
+    lease: z.uuid(),
+    observation: readOnlyObservationSchema,
+  }),
   z.strictObject({ type: z.literal('BIND'), role: roleSchema }),
   z.strictObject({ type: z.literal('UNBIND') }),
   z.strictObject({

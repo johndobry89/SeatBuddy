@@ -12,7 +12,10 @@ import { chromium, expect, test } from '@playwright/test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { panelReplySchema } from '../../src/privacy/protocol';
+import {
+  panelReplySchema,
+  fixtureLeaseReplySchema,
+} from '../../src/privacy/protocol';
 import { savedDraftSchema } from '../../src/core/retained-data';
 
 let packaged: Awaited<ReturnType<typeof unpackPackagedExtension>>;
@@ -76,7 +79,7 @@ test(
         'SIDE_PANEL_AND_STORAGE',
       );
       await expect(page.getByTestId('diagnostic-report')).toContainText(
-        '"extensionVersion": "0.8.0"',
+        '"extensionVersion": "0.9.0"',
       );
       await expect(page.getByTestId('diagnostic-report')).toContainText(
         'NOT_IMPLEMENTED',
@@ -1086,7 +1089,7 @@ test('real Chrome Projector Ready: solo intent, two-panel preflight races, parti
     await expect(report).toBeFocused();
     const text = await report.innerText();
     expect(JSON.parse(text)).toMatchObject({
-      extensionVersion: '0.8.0',
+      extensionVersion: '0.9.0',
       productionAdapter: 'DISABLED_G0',
       permissionScope: 'SIDE_PANEL_AND_STORAGE',
     });
@@ -1195,7 +1198,7 @@ test(
       const text = await panel.getByTestId('local-test-report').innerText();
       expect(JSON.parse(text)).toMatchObject({
         kind: 'FICTIONAL_TEST',
-        extensionVersion: '0.8.0',
+        extensionVersion: '0.9.0',
         adapterVersion: 'FICTIONAL_V1',
       });
       for (const secret of [
@@ -1217,6 +1220,143 @@ test(
       ).toBeVisible();
       expect(await inspect()).toEqual(before);
       expect(external).toEqual([]);
+    } finally {
+      await context.close();
+      await rm(profile, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'Reality Gate: packaged ZIP read-only parser in an actual ISOLATED world on invented cinema DOM',
+  { tag: '@smoke' },
+  async () => {
+    const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-reader-'));
+    const context = await chromium.launchPersistentContext(profile, {
+      executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+      ignoreDefaultArgs: ['--disable-extensions'],
+      headless: process.env.HEADED !== '1',
+      args: [`--load-extension=${packaged.directory}`, '--no-sandbox'],
+    });
+    try {
+      const worker =
+        context.serviceWorkers()[0] ??
+        (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
+      const id = new URL(worker.url()).host;
+      const page = await context.newPage();
+      const external: string[] = [];
+      context.on('request', (request) => {
+        if (/^https?:/.test(request.url())) external.push(request.url());
+      });
+      await page.goto(`chrome-extension://${id}/fixture.html`);
+      await page.bringToFront();
+      const manifest = await worker.evaluate(() =>
+        chrome.runtime.getManifest(),
+      );
+      expect(manifest.permissions).toEqual(['sidePanel', 'storage']);
+      expect(manifest.host_permissions ?? []).toEqual([]);
+      expect(manifest.content_scripts ?? []).toEqual([]);
+      const beforeStorage = await worker.evaluate(async () => ({
+        local: await chrome.storage.local.get(null),
+        session: await chrome.storage.session.get(null),
+      }));
+      await page.evaluate(() =>
+        Reflect.set(
+          globalThis,
+          'fictionalMainWorldSentinel',
+          'must-not-cross-world',
+        ),
+      );
+      const client = await context.newCDPSession(page);
+      await client.send('Page.enable');
+      const tree = await client.send('Page.getFrameTree');
+      const { executionContextId } = await client.send(
+        'Page.createIsolatedWorld',
+        {
+          frameId: tree.frameTree.frame.id,
+          worldName: 'SeatBuddies fictional read-only test',
+        },
+      );
+      const evaluate = async (expression: string) => {
+        const result = await client.send('Runtime.evaluate', {
+          expression,
+          contextId: executionContextId,
+          awaitPromise: true,
+          returnByValue: true,
+        });
+        expect(result.exceptionDetails).toBeUndefined();
+        return result.result.value as {
+          compatibility: string;
+          status: string;
+          screening: unknown;
+          sentinel: unknown;
+          unchanged: boolean;
+        };
+      };
+      const readExpression = `(async()=>{const m=await import('chrome-extension://${id}/fixture-reader.js');
+      globalThis.sbFixtureReader?.dispose();
+      globalThis.sbFixtureReader=m.createFixtureReader(document,{kind:'PACKAGED',extensionId:'${id}',world:'ISOLATED',permitted:true});
+      const before=document.documentElement.outerHTML;
+      const o=globalThis.sbFixtureReader.read(100000);
+      return {...o,sentinel:typeof globalThis.fictionalMainWorldSentinel,unchanged:before===document.documentElement.outerHTML};})()`;
+      for (const [scenario, reason] of [
+        ['valid', 'READABLE_FICTION'],
+        ['rerender', 'DOM_CHANGED'],
+        ['canvas', 'CANVAS'],
+        ['ambiguous', 'AMBIGUOUS'],
+        ['missing', 'MISSING_FIELDS'],
+        ['server', 'SERVER_UNAVAILABLE'],
+      ]) {
+        await page.getByLabel('Lokale bioscoopfixture').selectOption(scenario!);
+        const result = await evaluate(readExpression);
+        expect(result.compatibility).toBe(reason);
+        expect(result.status).toBe('UNKNOWN');
+        expect(result.sentinel).toBe('undefined');
+        expect(result.unchanged).toBe(true);
+      }
+      await page.getByLabel('Lokale bioscoopfixture').selectOption('valid');
+      await evaluate(readExpression);
+      await page.getByLabel('Lokale bioscoopfixture').selectOption('rerender');
+      expect(
+        (await evaluate('globalThis.sbFixtureReader.current(100001)'))
+          .compatibility,
+      ).toBe('DOM_CHANGED');
+      const leaseReply = fixtureLeaseReplySchema.parse(
+        await page.evaluate(() =>
+          chrome.runtime.sendMessage({ type: 'READONLY_BIND', role: 'A' }),
+        ),
+      );
+      expect(leaseReply.ok).toBe(true);
+      if (!leaseReply.ok) throw new Error('No fictional receipt');
+      await page.getByLabel('Lokale bioscoopfixture').selectOption('valid');
+      const observation = await evaluate(
+        `(async()=>{await (${readExpression});return globalThis.sbFixtureReader.read(Date.now());})()`,
+      );
+      const message = {
+        type: 'READONLY_OBSERVE',
+        lease: leaseReply.lease,
+        observation,
+      };
+      expect(
+        await page.evaluate(
+          (message) => chrome.runtime.sendMessage(message),
+          message,
+        ),
+      ).toEqual({ ok: true });
+      expect(
+        await page.evaluate(
+          (message) => chrome.runtime.sendMessage(message),
+          message,
+        ),
+      ).toMatchObject({ ok: false });
+      expect(
+        await worker.evaluate(async () => ({
+          local: await chrome.storage.local.get(null),
+          session: await chrome.storage.session.get(null),
+        })),
+      ).toEqual(beforeStorage);
+      expect(external).toEqual([]);
+      await client.detach();
     } finally {
       await context.close();
       await rm(profile, { recursive: true, force: true });

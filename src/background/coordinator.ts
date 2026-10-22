@@ -19,6 +19,10 @@ import {
 import { matchShowtimes } from '../core/showtime-matcher';
 import { adjacent } from '../core/seats';
 import { scenarioObservations } from '../fixtures/data';
+import {
+  freshness,
+  type ReadOnlyObservation,
+} from '../adapters/read-only/contract';
 import { boundRole } from './session-registry';
 import { roleEvidence } from '../core/evidence';
 import { emptyRetention } from '../core/retention-status';
@@ -30,6 +34,56 @@ import {
 } from '../core/buddies';
 
 export class Coordinator {
+  // At most two ephemeral receipts. No interpreted screening/seat data is retained.
+  private fixtureReaders: Partial<
+    Record<
+      Role,
+      {
+        lease: string;
+        binding: Binding;
+        buddyEpoch: number;
+        resetVersion: number;
+        lastAt: number;
+      }
+    >
+  > = {};
+  issueFixtureLease(binding: Binding): string | null {
+    const role = boundRole(this.sessions, binding);
+    if (!role) return null;
+    const lease = crypto.randomUUID();
+    this.fixtureReaders[role] = {
+      lease,
+      binding: this.sessions[role].binding!,
+      buddyEpoch: this.buddyEpoch,
+      resetVersion: this.resetVersion,
+      lastAt: -1,
+    };
+    return lease;
+  }
+  acceptFixtureRead(
+    binding: Binding,
+    lease: string,
+    observation: ReadOnlyObservation,
+    now: number,
+  ): boolean {
+    const role = boundRole(this.sessions, binding);
+    if (!role || this.mode !== 'FIXTURE') return false;
+    const reader = this.fixtureReaders[role];
+    if (
+      !reader ||
+      reader.lease !== lease ||
+      reader.binding !== this.sessions[role].binding ||
+      reader.resetVersion !== this.resetVersion ||
+      (role === 'B' && reader.buddyEpoch !== this.buddyEpoch) ||
+      observation.provenance.world === 'LOCAL_PREVIEW' ||
+      freshness(observation, now) !== 'FRESH' ||
+      observation.provenance.observedAt <= reader.lastAt
+    )
+      return false;
+    reader.lastAt = observation.provenance.observedAt;
+    // Receipt only: cannot promote simulation, manual review, context or booking state.
+    return true;
+  }
   readonly generation: string = crypto.randomUUID();
   sessions = emptySessions();
   manual = emptyManual();
@@ -77,6 +131,7 @@ export class Coordinator {
     return { ok: true as const };
   }
   reset(): void {
+    this.fixtureReaders = {};
     this.buddyEpoch++;
     this.resetVersion++;
     this.buddy = emptyBuddies(this.buddy.revision + 1);
