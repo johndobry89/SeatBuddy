@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ZeroExtraNotice from './ZeroExtraNotice.vue';
 import { onMounted, onUnmounted, ref } from 'vue';
 import type { Snapshot } from '../../background/coordinator';
 import { roles, type Scenario } from '../../core/types';
@@ -60,6 +61,12 @@ onUnmounted(() => clearInterval(timer));
     <p class="notice">
       <strong>Alleen lokale simulatie.</strong> Geen live detectie, reservering,
       betaling of seat hold.
+    </p>
+    <ZeroExtraNotice />
+    <p class="source">
+      Deze oude toestandsdemo toetst alleen synthetische geometrie/status.
+      MOCK_ADJACENT is geen ZERO EXTRA-aanbeveling. Gebruik de fictieve
+      testpagina voor de categorie- en kostenfilter; geen echte boeking.
     </p>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
     <p v-if="!state && !error" role="status">Status laden…</p>
