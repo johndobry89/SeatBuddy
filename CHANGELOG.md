@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0-test — 22 oktober 2026 (Sprint 08, Integration Forge)
+
+- Gezamenlijke zeven-sprintreview en twee uitsluitend lokaal uitgevoerde integratiepaden, met exacte tree-identiteit en opnieuw geteste gecombineerde boom. Geen remote merge, retarget, tag of publicatie.
+- Gereproduceerde resetfouten hersteld: expliciet wissen in nieuwe worker wist lokale concepten, Begin A opnieuw behoudt geen dirty stoel. Passieve workervervanging/gewone polling en B-only onafhankelijkheid blijven behouden.
+- Concept-TTL opnieuw toetsen na async storage read/write; verlopen/toekomstig concept niet als succesvol herstel/save melden. Geen wijziging van retentieschema of rechten.
+- Gewone diagnose en lokale proef delen nu één strikt scope-schema; extra/malformed privileges en externe exposure geven geen geruststellend scope-label.
+- Eigen LICENSE en notices uit de daadwerkelijke chunkgraph worden mee verpakt. Native tests installeren de gecontroleerde uitgepakte ZIP, met checksum/root/path/manifest/noticegates; spanning expliciet geaudit.
+- Bestaande 225 unit/19 UI behouden, 14 unit-/contractgevallen en twee UI-regressies toegevoegd: 239 unit, 21 UI. Linux zeven native en Mac Intel twee native smokes behouden; werkelijke CI per SHA in feasibility. Event/ref-gebonden CI-concurrency voorkomt verouderde dubbelruns zonder actuele platformchecks te schrappen.
+- Integratie-/securityreview, mergeplan, projectstatus en korte eigenaaracceptatiekaart bijgewerkt. Menselijke QA blijft NOT_RUN, G0 NOT PASSED, publieke distributie NO-GO zonder afzonderlijke toestemming/gates. Geen nieuwe dependency of live Vue-feature.
+
 ## 0.7.0-test — 21 oktober 2026 (Sprint 07, First-Run Forge)
 
 - Gestroomlijnde eerste planning: gewenste stoelen in hetzelfde formulier, atomair bewaren; aparte review en vijf eigen stappen blijven. Gemeten solo 15 → 14 en samen 24 → 22 pointerklikken, zonder live- of tijdsclaim.

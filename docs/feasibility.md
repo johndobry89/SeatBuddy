@@ -1,9 +1,45 @@
 # Feasibility & evidence register — SeatBuddy / SeatBuddies
 
-**Updated:** 2026-10-21
-**Overall state:** SeatBuddies **0.7.0-test / First-Run Forge** built, G0 live Vue **NOT PASSED**. Local 225 unit/contract tests and 19 renderer tests PASS; managed local native execution BLOCKED. Code-head Linux + macOS Intel CI SUCCESS: 225 unit/contract tests, 19 renderer tests per platform, Linux all seven native and Mac two native smoke tests; exact SHAs and documentation-head scope in S07 below. Human Mac/Windows/arm64/VoiceOver remain NOT_RUN. Historical results below are scoped to their original SHAs, not evidence for an untested later head.
+**Updated:** 2026-10-22
+**Overall state:** SeatBuddies **0.8.0-test / Integration Forge**, manual/fictional-only; **G0 live Vue NOT PASSED**. Joint tree reviewed and locally rehearsed through two merge paths; exact tree/archive identity PASS. Local 239 unit/contract + 21 renderer tests PASS. S08 code-head Linux + macOS Intel CI SUCCESS, with 7 Linux native and 2 Mac native smoke cases installing the verified runtime ZIP. Managed local native remains BLOCKED. Human Mac/Windows/arm64/VoiceOver NOT_RUN. Technical integration-review GO is separate from distribution NO-GO and absent merge/publish authorization.
 
 This file is the source of truth for observed practical feasibility. Design assumptions and tests using fixtures do not prove the Vue website or booking flow.
+
+## S08 — Integration Forge, issue #19
+
+**22 October 2026 (Europe/Berlin).** Base `feat/issue-17-sprint-07` at **3209eeed7940c47a44dc1045ea1930e7530fc36d**; PR #18 now observed Draft/open with fresh successful PR-run 39743899891. The previous S07 API failure was historical, not a claim that #18 still does not exist. New branch **feat/issue-19-sprint-08**, code head **cdbeb1c574ccc5d12f7bf60ef33287f758b0cad4**. Actual PR heads/bases/trees/latest CI and required-check limits in [integration-readiness](integration-readiness.md); security findings and reproductions in [S08 review](security-review-sprint08.md). GitHub API metadata read failed Forbidden; no admin/base/state changes attempted.
+
+### Executed evidence
+
+| Check                                                                   | Actual result / limit                                                                                                                                                                                   |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Baseline frozen install/check/UI                                        | PASS, unchanged S07 tree: 225 unit + 19 UI. No new dependency; lockfile version bump only                                                                                                               |
+| Before/fix reproduction                                                 | Six unit assertions (five diagnostic exposure cases + worker TTL) and two UI cases actually FAIL before fixes; PASS after. Two further save-clock expiry/reversal cases added                           |
+| `npm run check`                                                         | PASS: format, zero-warning lint, Vue/TS strict, icon byte reproduction, **239 unit / 15 files**, runtime build                                                                                          |
+| `npm run test:adversarial`                                              | PASS, **99 / 7 files**, subset of full suite; no double-counting as extra coverage                                                                                                                      |
+| `npm run test:ui`                                                       | PASS, **21** built renderer tests, isolated Chromium 154.0.8037.57, transport doubles; original 19 retained, two reset cases added                                                                      |
+| `npm run package` and independent Python ZIP check                      | PASS, **24 files / 109797 bytes**, rootmanifest MV3 0.8.0 spanning, exact two rights, CSP/runtime audit, all bytes equal dist, CRC, PNG sizes and complete notices                                      |
+| Local `npm run test:e2e`                                                | BLOCKED by actual managed ExtensionInstallBlocklist=[*] / incognito disabled. Test runner records seven serviceworker timeouts, not PASS. Verified archive was unpacked before Chrome, no policy bypass |
+| Full combined no-ff local rehearsal                                     | PASS, all seven PRs + audit, no conflicts, every intermediate tree exactly equals source head. Detached copies only; main never checked out/moved                                                       |
+| Independent rehearsal checks                                            | PASS, own frozen install/check/239 unit/build/package + **21 UI**; its ZIP is byte-for-byte identical to feature ZIP. Cumulative second worktree has the identical complete tree                        |
+| `npm audit --cache /tmp/seatbuddy-npm`                                  | PASS, 0 reported vulnerabilities including dev. 251 lock records, no missing registry integrity/license; build graph emits five MIT module notices. Not formal supply-chain/legal attestation           |
+| Human Mac/Windows/arm64/VoiceOver, Chrome 116 user install, real Vue/G0 | NOT_RUN / NOT VERIFIED; no inferred user acceptance, account proof or live checkout                                                                                                                     |
+
+Code validation [run 39747432592](https://github.com/johndobry89/SeatBuddy/actions/runs/39747432592) **SUCCESS** at exact cdbeb1c, 4m29s. [Linux job 119719293060](https://github.com/johndobry89/SeatBuddy/actions/runs/39747432592/job/119719293060) passed 21 UI (55.5s) and all seven actual-extension tests (28.6s). [Mac Intel job 119719293572](https://github.com/johndobry89/SeatBuddy/actions/runs/39747432592/job/119719293572) passed 21 UI (1.9m) and both headed native smoke tests (20.0s). Both require install/full check/unit/icons/build/package. Job conclusions and public Playwright annotations read directly; authenticated full raw logs unavailable. No Mac full-seven/incognito-lifecycle or human VoiceOver claim.
+
+Both native projects now load only the checksum-verified **unpacked versioned ZIP**, not dist. Each test owns a fresh browser profile, and the extraction is independently disposed. Hash/path/version/permission/notices checks happen before browser launch; tests reject altered hashes/traversal. No personal browser or real website is used. UI screenshots in design-system remain explicitly historical S07 renderer references; S08 changes lifecycle/hardening, not visual design.
+
+Runtime **seatbuddies-0.8.0-chrome-test.zip**, SHA256 **ccd23d26418cb866f7f646f23dd0aa645783aaa6d8bba73d20d5a1109567f3d9**. Artifact **seatbuddies-chrome-test** contains the outer Actions wrapper, inner runtime ZIP and `.zip.sha256`. The wrapper digest is a different object. LICENSE + THIRD_PARTY_NOTICES.txt are new runtime files; no source/test/secret/QA data packaged. Version 0.8 is justified by actual runtime fixes/attribution changes, not a new live integration feature. Node dependencies remain unchanged.
+
+### Integration / gates
+
+Main **c0c5c1b0f683b003288ca33eed8ad5d9b9e08825** unchanged. Seven old PRs still Draft/open; #9 latest workflow remains FAILURE (Mac runner not acquired), even though Linux passed. Two actual detached local rehearsals: sequential eight no-ff steps and one cumulative no-ff step; both code-end trees **34654e43d79e0b789f1b1951f6db01a53ed2c8f8**, exactly feature cdbeb1c, no file differences. New documentation head is applied locally again before disposal; final complete tree identity/SHA and final-head CI are reported in delivery/PR evidence, without inventing a self-referential future SHA here. [Merge-plan](merge-plan.md) records exact local merge objects, tested commands, stop conditions and future owner workflow.
+
+**Technical GO** for the tested manual/fictional integrated tree and a future cumulative integration review. **NO-GO for blindly merging the old sequential drafts** until #9/check/base gates are resolved and refreshed. **Distribution/release NO-GO**, G0 NOT PASSED; human acceptance/legal/brand/Store and explicit authorization remain separate. Merge/deploy/publish approval NOT_GRANTED. No parent/main merge, retarget, branch deletion, tag or deployment performed.
+
+CI hygiene: event/ref-scoped concurrency cancels only obsolete runs of the same workflow/event/ref; push and PR runs remain intentionally separate because required-check/protection settings are unknown. Current Linux/Mac jobs and names stay enabled; no assertion/platform disabled. Artifact retention inherits repository defaults (not independently verified); regenerate from exact source if expired. No repo admin settings changed.
+
+Later commits update documentation only and receive their own full head CI. Final observed commit/run/job URLs are in the delivery/PR body; the above immutable code SHA remains the record for this executed review. Owner acceptance card has seven actions, explicit FAIL/NOT_RUN cells and safe feedback in the existing [Mac guide](macos-test-guide.md). No mid-sprint human QA requested.
 
 ## S07 — First-Run Forge, issue #17
 

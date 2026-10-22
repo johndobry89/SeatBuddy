@@ -5,8 +5,8 @@
 | Documentcontrole | Waarde |
 | --- | --- |
 | Document-ID | `SEATMATES.MASTERPLAN.v0.2` |
-| Productversie | **0.7.0-test — First-Run Forge: kortere planning, geïsoleerde lokale proef en reproduceerbare installatie; G0 live open** |
-| Datum | Ontwerp 20 oktober 2026; implementatiestatus bijgewerkt 21 oktober 2026 |
+| Productversie | **0.8.0-test — Integration Forge: gezamenlijke hardening, lokale integratieproef en verpakte browsertests; G0 live open** |
+| Datum | Ontwerp 20 oktober 2026; implementatiestatus bijgewerkt 22 oktober 2026 |
 | Project | SeatBuddies (voorheen SeatMates; naam-/merkrechten niet onderzocht) |
 | Productdoel | Twee geldige Vue Movie Pass-houders begeleiden naar dezelfde voorstelling en waar mogelijk aangrenzende stoelen |
 | Status van echte Vue-integratie | **NOT_RUN / niet bewezen** |
@@ -24,7 +24,9 @@
 
 **Sprint 06:** solo is standaard, samen plannen is een onafhankelijke expliciete keuze, nooit afgeleid uit een nickname. Plan → lokale review → eigen stappen, met behouden A-controles bij B-only wijzigingen. Mode/review/progress worden niet opgeslagen of hersteld. Lokaal wissen verandert geen echte boeking; zie ADR-007.
 
-**Implementatiestand 21 oktober 2026:** de handmatige assistent en fictieve tests zijn gebouwd; bronlabels onderscheiden SIMULATION, MANUAL_SELF_REPORT, BROWSER_CONTEXT_ONLY en UNKNOWN. Echte Vue-bevestiging is NOT_IMPLEMENTED. De historische ontwerpvoorbeelden hieronder zijn geen actuele live API’s of bewijs. Alle uitgevoerde platformresultaten staan in feasibility.
+**Implementatiestand 22 oktober 2026:** de handmatige assistent en fictieve tests zijn gebouwd; bronlabels onderscheiden SIMULATION, MANUAL_SELF_REPORT, BROWSER_CONTEXT_ONLY en UNKNOWN. Echte Vue-bevestiging is NOT_IMPLEMENTED. De historische ontwerpvoorbeelden hieronder zijn geen actuele live API’s of bewijs. Alle uitgevoerde platformresultaten staan in feasibility.
+
+**Sprint 08:** technische/securityreview en twee lokaal gerepeteerde integratiepaden, met exacte tree-identiteit en gerichte reset-/TTL-/diagnosefixes. Geen echte merge of release. Actuele go/no-go en grenzen in `docs/integration-readiness.md`, `docs/security-review-sprint08.md`, `docs/merge-plan.md` en `docs/project-readiness.md`.
 
 **Interpretatie:** dit document beschrijft een kandidaatproduct en duidelijke beslisgates. Een ontwerpkeuze is geen bewezen Chrome/Vue-integratie. `UNKNOWN` blijft onbekend tot een reproduceerbare waarneming het oplost. Het OF-ontwerpkader en `AGENTS.md` geven geen bijzondere browserrechten of toestemming voor live boekingen.
 
