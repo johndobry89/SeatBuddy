@@ -30,6 +30,9 @@ import { savedDraftSchema } from '../../src/core/retained-data';
 let packaged: Awaited<ReturnType<typeof unpackPackagedExtension>>;
 test.beforeAll(async () => {
   packaged = await unpackPackagedExtension();
+  expect(packaged.sha256, 'Reviewed Field Trial inner runtime hash').toBe(
+    '3becb7b39b9a0cd3a60ee5f2f71a92300264872024a2341ae22cf69da505d238',
+  );
   console.log(
     `PACKAGED_EXTENSION ${packaged.version} SHA256 ${packaged.sha256}`,
   );
@@ -750,6 +753,35 @@ test(
         await expect(lab.getByTestId('pair-result')).toContainText(status!);
         await expect(lab.getByTestId('pair-candidate')).toHaveCount(0);
       }
+      expect(await inspect()).toEqual(working);
+      // Controlled API fault injection in an own-package document; actual windows.create recovery.
+      const recovery = await context.newPage();
+      await recovery.addInitScript(() => {
+        chrome.sidePanel.open = async () => {
+          throw new Error('Fictional API denial');
+        };
+      });
+      await recovery.goto(`chrome-extension://${id}/popup.html`);
+      await recovery
+        .getByRole('button', { name: 'Open boekingsassistent', exact: true })
+        .click();
+      await expect(recovery.getByRole('alert')).toContainText('niet openen');
+      const normalReady = context.waitForEvent('page');
+      await recovery
+        .getByRole('button', {
+          name: 'Open assistent in normaal venster',
+          exact: true,
+        })
+        .focus();
+      await recovery.keyboard.press('Enter');
+      const normal = await normalReady;
+      await expect(normal).toHaveURL(`chrome-extension://${id}/sidepanel.html`);
+      await expect(normal.getByTestId('hq-A')).toContainText('5/5');
+      expect(
+        await normal.evaluate(
+          async () => (await chrome.windows.getCurrent()).incognito,
+        ),
+      ).toBe(false);
       expect(await inspect()).toEqual(working);
       expect(
         await worker.evaluate(
@@ -1639,7 +1671,7 @@ test(
         context.serviceWorkers()[0] ??
         (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
       const id = new URL(worker.url()).host;
-      const panel = await context.newPage();
+      let panel = await context.newPage();
       await panel.goto(`chrome-extension://${id}/sidepanel.html`);
       expect(
         await panel.evaluate(() => chrome.runtime.getManifest().version),
@@ -1651,7 +1683,7 @@ test(
       await panel
         .getByRole('button', { name: 'Voeg buddy toe', exact: true })
         .click();
-      const remember = panel.getByRole('checkbox', {
+      let remember = panel.getByRole('checkbox', {
         name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
         exact: true,
       });
@@ -1710,12 +1742,17 @@ test(
         setTimeout(() => chrome.runtime.reload(), 50);
       });
       await expect(async () => {
+        if (panel.isClosed()) panel = await context.newPage();
         await panel.goto(`chrome-extension://${id}/sidepanel.html`);
         expect(
           await panel.evaluate(() => chrome.runtime.getManifest().version),
         ).toBe(packaged.version);
         await expect(panel.getByTestId('inactive-B')).toBeVisible();
       }).toPass({ timeout: 10_000 });
+      remember = panel.getByRole('checkbox', {
+        name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
+        exact: true,
+      });
       const after = panelReplySchema.parse(
         await panel.evaluate(() =>
           chrome.runtime.sendMessage({ type: 'GET_STATE' }),
@@ -1763,6 +1800,74 @@ test(
       expect(
         await panel.evaluate(() => chrome.storage.session.get(null)),
       ).toEqual({});
+      const currentWorker = context
+        .serviceWorkers()
+        .find((value) => value.url() === worker.url());
+      if (!currentWorker) throw new Error('Upgraded worker missing');
+      // Delay a real Chrome read over a real TTL boundary. No wall-clock change or saved proof.
+      await currentWorker.evaluate(() => {
+        const get = chrome.storage.session.get.bind(chrome.storage.session) as (
+          key: string,
+        ) => Promise<Record<string, unknown>>;
+        Reflect.set(chrome.storage.session, 'get', async (key: string) => {
+          if (key === 'seatbuddies.draft.v1')
+            await new Promise((resolve) => setTimeout(resolve, 2200));
+          return get(key);
+        });
+      });
+      await panel.evaluate(async () =>
+        chrome.storage.session.set({
+          'seatbuddies.draft.v1': {
+            version: 1,
+            createdAt: Date.now() - 4 * 60 * 60_000 + 1000,
+            plan: {
+              movie: 'De maan van papier',
+              cinema: 'Fictief Filmhuis',
+              date: '2030-04-12',
+              time: '19:30',
+              hall: 'Zaal 2',
+            },
+          },
+        }),
+      );
+      const gate = panelReplySchema.parse(
+        await panel.evaluate(() =>
+          chrome.runtime.sendMessage({ type: 'GET_STATE' }),
+        ),
+      );
+      if (!gate.ok) throw new Error(gate.error);
+      const expired = await panel.evaluate(
+        (message) => chrome.runtime.sendMessage(message),
+        {
+          type: 'DRAFT_RESTORE',
+          generation: gate.state.generation,
+          revision: gate.state.buddy.revision,
+        },
+      );
+      expect(expired).toMatchObject({ ok: false, code: 'STORAGE_FAILURE' });
+      expect(expired).not.toHaveProperty('restoredDraft');
+      expect(
+        await panel.evaluate(() => chrome.storage.session.get(null)),
+      ).toEqual({});
+      // Failed deletion must remain unconfirmed; actual retained key must still exist.
+      await remember.click();
+      await expect(remember).toBeChecked();
+      await currentWorker.evaluate(() => {
+        chrome.storage.local.remove = async () => {
+          throw new Error('fictional private raw storage failure');
+        };
+      });
+      await remember.click();
+      await expect(panel.getByTestId('retention-status')).toContainText(
+        'verwijderen niet bevestigd',
+      );
+      await expect(remember).toBeDisabled();
+      expect(
+        Object.keys(await panel.evaluate(() => chrome.storage.local.get(null))),
+      ).toEqual(['seatbuddies.roster.v1']);
+      await expect(panel.locator('body')).not.toContainText(
+        'fictional private raw storage failure',
+      );
     } finally {
       await context.close();
       await baseline.cleanup();
