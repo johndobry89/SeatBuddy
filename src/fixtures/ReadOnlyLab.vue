@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SeatPairLab from './SeatPairLab.vue';
 import { nextTick, onBeforeUnmount, ref } from 'vue';
 import { createFixtureReader, compareObservation } from './reader-entry';
 import type { FixtureReader } from '../adapters/read-only/fictional-reader';
@@ -125,4 +126,5 @@ onBeforeUnmount(() => {
       <pre>{{ JSON.stringify(observation, null, 2) }}</pre>
     </div>
   </section>
+  <SeatPairLab />
 </template>

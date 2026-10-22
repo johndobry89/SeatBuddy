@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ZeroExtraNotice from './ZeroExtraNotice.vue';
+import { categoryLabels, categoryEligibility } from '../../core/seat-policy';
 import { computed } from 'vue';
 import type { Snapshot } from '../../background/coordinator';
 import { selectedBuddy } from '../../core/buddies';
@@ -13,6 +15,7 @@ const summary = computed(() => manualSummary(props.state.manual));
   <section class="movie-night-hq" aria-labelledby="hq-title">
     <p class="eyebrow">Plan → Review → Eigen stappen</p>
     <h2 id="hq-title">Filmavond-overzicht</h2>
+    <ZeroExtraNotice />
     <details v-if="!state.manual.plan" class="first-run">
       <summary>Wat doet SeatBuddies?</summary>
       <p>
@@ -63,6 +66,11 @@ const summary = computed(() => manualSummary(props.state.manual));
                 ? `Probleem gemeld: ${state.manual.tracks[role].problem} — controleer in eigen account`
                 : 'Uitkomst UNKNOWN — nog niet zelf afgerond'
           }}
+        </p>
+        <p class="source" :data-testid="`hq-category-${role}`">
+          {{ categoryLabels[state.manual.tracks[role].category] }} ·
+          {{ categoryEligibility(state.manual.tracks[role].category) }} ·
+          USER_ENTERED_LABELS. Bijbetaling UNKNOWN; nooit automatisch €0.
         </p>
         <p class="source">
           {{ checkAge(state.manual.tracks[role].reviewedAt, Date.now()) }}

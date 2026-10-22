@@ -1,3 +1,7 @@
+import {
+  exerciseSeatPairLab,
+  exerciseManualCategory,
+} from '../helpers/zero-extra-workflow';
 import { openSimulation, firstPlanViaUI } from '../helpers/browser-workflow';
 import {
   openInputs,
@@ -109,7 +113,7 @@ async function attachMockTransport(
           id: 'fictional-extension',
           getManifest: () => ({
             manifest_version: 3,
-            version: '0.9.0',
+            version: '0.10.0',
             permissions: ['sidePanel', 'storage'],
           }),
           sendMessage: (message: unknown) => {
@@ -244,7 +248,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).focus();
     await page.keyboard.press('Enter');
     const report = page.getByTestId('diagnostic-report');
-    await expect(report).toContainText('"extensionVersion": "0.9.0"');
+    await expect(report).toContainText('"extensionVersion": "0.10.0"');
     await expect(report).toContainText('NOT_IMPLEMENTED');
     await expect(report).toContainText('SIDE_PANEL_AND_STORAGE');
     await expect(report).not.toContainText('De maan van papier');
@@ -1165,7 +1169,7 @@ test('diagnostic copy previews exact allowlisted text, waits for clipboard succe
     await expect(report).toBeFocused();
     const preview = await report.innerText();
     expect(JSON.parse(preview)).toMatchObject({
-      build: { version: '0.9.0' },
+      build: { version: '0.10.0' },
       productionAdapter: 'DISABLED_G0',
     });
     for (const secret of [
@@ -1823,6 +1827,108 @@ test('Reality Gate: actual Chrome ISOLATED world reads only the exact localhost 
       },
     });
     await client.detach();
+  } finally {
+    await browser.close();
+  }
+});
+
+test('ZERO EXTRA: all fictional map exceptions, accessible route, keyboard/320px and zero remote requests', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  const page = await browser.newPage({ viewport: { width: 320, height: 900 } });
+  const worker = new Coordinator();
+  await attachMockTransport(page, worker);
+  const external: string[] = [];
+  page.on('request', (request) => {
+    if (!request.url().startsWith('http://127.0.0.1:4173/'))
+      external.push(request.url());
+  });
+  try {
+    await page.goto('http://127.0.0.1:4173/fixture.html');
+    await exerciseSeatPairLab(page);
+    const size = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(size.scroll).toBeLessThanOrEqual(size.client);
+    expect(worker.mode).toBe('MANUAL');
+    expect(external).toEqual([]);
+    await page
+      .getByLabel('Fictieve stoelkaart', { exact: true })
+      .selectOption('mixed');
+    await page
+      .getByRole('button', {
+        name: 'Zoek 2 stoelen zonder extra betaling (DEMO)',
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole('region', { name: 'ZERO EXTRA · twee fictieve buurstoelen' })
+      .screenshot({ path: 'test-results/zero-extra-pair.png' });
+    await page.clock.install();
+    await page.clock.fastForward(31_000);
+    await expect(page.getByTestId('pair-candidate')).toHaveCount(0);
+    await expect(page.getByTestId('pair-result')).toContainText('STALE_DATA');
+    await page.screenshot({
+      path: 'test-results/zero-extra-lab.png',
+      fullPage: true,
+    });
+  } finally {
+    await browser.close();
+  }
+});
+test('ZERO EXTRA manual: optional categories, Ultra Lux review block, independent B changes and safe copy', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  const page = await browser.newPage({ viewport: { width: 320, height: 900 } });
+  const worker = new Coordinator();
+  const control: MockControl = { unavailable: false, worker };
+  await attachMockTransport(page, worker, control);
+  try {
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await exerciseManualCategory(page);
+    await openInputs(page, 'B');
+    await page
+      .getByLabel('Stoelcategorie B (optioneel)', { exact: true })
+      .selectOption('LUX');
+    await page.waitForTimeout(2100);
+    await expect(
+      page.getByLabel('Stoelcategorie B (optioneel)', { exact: true }),
+    ).toHaveValue('LUX');
+    await page
+      .getByRole('button', { name: 'Bewaar eigen invoer B', exact: true })
+      .click();
+    await page
+      .getByText('Diagnostiek zonder privégegevens', { exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).click();
+    await expect(page.getByTestId('diagnostic-report')).not.toContainText(
+      'SAVER_LUX',
+    );
+    await expect(page.getByTestId('diagnostic-report')).not.toContainText(
+      'ULTRA_LUX',
+    );
+    expect(worker.manual.tracks.A.completed).toEqual(['ACCOUNT']);
+    await page
+      .getByRole('region', { name: 'Filmavond-overzicht', exact: true })
+      .screenshot({ path: 'test-results/zero-extra-hq.png' });
+    await openInputs(page, 'A');
+    await page
+      .getByLabel('Stoelcategorie A (optioneel)', { exact: true })
+      .selectOption('LUX');
+    control.worker = new Coordinator();
+    await expect(
+      page.getByLabel('Stoelcategorie A (optioneel)', { exact: true }),
+    ).toHaveValue('UNKNOWN');
+    expect(control.worker.manual.tracks.A.category).toBe('UNKNOWN');
+    await page.screenshot({
+      path: 'test-results/zero-extra-manual.png',
+      fullPage: true,
+    });
   } finally {
     await browser.close();
   }

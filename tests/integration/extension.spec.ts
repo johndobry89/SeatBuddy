@@ -1,3 +1,7 @@
+import {
+  exerciseSeatPairLab,
+  exerciseManualCategory,
+} from '../helpers/zero-extra-workflow';
 import { unpackPackagedExtension } from '../helpers/packaged-extension';
 import { openSimulation } from '../helpers/browser-workflow';
 import {
@@ -79,7 +83,7 @@ test(
         'SIDE_PANEL_AND_STORAGE',
       );
       await expect(page.getByTestId('diagnostic-report')).toContainText(
-        '"extensionVersion": "0.9.0"',
+        '"extensionVersion": "0.10.0"',
       );
       await expect(page.getByTestId('diagnostic-report')).toContainText(
         'NOT_IMPLEMENTED',
@@ -1089,7 +1093,7 @@ test('real Chrome Projector Ready: solo intent, two-panel preflight races, parti
     await expect(report).toBeFocused();
     const text = await report.innerText();
     expect(JSON.parse(text)).toMatchObject({
-      extensionVersion: '0.9.0',
+      extensionVersion: '0.10.0',
       productionAdapter: 'DISABLED_G0',
       permissionScope: 'SIDE_PANEL_AND_STORAGE',
     });
@@ -1198,7 +1202,7 @@ test(
       const text = await panel.getByTestId('local-test-report').innerText();
       expect(JSON.parse(text)).toMatchObject({
         kind: 'FICTIONAL_TEST',
-        extensionVersion: '0.9.0',
+        extensionVersion: '0.10.0',
         adapterVersion: 'FICTIONAL_V1',
       });
       for (const secret of [
@@ -1357,6 +1361,62 @@ test(
       ).toEqual(beforeStorage);
       expect(external).toEqual([]);
       await client.detach();
+    } finally {
+      await context.close();
+      await rm(profile, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'ZERO EXTRA native: distributed ZIP policy lab, no-fee manual preflight and no price/category retention',
+  { tag: '@smoke' },
+  async () => {
+    test.setTimeout(60_000);
+    const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-zero-extra-'));
+    const context = await chromium.launchPersistentContext(profile, {
+      executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+      ignoreDefaultArgs: ['--disable-extensions'],
+      headless: process.env.HEADED !== '1',
+      args: [`--load-extension=${packaged.directory}`, '--no-sandbox'],
+      viewport: { width: 320, height: 900 },
+    });
+    try {
+      const worker =
+        context.serviceWorkers()[0] ??
+        (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
+      const id = new URL(worker.url()).host;
+      const page = await context.newPage();
+      const external: string[] = [];
+      context.on('request', (request) => {
+        if (/^https?:/.test(request.url())) external.push(request.url());
+      });
+      const manifest = await worker.evaluate(() =>
+        chrome.runtime.getManifest(),
+      );
+      expect(manifest.permissions).toEqual(['sidePanel', 'storage']);
+      const before = await worker.evaluate(async () => ({
+        local: await chrome.storage.local.get(null),
+        session: await chrome.storage.session.get(null),
+      }));
+      await page.goto(`chrome-extension://${id}/fixture.html`);
+      await exerciseSeatPairLab(page);
+      await page.goto(`chrome-extension://${id}/sidepanel.html`);
+      await exerciseManualCategory(page);
+      await page
+        .getByText('Diagnostiek zonder privégegevens', { exact: true })
+        .click();
+      await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).click();
+      await expect(page.getByTestId('diagnostic-report')).not.toContainText(
+        'SAVER_LUX',
+      );
+      expect(
+        await worker.evaluate(async () => ({
+          local: await chrome.storage.local.get(null),
+          session: await chrome.storage.session.get(null),
+        })),
+      ).toEqual(before);
+      expect(external).toEqual([]);
     } finally {
       await context.close();
       await rm(profile, { recursive: true, force: true });

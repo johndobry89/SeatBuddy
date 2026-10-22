@@ -41,6 +41,13 @@ export function nextMovieNightStep(state: ManualState) {
       code: 'HALL',
       text: 'Zaal UNKNOWN. Vul de zaal pas in als je die zelf weet; er is geen volledige voorstellingmatch.',
     };
+  for (const role of activeRoles(state))
+    if (state.tracks[role].category === 'ULTRA_LUX')
+      return {
+        code: 'ULTRA_LUX_EXCLUDED',
+        role,
+        text: `${role}: Ultra Lux is uitgesloten. Stop en kies zelf een andere categorie; geen automatische betaling of annulering.`,
+      };
   const summary = manualSummary(state);
   if (summary.done.length === 2)
     return {
