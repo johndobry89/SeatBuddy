@@ -1,4 +1,4 @@
-name: SeatBuddies ZERO EXTRA checks and Chrome test build
+name: SeatBuddies Field Trial checks and Chrome test build
 on:
   push:
   pull_request:
@@ -8,14 +8,43 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  package:
+    name: Package distributed trial
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run package
+      - id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: seatbuddies-chrome-test
+          if-no-files-found: error
+          path: |
+            build/*-chrome-test.zip
+            build/*-chrome-test.zip.sha256
   checks:
     name: Checks (${{ matrix.os }})
+    needs: package
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-15-intel]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    env:
+      SEATBUDDIES_ARTIFACT_SHA256: ${{ needs.package.outputs.artifact-digest }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,9 +53,37 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: npm run package
-      - if: runner.os == 'Linux'
-        run: npm exec playwright install -- --with-deps chromium
+      - name: Download actual Actions wrapper (read-only, current run)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ needs.package.outputs.artifact-id }}
+        shell: bash
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" > "$RUNNER_TEMP/seatbuddies-actions.zip"
+          echo "SEATBUDDIES_ARTIFACT_ZIP=$RUNNER_TEMP/seatbuddies-actions.zip" >> "$GITHUB_ENV"
+      - name: Reproduce trusted Sprint 10 upgrade baseline
+        shell: bash
+        env:
+          BASELINE_COMMIT: d042bdf4988e743f2d975cc231df9b248ba9b461
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASELINE_COMMIT"
+          mkdir "$RUNNER_TEMP/seatbuddies-sprint10"
+          git archive "$BASELINE_COMMIT" | tar -x -C "$RUNNER_TEMP/seatbuddies-sprint10"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/seatbuddies-sprint10/node_modules"
+          (cd "$RUNNER_TEMP/seatbuddies-sprint10" && npm run package)
+          echo "SEATBUDDIES_BASELINE_ZIP=$RUNNER_TEMP/seatbuddies-sprint10/build/seatbuddies-0.10.0-chrome-test.zip" >> "$GITHUB_ENV"
+      - name: Install Chromium system dependencies on Linux
+        if: runner.os == 'Linux'
+        timeout-minutes: 3
+        run: npm exec playwright install-deps -- chromium
+      - name: Install Chromium on Linux
+        if: runner.os == 'Linux'
+        timeout-minutes: 4
+        run: |
+          if ! timeout --kill-after=10s 90s npm exec playwright install -- chromium; then
+            echo "::warning::Chromium download failed or timed out; retrying this idempotent download once."
+            timeout --kill-after=10s 90s npm exec playwright install -- chromium
+          fi
       - name: Install Chromium on macOS
         if: runner.os == 'macOS'
         run: |
@@ -40,10 +97,3 @@ jobs:
       - name: Native Chrome smoke on macOS Intel
         if: runner.os == 'macOS'
         run: HEADED=1 npm run test:smoke:chrome
-      - uses: actions/upload-artifact@v4
-        if: success() && runner.os == 'Linux'
-        with:
-          name: seatbuddies-chrome-test
-          path: |
-            build/*-chrome-test.zip
-            build/*-chrome-test.zip.sha256

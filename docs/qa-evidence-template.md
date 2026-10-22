@@ -1,25 +1,14 @@
-# QA-bewijs — één formulier per proef
+# Veilig terugmelden
 
-Kopieer dit formulier en vul alleen feitelijke, niet-gevoelige observaties in. Geen volledige browserlogs, profielmappen, titels/URL’s van persoonlijke tabs, namen, wachtwoorden, e-mails, pasnummers, cookies/tokens, tickets, QR’s of betaalgegevens. Screenshots uitsluitend van fictieve testdata. Het ingebouwde diagnostische rapport is een optionele tijdelijke momentopname, geen automatische bijlage.
+Gebruik uitsluitend het **ene kopieerbare rapport op de [Mac-kaart](macos-test-guide.md)**. Het vraagt volledige buildcommit, run, inner ZIP-hash, OS/Chrome en M1–M7 met korte geschoonde waarneming. Alle menselijke regels beginnen NOT_RUN; vul uitsluitend werkelijk uitgevoerde stappen in. De optionele ZERO EXTRA-proef hoort bij M7, niet bij een extra formulier.
 
-- Proef-ID en concrete stap:
-- Datum, tijd, tijdzone:
-- OS en versie:
-- Browser en versie:
-- Extensieversie, volledige commit-SHA, buildbron/run-URL:
-- Testomgeving: eigen toegestaan testprofiel / CI-wegwerpprofiel / anders:
-- Incognitotoegang: uit / expliciet aan / onbekend:
-- Verwacht gedrag:
-- Werkelijk waargenomen gedrag:
-- Reproductie met uitsluitend fictieve velden:
-- Status: PASS / FAIL / NOT_RUN / BLOCKED / INCONCLUSIVE:
-- Bewijssoort: STATIC_CHECK / MOCK_INTEGRATION / handmatige fictieve Chrome-QA / MANUAL_LIVE_OBSERVATION (alleen apart toegestane G0-proef):
-- Beperking en volgende kleinste controle:
+- **PASS:** deze concrete stap daadwerkelijk uitgevoerd en geslaagd.
+- **FAIL:** waargenomen afwijking; vermeld stap en verwacht → feitelijk, met fictieve reproductie.
+- **BLOCKED:** concrete uitvoeringsblokkade, bijvoorbeeld organisatiebeleid. Niet omzeilen.
+- **NOT_RUN:** niet uitgevoerd. **INCONCLUSIVE:** onvoldoende bewijs voor een oordeel.
 
-**PASS** betekent dat de beschreven controle daadwerkelijk is uitgevoerd en slaagde; **FAIL** is een waargenomen afwijking; **NOT_RUN** is niet uitgevoerd; **BLOCKED** heeft een concrete uitvoeringsblokkade; **INCONCLUSIVE** heeft te weinig bewijs. Een build is geen installatieproef. Visueel openen is geen A/B-test. Linux is geen Mac- of Windows-bewijs. USER_REPORTED_PARTIAL_SMOKE is de bronkwalificatie van de gemelde Mac-opening van 20 oktober 2026, geen extra PASS voor onbekende stappen.
+Geen echte naam, e-mail, wachtwoord, pasnummer, ticket/QR, betaaldata, persoonlijke tabtitel/URL, profielmap of ruwe browserlog. Geen screenshot nodig. De tijdelijke technische preview is optioneel: lees hem eerst; er is geen automatische bijlage/upload. **Meld een probleem** opent alleen een leeg GitHub-issue.
 
-Voor echte websiteobservaties gebruik je ook het begrensde formulier in [g0-human-observation-guide.md](g0-human-observation-guide.md). Geen boeking uitvoeren voor deze QA.
+Een build is geen menselijke installatieproef. Een gewone assistenttab is geen native Side Panel-PASS. FICTIONAL_TEST is geen native Chrome-/Vue-bevestiging. De oude beperkte Mac-opening blijft USER_REPORTED_PARTIAL_SMOKE, geen huidige acceptatie. Mac/Windows/arm64/VoiceOver en niet uitgevoerde herstarts blijven NOT_RUN. Publieke G0-observatie heeft een [afzonderlijke begrensde gids](g0-human-observation-guide.md) en is geen onderdeel van de eerste fictieve proef.
 
-## Eerste 0.10.0-test
-
-De [Mac-installatiegids](macos-test-guide.md) bevat één veilig kopieerbaar compact formulier met alle menselijke regels aanvankelijk **NOT_RUN**. Vul de exacte volledige SHA uit de gedownloade Actions-run in, niet alleen 0.10.0. Lokale FICTIONAL_TEST-resultaten zijn afzonderlijk van menselijke/native QA. Upload nooit een heel profiel of ruwe browserlog; **Meld een probleem** opent een leeg issue en verstuurt niets automatisch.
+Na FAIL volgt fictieve reproductie → gericht regressie-issue → kleine reparatie → getroffen tests en volledige CI → dezelfde menselijke stap herhalen. Geen issue of PASS namens de eigenaar zonder diens feitelijke waarneming.

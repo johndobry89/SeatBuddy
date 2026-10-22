@@ -54,7 +54,7 @@ onUnmounted(() => clearInterval(timer));
     <p v-if="notice" class="notice" data-testid="popup-notice">{{ notice }}</p>
     <div class="popup-launch">
       <button @click="launcher.open">Open boekingsassistent</button>
-      <NormalWindowButton v-if="error" />
+      <NormalWindowButton v-if="error || launcher.error.value" />
       <p v-if="launcher.error.value" role="alert" class="error">
         {{ launcher.error.value }}
       </p>

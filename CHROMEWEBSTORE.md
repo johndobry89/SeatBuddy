@@ -1,6 +1,6 @@
 # Chrome Web Store — SeatBuddies (voorbereiding)
 
-Bijgewerkt **22 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.10.0**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.
+Bijgewerkt **22 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.10.1**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.
 
 ## Conceptlisting
 
@@ -69,6 +69,7 @@ Support/homepage: https://github.com/johndobry89/SeatBuddy. Huidige distributie 
 
 | Versie      | Datum      | Wijziging                                                                                         | Storestatus           |
 | ----------- | ---------- | ------------------------------------------------------------------------------------------------- | --------------------- |
+| 0.10.1-test | 2026-10-22 | Field Trial: gerichte fallbackfix en gecontroleerde ZIP-/upgradeproeven                           | Draft, niet ingediend |
 | 0.10.0-test | 2026-10-22 | ZERO EXTRA: fictieve duo-matcher, harde Ultra Lux-/kostenfilter en optionele eigen categorie      | Draft, niet ingediend |
 | 0.9.0-test  | 2026-10-22 | The Reality Gate: fictieve read-only port, openbaar onderzoek BLOCKED, G0-matrix                  | Draft, niet ingediend |
 | 0.8.0-test  | 2026-10-22 | Integration Forge: reset/TTL/diagnosehardening, echte verpakte native testbron en runtime-notices | Draft, niet ingediend |

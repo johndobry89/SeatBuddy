@@ -1,0 +1,58 @@
+# Field Trial — gecontroleerde testoverdracht
+
+**SeatBuddies 0.10.1-test, 22 oktober 2026.** Nieuwe branch `feat/issue-25-sprint-11` op de ongewijzigde Sprint 10-basis `d042bdf4988e743f2d975cc231df9b248ba9b461`. [Review en concrete reparaties](security-review-sprint11.md) · [korte Mac-kaart](macos-test-guide.md) · [projectstatus](project-readiness.md).
+
+Artifactnaam **seatbuddies-chrome-test**. De buitenste Actions-wrapper bevat exact:
+
+- **seatbuddies-0.10.1-chrome-test.zip** — 28 runtimebestanden, 122273 bytes.
+- **seatbuddies-0.10.1-chrome-test.zip.sha256**.
+
+Binnenste SHA256:
+
+```text
+3becb7b39b9a0cd3a60ee5f2f71a92300264872024a2341ae22cf69da505d238
+```
+
+Dit is de runtime-ZIP, niet de andere Actions-wrapperdigest. Beide worden gecontroleerd vóór native installatie. CI downloadt het werkelijk geüploade artifact op beide platforms; de native beforeAll vergelijkt bovendien de inner hash exact met bovenstaande gecontroleerde waarde. Geen broncode, browserprofiel, screenshot of testrapport in de runtime. Rootmanifest MV3 0.10.1, iconen 16/32/48/128, eigen LICENSE/vijf volledige MIT-notices, uitsluitend **sidePanel + storage**, geen websiterechten. ZIP onafhankelijk CRC/byte/hash-gecontroleerd en fresh rebuild identiek.
+
+## Uitgevoerde controles
+
+| Omgeving / controle                                                                                                                                       | Feitelijk resultaat                                                                                                                                                                                                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lokale Linux-codecheck                                                                                                                                    | PASS: format, lint, strikte Vue/TS, iconreproductie, **322 unit/contract in 19 bestanden**, build                                                                                                                                                                           |
+| Lokale gebouwde renderer, Chromium 154.0.8037.57                                                                                                          | **27 UI PASS**; transportdoubles zijn geen native Chrome                                                                                                                                                                                                                    |
+| Adversariële subset                                                                                                                                       | **174 PASS**, subset van bovenstaande unitgevallen                                                                                                                                                                                                                          |
+| npm audit inclusief dev                                                                                                                                   | 0 gerapporteerde kwetsbaarheden; geen formele supply-chain-audit                                                                                                                                                                                                            |
+| ZIP en oude upgradebaseline                                                                                                                               | PASS: huidige runtime/hash/CRC/bytes/notices, herbouw oude 0.10.0 exact gelijk aan bekende `32cc58a640f1b4232f9be4130c424827111e222e3d70dc4f08b46762cc215575`                                                                                                               |
+| Lokale native Chrome                                                                                                                                      | **BLOCKED**, tien pogingen vóór worker door beheerd ExtensionInstallBlocklist; geen omzeiling                                                                                                                                                                               |
+| Eerste CI, b3c16ad, [39804986508](https://github.com/johndobry89/SeatBuddy/actions/runs/39804986508)                                                      | Linux 27 UI / 9 native PASS, upgradeproef FAIL door gesloten Chrome-document. Test gerepareerd met nieuwe documentopening; geen assertie geschrapt. Geen final-PASS uit deze run afgeleid.                                                                                  |
+| Tweede CI, b97bd8f, [39805930485](https://github.com/johndobry89/SeatBuddy/actions/runs/39805930485)                                                      | Linux 27 UI/9 native PASS, Mac Intel 27 UI/5 native PASS; upgrade op beide FAIL met ERR_BLOCKED_BY_CLIENT. Test zet nu eerst de gewone ontwikkelaarsmodus aan, zoals de installatiekaart voorschrijft.                                                                      |
+| Volledig geteste implementatie 657584ecfcd6a7860ec6e315d32de41981613e3b, [39807089743](https://github.com/johndobry89/SeatBuddy/actions/runs/39807089743) | **SUCCESS 8m07s**; Linux **322 unit / 27 UI / 10 native PASS**, macOS Intel **322 unit / 27 UI / 6 native smoke PASS**. Upgrade/TTL/wisfouten inbegrepen. Beide downloaden exact de echte wrapper en asserteren de bovenstaande inner hash.                                 |
+| Laatste documentatiecommit                                                                                                                                | Krijgt een eigen volledige [Sprint 11 CI-run](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-25-sprint-11); exacte definitieve SHA/run/conclusies worden afzonderlijk in de PR/eindoverdracht gecontroleerd. Geen toekomstige PASS verzonnen. |
+| Menselijke Mac / Windows / arm64 / VoiceOver / Chrome 116 / Finder                                                                                        | **NOT_RUN**                                                                                                                                                                                                                                                                 |
+| Echte Vue/accounts/checkout/boekingen/betalingen/annuleringen                                                                                             | **NOT_RUN**, productieadapter blijft OFF                                                                                                                                                                                                                                    |
+
+Sprint 10 [final-head CI 39762949188](https://github.com/johndobry89/SeatBuddy/actions/runs/39762949188) op d042bdf is afzonderlijk bevestigd: Linux 314 unit/25 UI/9 native en Mac Intel 314 unit/25 UI/4 smoke. Dat is baselinebewijs, geen Sprint 11-succesclaim.
+
+De geslaagde implementatierun heeft het artifact aantoonbaar geproduceerd en op beide platforms opnieuw gedownload. Actions-wrapperdigest: `2c7402acb16dde1870894414529e29e2eb2aed54f375c6e95fff3e85a7db7fe0` (ander object dan de inner hash). [Linuxjob](https://github.com/johndobry89/SeatBuddy/actions/runs/39807089743/job/119923223601) SUCCESS 3m26s: 27 UI (1.2m), 10 native (47.3s). [Mac Inteljob](https://github.com/johndobry89/SeatBuddy/actions/runs/39807089743/job/119923223687) SUCCESS 7m47s: 27 UI (3.3m), 6 native (1.4m). Beide native helpers controleren de exacte hierboven gepubliceerde inner hash; dit is gedistribueerd pakketbewijs, geen hash uit alleen een lokale build. Public conclusions/annotations rechtstreeks gelezen; lokaal geen toegang tot authenticated raw logs. Alleen documentatie volgt deze geteste implementatie.
+
+## Wat de nieuwe native proef wel en niet bewijst
+
+De echte Actions-wrapperdownload, digest, inner checksum, rootextractie, eigen tijdelijke Chrome-installatie en popup/Side Panel/normal-window recovery worden automatisch getoetst. De installatiestap gebruikt Chromium --load-extension met de exact uitgepakte map; dit bedient geen menselijke Finder-mapkiezer of echte toolbar-muisklik. De action-popup is native geopend via de browser-testactor, de paneelknop krijgt een echte gebruikersgesture. API- en storagefouten zijn expliciete injecties in uitsluitend eigen testdocument/worker; herstelvenster en overige Chrome storage/lifecycle zijn echt. Upgrade vervangt de volledige map op dezelfde locatie en voert runtime.reload uit; dit is geen systeem-/browser-cold-restart. Mac is Intel en zes smokes, geen volledige incognitosuite, Apple Silicon of VoiceOver.
+
+## Besluiten
+
+- **Technisch GO uitsluitend** voor daadwerkelijk geslaagde automatische handmatige/fictieve scope per eindcommit/platform. Niet-geslaagde of geblokkeerde tests staan apart.
+- **Menselijke Mac-acceptatie NOT_RUN.** De eigenaar test later; geen voorwaarde voor uitvoering van deze sprint.
+- **G0 echte Vue NO-GO / INCONCLUSIVE.** Geen officiële actuele fee-/stoel-/account- of toestemmingsbron bewezen, geen productiehosts of rechten toegevoegd.
+- **Merge/deploy/publicatie NOT_AUTHORIZED.** Geen bestaande PR gemerged/geretarget, geen main-PR, release/tag/Store/deploy. De stapel blijft draft.
+
+## Geobserveerde laatste installatieblokkade en CI-reparatie
+
+[Run 39808717095](https://github.com/johndobry89/SeatBuddy/actions/runs/39808717095), documentatiehead 5fbc282: **Mac Intel SUCCESS 7m48s, 27 UI/6 native**. Linux werd na tien minuten **CANCELLED tijdens de gecombineerde Playwright dependency-/browserinstallatie**, vóór de browsertests. Geen Linux-PASS voor die run. Raw logs niet toegankelijk; oorzaak/subfase INCONCLUSIVE. Gerichte herstart via officiële gh-API geprobeerd, eveneens REST Forbidden.
+
+De workflow splitst nu Linux-systeemdependencies (max drie minuten) en browserdownload (max 90 seconden per poging, één idempotente retry). De globale tienminutengrens en alle tests blijven. Geen apt-retry met onzekere installatiestatus, geen policywijziging, overgeslagen test of verzonnen root cause. De nieuwe definitieve run wordt op zijn eigen commit gecontroleerd en gerapporteerd.
+
+## PR-overdracht
+
+Draft-aanmaak is **daadwerkelijk geprobeerd** met base `feat/issue-23-sprint-10`, head `feat/issue-25-sprint-11`, --draft en de volledige voorbereide body. **POST https://api.github.com/graphql: Forbidden**. Er is door Codex geen PR aangemaakt; geen auth-/accountomweg geprobeerd. Issue #25 staat deze fallback expliciet toe: [exacte gestapelde compare](https://github.com/johndobry89/SeatBuddy/compare/feat/issue-23-sprint-10...feat/issue-25-sprint-11?expand=1) en [volledige klaarstaande titel/body](sprint11-pr.md). Kies Create draft pull request, niets mergen. De gepushte GitHub-bron is voor de eigenaar bereikbaar; geen lokale workspace-links of verzonnen PR-nummer.

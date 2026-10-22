@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.1-test — 22 oktober 2026 (Sprint 11, Field Trial)
+
+- Gerichte popupfix: de bestaande normale-vensterfallback verschijnt ook bij een geweigerde/ontbrekende Side Panel-API terwijl buddybeheer gewoon werkt. Twee daadwerkelijke FAIL→PASS-regressies, keyboard en 320px, geen onterechte openingsmelding.
+- Native CI downloadt en installeert het werkelijk geüploade artifact na controle van Actions-wrapperdigest, exact twee bestanden, inner ZIP/checksum en rootmanifest. Negatieve installatiegevallen blokkeren vóór Chrome; geen broncode/profielen in testbuild.
+- Samenhangende native eerste-gebruikerskaart en echte upgrade vanaf vastgelegde 0.10.0-ZIP, uitsluitend eigen wegwerpprofielen: consent-only herstel, geen oude status/context, stale-opdrachtweigering en gecontroleerde TTL-/wisfouten.
+- Eén korte Mac-kaart/geschoonde terugmelding, bestaande uitgebreide bijlage behouden, juiste ZIP-versie en precieze uitpak-/update-/stopinstructies. Review, technische GO-grenzen en werkelijke platformresultaten in feasibility/oplevering. Menselijke Mac/arm64/VoiceOver NOT_RUN, G0 geblokkeerd en geen merge/publicatie.
+
 ## 0.10.0-test — 22 oktober 2026 (Sprint 10, ZERO EXTRA)
 
 - Harde productregels BR-001..012: geen betaalde fallback, Ultra Lux altijd uitgesloten, drie mogelijke kandidaatcategorieën. Onbekende kosten worden nooit €0; eigenaarbeleid is geen officiële Vue-prijsgarantie.

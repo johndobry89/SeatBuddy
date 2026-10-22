@@ -1,4 +1,4 @@
-# SeatBuddies — ZERO EXTRA 0.10.0-test
+# SeatBuddies — Field Trial 0.10.1-test
 
 Een onafhankelijke Chrome Manifest V3-assistent met Vue 3/strict TypeScript voor één filmavond en **solo of twee zelfstandige boekingstrajecten**. Geen backend, accountsysteem of automatische boeking. **G0 live Vue is niet gehaald.** Alleen eigen invoer en fictieve testpagina’s; zelfmeldingen zijn geen websitebevestiging.
 
@@ -51,7 +51,7 @@ Sprint 08's reset-/TTL-/diagnosefixes, licentienotices en native tests uit de SH
 
 ## Installeren en bouwen
 
-Download **seatbuddies-chrome-test** uit [Sprint 10 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-23-sprint-10). Pak het Actions-archief én **seatbuddies-0.10.0-chrome-test.zip** uit. Open Chrome 116+ → chrome://extensions → Ontwikkelaarsmodus → Uitgepakte extensie laden → kies de map met manifest.json aan de root. Pin SeatBuddies, open de popup en klik **Open boekingsassistent**. Checksum staat naast de binnenste ZIP.
+Download **seatbuddies-chrome-test** uit [Sprint 11 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-25-sprint-11). Pak het Actions-archief én **seatbuddies-0.10.1-chrome-test.zip** uit. Open Chrome 116+ → chrome://extensions → Ontwikkelaarsmodus → Uitgepakte extensie laden → kies de map met manifest.json aan de root. Stop bij een afwijkende checksum of ontbrekend rootmanifest; kies de geslaagde run en download opnieuw. Pin SeatBuddies, open de popup en klik **Open boekingsassistent**. Voer vóór uitpakken `shasum -a 256 seatbuddies-0.10.1-chrome-test.zip` uit en vergelijk alle 64 tekens met de bijgeleverde `.zip.sha256`. De Actions-wrapper heeft een andere hash. De [oplevering](docs/field-trial-delivery.md) vermeldt de vaste inner hash en CI-bron.
 
 [Van ZIP tot eerste filmavond (Mac, 5–8 min)](docs/macos-test-guide.md) · [Windows](docs/windows-test-guide.md) · [QA-formulier](docs/qa-evidence-template.md). Menselijke Mac-QA is niet vooraf vereist en wordt niet als uitgevoerd geclaimd.
 
@@ -61,18 +61,19 @@ Zelf bouwen met Node 24 LTS (.nvmrc) en npm, geen secrets:
 npm ci
 npm run check
 npm run test:ui
+# Native upgradeproef vereist ook de vastgelegde Sprint 10-ZIP (zie Mac-gids, ontwikkelaarsbijlage).
 npm run test:e2e
 npm run test:adversarial
 npm run package
 ```
 
-`dist/` is direct unpacked laadbaar; native tests installeren uitsluitend de checksum-gecontroleerde, eigen uitgepakte ZIP. LICENSE en THIRD_PARTY_NOTICES.txt horen bij de runtime. `build/seatbuddies-0.10.0-chrome-test.zip` bevat alleen runtime, manifest, popup en iconen. Packaging controleert versies, exact verwachte rechten, runtime-allowlist, PNG-afmetingen, archiefbytes en checksum. Een audit van de gegenereerde bestanden weigert netwerkprimitieven/remote executable resources en afwijkende CSP; Zod gebruikt de interpreter zonder JIT. Statische audits zijn geen volledige securityaudit. De aangescherpte audit weigert ook ontbrekende/ontsnappende lokale imports, remote afbeeldingen en ongeldige gegenereerde JS. [Nieuwe technische review](docs/security-review-sprint08.md). `npm run icons` reproduceert de PNG’s; `npm run icons:check` vergelijkt exacte bytes met de vastgelegde dev-only resvg-rasterizer. `npm run dev` bouwt bij wijzigingen; herlaad daarna de extensie en heropen de UI.
+`dist/` is direct unpacked laadbaar; native CI-tests downloaden de echte Actions-wrapper, controleren diens digest én de binnenste ZIP/checksum, en installeren uitsluitend die uitgepakte bytes. Een ontbrekend bestand, verkeerde laag of checksumfout blokkeert installatie. Alleen lokale native tests zonder artifactvariabele lezen de zelfgebouwde binnenste ZIP. LICENSE en THIRD_PARTY_NOTICES.txt horen bij de runtime. `build/seatbuddies-0.10.1-chrome-test.zip` bevat alleen runtime, manifest, popup en iconen. Packaging controleert versies, exact verwachte rechten, runtime-allowlist, PNG-afmetingen, archiefbytes en checksum. Een audit van de gegenereerde bestanden weigert netwerkprimitieven/remote executable resources en afwijkende CSP; Zod gebruikt de interpreter zonder JIT. Statische audits zijn geen volledige securityaudit. De aangescherpte audit weigert ook ontbrekende/ontsnappende lokale imports, remote afbeeldingen en ongeldige gegenereerde JS. [Field Trial-review](docs/security-review-sprint11.md). `npm run icons` reproduceert de PNG’s; `npm run icons:check` vergelijkt exacte bytes met de vastgelegde dev-only resvg-rasterizer. `npm run dev` bouwt bij wijzigingen; herlaad daarna de extensie en heropen de UI.
 
 Browsertests: `npm exec playwright install -- --with-deps chromium` op Linux, `npm exec playwright install -- chromium` op Mac. Gerichte native smoke: `HEADED=1 npm run test:smoke:chrome` (Linux met xvfb). Native Linux: `HEADED=1 xvfb-run -a npm run test:e2e`; Mac: `HEADED=1 npm run test:e2e`. Deze beheerde cloud blokkeert unpacked extensies/incognito; dat beleid wordt niet gewijzigd. Renderercontrole kan met `CHROMIUM_PATH=/usr/bin/chromium XDG_CONFIG_HOME=/tmp/seatbuddy-chromium-config XDG_CACHE_HOME=/tmp/seatbuddy-chromium-cache npm run test:ui`. Gebruik zo nodig `npm ci --cache /tmp/seatbuddy-npm`.
 
 ## Uitvoering en grenzen
 
-Linux en macOS Intel CI behouden installatie/check/unit/iconen/build/package en renderer-UI-tests; Linux draait daarnaast de volledige native suite; macOS Intel ook twee native smoketests. Transportdoubles bewijzen geen native API-werking; Mac-renderertests bewijzen geen native Mac-popup/incognito/VoiceOver; de nieuwe native smoke heeft een eigen beperkte scope en afzonderlijke uitslag. [Feasibility](docs/feasibility.md) bevat de werkelijke head-SHA’s, runlinks, uitslagen en lokale blokkades. Oudere SeatMates/SeatBuddies-builds houden historische artifactnamen; gebruik die niet als 0.10.0.
+Linux en macOS Intel CI behouden installatie/check/unit/iconen/build/package en renderer-UI-tests; Linux draait daarnaast de volledige native suite; macOS Intel ook zes native smoketests. Transportdoubles bewijzen geen native API-werking; Mac-renderertests bewijzen geen native Mac-popup/incognito/VoiceOver; de nieuwe native smoke heeft een eigen beperkte scope en afzonderlijke uitslag. [Feasibility](docs/feasibility.md) bevat de werkelijke head-SHA’s, runlinks, uitslagen en lokale blokkades. Oudere SeatMates/SeatBuddies-builds houden historische artifactnamen; gebruik die niet als 0.10.1.
 
 **G0 live Vue NOT PASSED:** voorwaarden, echte accounts/DOM/seatmap/holds/checkout/bevestigingen zijn niet gevalideerd. Geen echte website-interacties, pas-autofill, accountomzeiling, betaling, annulering of definitieve reservering. Opeenvolgende stoelnummers bewijzen geen aangrenzende beschikbaarheid. Alleen de gebruiker handelt en controleert iedere echte boeking zelfstandig.
 

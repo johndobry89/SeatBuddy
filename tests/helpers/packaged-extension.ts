@@ -5,6 +5,65 @@ import { tmpdir } from 'node:os';
 import { unzipSync } from 'fflate';
 import { reviewedManifestScope } from '../../src/privacy/manifest';
 
+const maxBytes = 10 * 1024 * 1024;
+export const digest = (bytes: Uint8Array) =>
+  createHash('sha256').update(bytes).digest('hex');
+export const packageName = (version: string) => {
+  if (!/^\d+\.\d+\.\d+$/.test(version))
+    throw new Error('Invalid package version');
+  return `seatbuddies-${version}-chrome-test.zip`;
+};
+
+/** Bound declared sizes before decompression, not after allocating archive contents. */
+function boundedUnzip(bytes: Uint8Array) {
+  if (bytes.length > maxBytes) throw new Error('Unexpected package size');
+  let count = 0,
+    size = 0;
+  try {
+    return unzipSync(bytes, {
+      filter: (entry) => {
+        count++;
+        size += entry.originalSize;
+        if (count > 128 || size > maxBytes)
+          throw new Error('Unexpected package size');
+        return true;
+      },
+    });
+  } catch {
+    throw new Error(
+      'Invalid or oversized ZIP; extract the correct artifact level',
+    );
+  }
+}
+
+/** CI passes real download bytes and the upload action's wrapper digest.
+ * A checksum proves byte integrity relative to that source, not an author signature. */
+export async function unpackActionsArtifact(
+  bytes: Uint8Array,
+  version: string,
+  expectedDigest: string,
+) {
+  if (
+    !/^[a-f0-9]{64}$/.test(expectedDigest) ||
+    digest(bytes) !== expectedDigest
+  )
+    throw new Error('Actions artifact checksum mismatch');
+  const files = boundedUnzip(bytes);
+  const name = packageName(version);
+  if (
+    Object.keys(files).sort().join('\n') !==
+    [name, `${name}.sha256`].sort().join('\n')
+  )
+    throw new Error(
+      'Wrong Actions artifact level or unexpected asset inclusion',
+    );
+  return unpackExtensionArchive(
+    files[name]!,
+    Buffer.from(files[`${name}.sha256`]!).toString('utf8'),
+    version,
+  );
+}
+
 /** Native tests install these verified archive bytes, never dist or a dev server. */
 export async function unpackPackagedExtension(root = process.cwd()) {
   const pkg: unknown = JSON.parse(
@@ -14,23 +73,32 @@ export async function unpackPackagedExtension(root = process.cwd()) {
     typeof pkg === 'object' && pkg !== null && 'version' in pkg
       ? pkg.version
       : null;
-  if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/.test(version))
-    throw new Error('Invalid package version');
-  const name = `seatbuddies-${version}-chrome-test.zip`;
-  const bytes = await readFile(resolve(root, 'build', name));
-  const sha256 = createHash('sha256').update(bytes).digest('hex');
-  if (
-    (await readFile(resolve(root, 'build', `${name}.sha256`), 'utf8')) !==
-    `${sha256}  ${name}\n`
-  )
+  if (typeof version !== 'string') throw new Error('Invalid package version');
+  const name = packageName(version);
+  const artifactPath = process.env.SEATBUDDIES_ARTIFACT_ZIP;
+  if (artifactPath) {
+    return unpackActionsArtifact(
+      await readFile(artifactPath),
+      version,
+      process.env.SEATBUDDIES_ARTIFACT_SHA256 ?? '',
+    );
+  }
+  return unpackExtensionArchive(
+    await readFile(resolve(root, 'build', name)),
+    await readFile(resolve(root, 'build', `${name}.sha256`), 'utf8'),
+    version,
+  );
+}
+
+export async function unpackExtensionArchive(
+  bytes: Uint8Array,
+  checksum: string,
+  version: string,
+) {
+  const sha256 = digest(bytes);
+  if (checksum !== `${sha256}  ${packageName(version)}\n`)
     throw new Error('Packaged extension checksum mismatch');
-  const files = unzipSync(bytes);
-  if (
-    Object.keys(files).length > 128 ||
-    Object.values(files).reduce((total, file) => total + file.length, 0) >
-      10 * 1024 * 1024
-  )
-    throw new Error('Unexpected package size');
+  const files = boundedUnzip(bytes);
   for (const path of Object.keys(files))
     if (
       path.includes('\\') ||
@@ -40,8 +108,10 @@ export async function unpackPackagedExtension(root = process.cwd()) {
       )
     )
       throw new Error('Unsafe or unexpected packaged extension path');
+  if (!files['manifest.json']?.length)
+    throw new Error('Missing root manifest; wrong ZIP extraction level');
   const manifest = JSON.parse(
-    Buffer.from(files['manifest.json'] ?? []).toString('utf8'),
+    Buffer.from(files['manifest.json']).toString('utf8'),
   ) as Record<string, unknown>;
   if (
     !reviewedManifestScope.safeParse(manifest).success ||

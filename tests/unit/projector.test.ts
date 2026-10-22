@@ -302,7 +302,7 @@ it('diagnosis uses only strict technical fields, fixed build metadata and enumer
   const report = selfCheck(c.snapshot(now, true), false);
   const text = diagnosticText(report);
   expect(JSON.parse(text)).toMatchObject({
-    build: { version: '0.10.0', channel: 'TEST', diagnosticSchema: 1 },
+    build: { version: '0.10.1', channel: 'TEST', diagnosticSchema: 1 },
     failedStep: 'FAILED',
     fixtureAdapter: 'FICTIONAL_V1_ONLY',
     productionAdapter: 'DISABLED_G0',

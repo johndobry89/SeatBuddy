@@ -11,7 +11,11 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { unpackPackagedExtension } from '../helpers/packaged-extension';
+import {
+  unpackPackagedExtension,
+  unpackActionsArtifact,
+  digest,
+} from '../helpers/packaged-extension';
 import { zipSync, unzipSync } from 'fflate';
 import { packageRuntime } from '../../scripts/package.mjs';
 
@@ -291,4 +295,73 @@ it('native installation refuses traversal even with a matching checksum', async 
     `${createHash('sha256').update(bytes).digest('hex')}  ${pkg.name}\n`,
   );
   await expect(unpackPackagedExtension(root)).rejects.toThrow(/path/);
+});
+
+it.each([
+  'wrong-level',
+  'extra-asset',
+  'missing-manifest',
+  'corrupt-inner',
+  'bad-inner-hash',
+  'bad-outer-hash',
+  'oversized',
+])(
+  'distributed Actions wrapper rejects %s before installation',
+  async (fault) => {
+    const { root } = await fixture();
+    const pkg = await packageRuntime(root);
+    const runtime = await readFile(join(root, 'build', pkg.name));
+    const runtimeFiles = unzipSync(runtime);
+    let inner = runtime;
+    if (fault === 'missing-manifest') {
+      delete runtimeFiles['manifest.json'];
+      inner = zipSync(runtimeFiles);
+    }
+    if (fault === 'corrupt-inner') inner = Buffer.from('fictional corrupt ZIP');
+    if (fault === 'oversized') {
+      runtimeFiles['assets/large.js'] = new Uint8Array(11 * 1024 * 1024);
+      inner = zipSync(runtimeFiles);
+    }
+    const files = {
+      [pkg.name]: inner,
+      [`${pkg.name}.sha256`]: Buffer.from(
+        `${fault === 'bad-inner-hash' ? '0'.repeat(64) : digest(inner)}  ${pkg.name}\n`,
+      ),
+    };
+    if (fault === 'extra-asset')
+      files['profile.json'] = Buffer.from('fictional');
+    const wrapper = fault === 'wrong-level' ? inner : zipSync(files);
+    await expect(
+      unpackActionsArtifact(
+        wrapper,
+        '0.8.0',
+        fault === 'bad-outer-hash' ? '0'.repeat(64) : digest(wrapper),
+      ),
+    ).rejects.toThrow();
+  },
+);
+it('installs bytes from the outer Actions ZIP, checks both hash levels and retains runtime notices/icons', async () => {
+  const { root } = await fixture();
+  const pkg = await packageRuntime(root);
+  const inner = await readFile(join(root, 'build', pkg.name));
+  const wrapper = zipSync({
+    [pkg.name]: inner,
+    [`${pkg.name}.sha256`]: await readFile(
+      join(root, 'build', `${pkg.name}.sha256`),
+    ),
+  });
+  const extracted = await unpackActionsArtifact(
+    wrapper,
+    '0.8.0',
+    digest(wrapper),
+  );
+  try {
+    expect(extracted.sha256).toBe(pkg.sha256);
+    for (const name of pkg.files)
+      expect(await readFile(join(extracted.directory, name))).toEqual(
+        await readFile(join(root, 'dist', name)),
+      );
+  } finally {
+    await extracted.cleanup();
+  }
 });
