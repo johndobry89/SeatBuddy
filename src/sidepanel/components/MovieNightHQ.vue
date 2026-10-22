@@ -69,8 +69,8 @@ const summary = computed(() => manualSummary(props.state.manual));
         </p>
         <p class="source" :data-testid="`hq-category-${role}`">
           {{ categoryLabels[state.manual.tracks[role].category] }} ·
-          {{ categoryEligibility(state.manual.tracks[role].category) }} ·
-          USER_ENTERED_LABELS. Bijbetaling UNKNOWN; nooit automatisch €0.
+          {{ categoryEligibility(state.manual.tracks[role].category) }} · Eigen
+          categorie. Bijbetaling UNKNOWN; nooit automatisch €0.
         </p>
         <p class="source">
           {{ checkAge(state.manual.tracks[role].reviewedAt, Date.now()) }}

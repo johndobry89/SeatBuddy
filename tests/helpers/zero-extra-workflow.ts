@@ -108,12 +108,16 @@ export async function exerciseManualCategory(page: Page) {
     exact: true,
   });
   await category.focus();
-  await page.keyboard.press('End');
-  await page.keyboard.press('Enter');
+  // Native select End behaviour differs on macOS; ordinary typeahead works without opening an OS menu.
+  await page.keyboard.type('Ultra', { delay: 30 });
+  await page.keyboard.press('Tab');
   await expect(category).toHaveValue('ULTRA_LUX');
-  await page
-    .getByRole('button', { name: 'Bewaar eigen invoer B', exact: true })
-    .click();
+  const saveB = page.getByRole('button', {
+    name: 'Bewaar eigen invoer B',
+    exact: true,
+  });
+  await saveB.focus();
+  await page.keyboard.press('Enter');
   await expect(page.getByTestId('preflight-issue')).toContainText('Ultra Lux');
   await expect(
     page.getByRole('button', {

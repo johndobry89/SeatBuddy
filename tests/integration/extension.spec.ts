@@ -1416,6 +1416,56 @@ test(
           session: await chrome.storage.session.get(null),
         })),
       ).toEqual(before);
+      await page
+        .getByText('Filmplan-concept veilig bewaren of herstellen', {
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole('button', {
+          name: 'Bewaar tijdelijk filmplan-concept',
+          exact: true,
+        })
+        .click();
+      await expect
+        .poll(
+          async () =>
+            Object.keys(
+              await worker.evaluate(() => chrome.storage.session.get(null)),
+            ).length,
+        )
+        .toBe(1);
+      const stored = await worker.evaluate(() =>
+        chrome.storage.session.get(null),
+      );
+      const record = savedDraftSchema.parse(stored['seatbuddies.draft.v1']);
+      expect(Object.keys(record.plan).sort()).toEqual([
+        'cinema',
+        'date',
+        'hall',
+        'movie',
+        'time',
+      ]);
+      expect(JSON.stringify(stored)).not.toMatch(
+        /category|SAVER_LUX|additionalDue|FICTIONAL_SEATMAP/,
+      );
+      await page
+        .getByRole('button', { name: 'Verwijder concept', exact: true })
+        .click();
+      await expect
+        .poll(
+          async () =>
+            Object.keys(
+              await worker.evaluate(() => chrome.storage.session.get(null)),
+            ).length,
+        )
+        .toBe(0);
+      expect(
+        await worker.evaluate(async () => ({
+          local: await chrome.storage.local.get(null),
+          session: await chrome.storage.session.get(null),
+        })),
+      ).toEqual(before);
       expect(external).toEqual([]);
     } finally {
       await context.close();
