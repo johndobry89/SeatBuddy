@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SeatBuddies \u2014 samen naar de film (test)",
-  "version": "0.10.1",
-  "description": "Plan solo of samen. Controleer je filmavond en volg de eigen stappen. Geen live boekingsintegratie.",
+  "version": "0.11.0",
+  "description": "Direct naar officieel Vue Quick Ticket. Geen live boekingsintegratie. Lokale ontwikkelaarstests apart beschikbaar.",
   "minimum_chrome_version": "116",
   "permissions": ["sidePanel", "storage"],
   "incognito": "spanning",
@@ -26,7 +26,7 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'"
   },
-  "version_name": "0.10.1-test (Sprint 11)",
+  "version_name": "0.11.0-test (Sprint 12)",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",

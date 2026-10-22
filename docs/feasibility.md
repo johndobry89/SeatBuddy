@@ -1,3 +1,15 @@
+# S12 — Operation Reboot / issue #27
+
+**22 October2026.** Base freshly fetched `feat/issue-25-sprint-11` **764234ca94fbaafbeaa96281add7182ea704c728**, branch **feat/issue-27-sprint-12**. PR#26 verified draft/unmerged; stack/main untouched. S11 final-head [run39810990294](https://github.com/johndobry89/SeatBuddy/actions/runs/39810990294) actually SUCCESS (5m57): Linux322unit/27UI/10native and Mac Intel322unit/27UI/6native. That technical baseline did **not** establish human value: owner now reports installed/rendered but **UX FAIL**. Textual feedback read; private screenshots/session not imported.
+
+0.11.0-test has a genuinely different compact default: one static official Quick Ticket anchor, no required form/worker polling, old tools explicitly optional and data-preserving. Polling-flicker hypothesis deterministically reproduced FAIL and repaired PASS with twenty seconds virtual delayed reads; not attributed solely from source inspection. Shared client disposal/latest guards protect pending responses. A static backtick import packaging incompatibility was actually found and repaired with bounded literal target validation/regressions. [Technical/security review](security-review-sprint12.md) · [ADR-010](decisions/ADR-010-product-shell-reboot.md).
+
+**PRODUCT_VALUE NO-GO.** No new verified live data or real-task speedup; stop speculative administration pending lawful integration. [Benchmark](ux-reset-benchmark.md) separates comparable future HUMAN_NOT_RUN tasks from measured FICTIVE_ONLY design. All five referenced OSS READMEs independently read, no source/assets/dependencies copied. Vue details, SeatPeekr and Chrome scripting public fetches returned403; issue-ledger official statements clearly attributed, not falsely called independently verified. [Source→decision→implementation and unsent contact draft](vue-integration-decision-2026-10.md). No email, hosts, injection, live checkout/account access. G0 NO-GO / permission INCONCLUSIVE.
+
+[Current delivery](reboot-delivery.md) is the authoritative executed test/ZIP/hash/CI ledger. New human Mac/Windows/arm64/VoiceOver NOT_RUN; native local BLOCKED by managed policy. Full final-head Linux/Mac conclusions checked separately. Previous sections are historical, not the present product-default instructions or human acceptability claims.
+
+---
+
 # Feasibility & evidence register — SeatBuddy / SeatBuddies
 
 **Updated:** 2026-10-22

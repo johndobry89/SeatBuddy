@@ -1,3 +1,8 @@
+import { gotoDeveloper, reloadDeveloper } from '../helpers/browser-workflow';
+import {
+  checkProductShell,
+  exerciseCompactPrototype,
+} from '../helpers/product-shell';
 import {
   exerciseSeatPairLab,
   exerciseManualCategory,
@@ -19,6 +24,7 @@ import { ROSTER_KEY, DRAFT_KEY } from '../../src/core/retained-data';
 // A transport double only: the built Vue UI talks to the real router + coordinator in Node.
 // This does not validate Chrome extension APIs, incognito or Side Panel placement.
 interface MockControl {
+  calls?: unknown[];
   unavailable: boolean;
   worker: Coordinator;
   panelDenied?: boolean;
@@ -36,6 +42,7 @@ async function attachMockTransport(
 ) {
   let reads = 0;
   await page.exposeFunction('mockRuntimeSend', (raw: unknown) => {
+    control.calls?.push(raw);
     if (
       typeof raw === 'object' &&
       raw &&
@@ -141,7 +148,7 @@ async function attachMockTransport(
             `chrome-extension://fictional-extension/${path}`,
           getManifest: () => ({
             manifest_version: 3,
-            version: '0.10.1',
+            version: '0.11.0',
             permissions: ['sidePanel', 'storage'],
           }),
           sendMessage: (message: unknown) => {
@@ -170,7 +177,7 @@ test('built Vue UI: matching, mismatch, partial outcome, aisle, expiry and manua
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await attachMockTransport(page, coordinator);
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await openSimulation(page);
     await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
     await expect(page.getByTestId('status-B')).toHaveText('UNKNOWN');
@@ -221,7 +228,7 @@ test('built Vue UI: matching, mismatch, partial outcome, aisle, expiry and manua
       path: 'test-results/panel-manual.png',
       fullPage: true,
     });
-    await page.reload();
+    await reloadDeveloper(page);
     await openSimulation(page);
     await expect(checklist.getByRole('checkbox').first()).not.toBeChecked();
     expect(errors).toEqual([]);
@@ -242,7 +249,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     const worker = new Coordinator();
     const control = { unavailable: false, worker };
     await attachMockTransport(page, worker, control);
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     async function plan() {
       await page.locator('#plan-movie').fill('De maan van papier');
       await page.locator('#plan-cinema').fill('Fictief Filmhuis');
@@ -276,7 +283,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).focus();
     await page.keyboard.press('Enter');
     const report = page.getByTestId('diagnostic-report');
-    await expect(report).toContainText('"extensionVersion": "0.10.1"');
+    await expect(report).toContainText('"extensionVersion": "0.11.0"');
     await expect(report).toContainText('NOT_IMPLEMENTED');
     await expect(report).toContainText('SIDE_PANEL_AND_STORAGE');
     await expect(report).not.toContainText('De maan van papier');
@@ -326,7 +333,7 @@ test('missing runtime keeps a usable local manual planner without claiming Chrom
   });
   try {
     const page = await browser.newPage();
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await expect(page.getByRole('alert')).toContainText(
       'Browserverbinding niet beschikbaar',
     );
@@ -362,7 +369,7 @@ test('missing runtime keeps a usable local manual planner without claiming Chrom
     await expect(page.getByTestId('manual-status-B')).toHaveCount(0);
     await expect(page.getByTestId('inactive-B')).toBeVisible();
     await expect(page.getByTestId('manual-match')).toContainText('UNKNOWN');
-    await page.reload();
+    await reloadDeveloper(page);
     await expect(page.locator('#plan-movie')).toHaveValue('');
   } finally {
     await browser.close();
@@ -380,7 +387,7 @@ test('manual flow: independent reports, keyboard focus, partial recovery and no 
     });
     const coordinator = new Coordinator();
     const reads = await attachMockTransport(page, coordinator);
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await page.locator('#plan-movie').pressSequentially('De maan van papier');
     await expect(page.locator('#plan-movie')).toHaveValue('De maan van papier');
     await page.locator('#plan-cinema').fill('Fictief Filmhuis');
@@ -504,7 +511,7 @@ test('Chrome API permission failure degrades to a functional local planner', asy
         },
       }),
     );
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await expect(
       page.getByText('Alleen lokaal in dit paneel.', { exact: false }),
     ).toBeVisible();
@@ -534,7 +541,7 @@ test('popup buddy CRUD, keyboard confirmation and shared panel selection preserv
     });
     await attachMockTransport(popup, worker, control);
     await attachMockTransport(panel, worker, control);
-    await popup.goto('http://127.0.0.1:4173/popup.html');
+    await gotoDeveloper(popup, 'http://127.0.0.1:4173/popup.html');
     await expect(
       popup.getByRole('heading', { name: 'Met wie ga je naar de film?' }),
     ).toBeVisible();
@@ -588,7 +595,7 @@ test('popup buddy CRUD, keyboard confirmation and shared panel selection preserv
       path: 'test-results/seatbuddies-popup.png',
       fullPage: true,
     });
-    await panel.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(panel, 'http://127.0.0.1:4173/sidepanel.html');
     await expect(panel.getByTestId('inactive-B')).toBeVisible();
     await panel
       .getByRole('button', { name: 'Ook met buddy plannen', exact: true })
@@ -714,7 +721,7 @@ test('fictional widget follows local Vue steps, unmounts cleanly and reports a d
     });
     await page.clock.install();
     await attachMockTransport(page, worker, control);
-    await page.goto('http://127.0.0.1:4173/fixture.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/fixture.html');
     const widget = page.getByTestId('fixture-widget');
     await expect(widget).toHaveCount(1);
     await expect(widget).toContainText(
@@ -782,7 +789,7 @@ test('Movie Night HQ: explicit remembered buddies, worker reset and draft-only r
     });
     await attachMockTransport(popup, worker, control);
     await attachMockTransport(panel, worker, control);
-    await popup.goto('http://127.0.0.1:4173/popup.html');
+    await gotoDeveloper(popup, 'http://127.0.0.1:4173/popup.html');
     const remember = popup.getByRole('checkbox', {
       name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
     });
@@ -799,13 +806,13 @@ test('Movie Night HQ: explicit remembered buddies, worker reset and draft-only r
       'niet standaard versleuteld',
     );
     expect(port.local.values[ROSTER_KEY]).toBeTruthy();
-    await popup.reload();
+    await reloadDeveloper(popup);
     await expect(remember).toBeChecked();
     await popup.screenshot({
       path: 'test-results/seatbuddies-remembered-popup.png',
       fullPage: true,
     });
-    await panel.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(panel, 'http://127.0.0.1:4173/sidepanel.html');
     await expect(panel.getByTestId('hq-next')).toHaveAttribute(
       'data-step',
       'PLAN',
@@ -966,7 +973,7 @@ test('unavailable retention is visibly unknown and disabled while temporary budd
     });
     await attachMockTransport(popup, worker, control);
     await attachMockTransport(panel, worker, control);
-    await popup.goto('http://127.0.0.1:4173/popup.html');
+    await gotoDeveloper(popup, 'http://127.0.0.1:4173/popup.html');
     const consent = popup.getByRole('checkbox', {
       name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
     });
@@ -988,7 +995,7 @@ test('unavailable retention is visibly unknown and disabled while temporary budd
     ).toBeVisible();
     expect(port.local.values).toEqual({});
     expect(port.local.calls).toEqual([]);
-    await panel.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(panel, 'http://127.0.0.1:4173/sidepanel.html');
     for (const [field, value] of Object.entries({
       movie: 'De maan van papier',
       cinema: 'Fictief Filmhuis',
@@ -1022,7 +1029,7 @@ test('Projector Ready: deliberate solo/together, honest preflight, local B reset
     });
     const worker = new Coordinator();
     const reads = await attachMockTransport(page, worker);
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await expect(
       page.getByRole('button', { name: 'Ik ga alleen', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
@@ -1183,7 +1190,7 @@ test('diagnostic copy previews exact allowlisted text, waits for clipboard succe
         },
       }),
     );
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await planViaUI(page, true);
     await enterSeats(page, ['A', 'B']);
     await page
@@ -1197,7 +1204,7 @@ test('diagnostic copy previews exact allowlisted text, waits for clipboard succe
     await expect(report).toBeFocused();
     const preview = await report.innerText();
     expect(JSON.parse(preview)).toMatchObject({
-      build: { version: '0.10.1' },
+      build: { version: '0.11.0' },
       productionAdapter: 'DISABLED_G0',
     });
     for (const secret of [
@@ -1259,7 +1266,7 @@ test('changed fictional schema clears previous fixture evidence and offers UNKNO
     const page = await browser.newPage();
     const worker = new Coordinator();
     await attachMockTransport(page, worker);
-    await page.goto('http://127.0.0.1:4173/fixture.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/fixture.html');
     await page
       .getByRole('button', { name: 'Koppel deze fictieve tab', exact: true })
       .click();
@@ -1292,7 +1299,7 @@ test('changed fictional schema clears previous fixture evidence and offers UNKNO
 });
 
 for (const together of [false, true])
-  test(`friction audit: ${together ? 'TOGETHER' : 'SOLO'} required main-path actions`, async () => {
+  test(`legacy developer-path audit (not product value): ${together ? 'TOGETHER' : 'SOLO'} required main-path actions`, async () => {
     const browser = await chromium.launch({
       executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
       args: ['--no-sandbox'],
@@ -1300,7 +1307,7 @@ for (const together of [false, true])
     try {
       const page = await browser.newPage();
       await attachMockTransport(page, new Coordinator());
-      await page.goto('http://127.0.0.1:4173/sidepanel.html');
+      await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
       await page.evaluate(() => {
         Reflect.set(window, 'audit', { clicks: 0, entries: 0 });
         document.addEventListener(
@@ -1390,7 +1397,7 @@ test('First-Run Forge: isolated local self-test preserves the real plan, remembe
       retained: new RetainedData(worker, port),
     };
     await attachMockTransport(page, worker, control);
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await page.getByText('Buddy kiezen of beheren', { exact: true }).click();
     await page
       .getByLabel('Bijnaam toevoegen', { exact: true })
@@ -1505,7 +1512,7 @@ test('local self-test is cancellable, guards rapid repeat, shares the safe copy 
         },
       }),
     );
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await page
       .getByText('Diagnostiek zonder privégegevens', { exact: true })
       .click();
@@ -1561,7 +1568,7 @@ test('self-test in ordinary local preview shows NOT_TESTED capabilities and neve
   });
   try {
     const page = await browser.newPage();
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await page
       .getByText('Diagnostiek zonder privégegevens', { exact: true })
       .click();
@@ -1594,7 +1601,7 @@ test('unsaved film and A input survive technical view changes and worker replace
       unavailable: false,
     };
     await attachMockTransport(page, control.worker, control);
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await firstPlanViaUI(page, true);
     await reviewViaUI(page);
     await openInputs(page, 'A');
@@ -1651,8 +1658,8 @@ test('review regression: a buddy switch clears uncommitted initial B seats while
     const popup = await browser.newPage();
     await attachMockTransport(page, worker, control);
     await attachMockTransport(popup, worker, control);
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
-    await popup.goto('http://127.0.0.1:4173/popup.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(popup, 'http://127.0.0.1:4173/popup.html');
     await popup
       .getByRole('button', { name: 'Kies Sanne', exact: true })
       .click();
@@ -1689,7 +1696,7 @@ test('Integration Forge: an explicit reset on a replacement worker clears dirty 
       unavailable: false,
     };
     await attachMockTransport(page, control.worker, control);
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await firstPlanViaUI(page, true);
     await openInputs(page, 'A');
     await page.locator('#row-A').fill('K');
@@ -1714,7 +1721,7 @@ test('Integration Forge: Begin A opnieuw discards dirty A fields and preserves B
     const page = await browser.newPage();
     const worker = new Coordinator();
     await attachMockTransport(page, worker);
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await firstPlanViaUI(page, true);
     const beforeB = structuredClone(worker.manual.tracks.B);
     await openInputs(page, 'A');
@@ -1749,7 +1756,7 @@ test('Reality Gate: seven local fixture shapes fail closed without network, writ
       external.push(request.url());
   });
   try {
-    await page.goto('http://127.0.0.1:4173/fixture.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/fixture.html');
     const lab = page.getByRole('region', {
       name: 'Alleen-lezend fictief adapterlab',
     });
@@ -1812,7 +1819,7 @@ test('Reality Gate: actual Chrome ISOLATED world reads only the exact localhost 
   });
   const page = await browser.newPage();
   try {
-    await page.goto('http://127.0.0.1:4173/fixture.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/fixture.html');
     await page.evaluate(() =>
       Reflect.set(
         globalThis,
@@ -1874,7 +1881,7 @@ test('ZERO EXTRA: all fictional map exceptions, accessible route, keyboard/320px
       external.push(request.url());
   });
   try {
-    await page.goto('http://127.0.0.1:4173/fixture.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/fixture.html');
     await exerciseSeatPairLab(page);
     const size = await page.evaluate(() => ({
       scroll: document.documentElement.scrollWidth,
@@ -1917,7 +1924,7 @@ test('ZERO EXTRA manual: optional categories, Ultra Lux review block, independen
   const control: MockControl = { unavailable: false, worker };
   await attachMockTransport(page, worker, control);
   try {
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await exerciseManualCategory(page);
     await openInputs(page, 'B');
     await page
@@ -1963,7 +1970,7 @@ test('ZERO EXTRA manual: optional categories, Ultra Lux review block, independen
 });
 
 for (const failure of ['rejected', 'missing'] as const) {
-  test(`first popup: ${failure} Side Panel API offers a normal-window fallback without claiming success`, async () => {
+  test(`legacy developer popup: ${failure} Side Panel API offers a normal-window fallback without claiming success`, async () => {
     const browser = await chromium.launch({
       executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
       args: ['--no-sandbox'],
@@ -1985,7 +1992,7 @@ for (const failure of ['rejected', 'missing'] as const) {
         await page.addInitScript(() => {
           Reflect.deleteProperty(chrome, 'sidePanel');
         });
-      await page.goto('http://127.0.0.1:4173/popup.html');
+      await gotoDeveloper(page, 'http://127.0.0.1:4173/popup.html');
       await expect(
         page.getByText('Nog geen buddy’s.', { exact: false }),
       ).toBeVisible();
@@ -2041,7 +2048,7 @@ test('simulation: ten delayed two-second reads never pulse disabled opacity, los
     const worker = new Coordinator();
     const control: MockControl = { worker, unavailable: false };
     await attachMockTransport(page, worker, control);
-    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await gotoDeveloper(page, 'http://127.0.0.1:4173/sidepanel.html');
     await openSimulation(page);
     const button = page.getByRole('button', {
       name: 'Start simulatie',
@@ -2109,6 +2116,233 @@ test('simulation: ten delayed two-second reads never pulse disabled opacity, los
     const older = pending.shift()!;
     older.resolve(older.reply);
     await expect(page.getByTestId('status-A')).toHaveText('SELECTED');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('product shell: one viewport, zero background calls, no forms, stable keyboard CTA and static official navigation intent', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    for (const [path, width, height] of [
+      ['sidepanel.html', 320, 640],
+      ['popup.html', 360, 640],
+      ['sidepanel.html', 420, 780],
+    ] as const) {
+      const page = await browser.newPage({ viewport: { width, height } });
+      await page.clock.install();
+      const worker = new Coordinator();
+      const control: MockControl = { worker, unavailable: false, calls: [] };
+      await attachMockTransport(page, worker, control);
+      const before = worker.snapshot(Date.now(), false);
+      await page.goto(`http://127.0.0.1:4173/${path}`);
+      const bounds = await checkProductShell(page);
+      await page.clock.runFor(20_000);
+      await expect(page.getByTestId('primary-action')).toBeFocused();
+      await expect(page.getByTestId('primary-action')).toHaveCSS(
+        'opacity',
+        '1',
+      );
+      expect(control.calls).toEqual([]);
+      expect(worker.snapshot(Date.now(), false)).toEqual(before);
+      const intents: string[] = [];
+      await page
+        .context()
+        .route('https://www.vuecinemas.nl/**', async (route) => {
+          intents.push(route.request().url());
+          await route.abort();
+        });
+      const opened = page.waitForEvent('popup');
+      await page.keyboard.press('Enter');
+      const target = await opened;
+      await expect.poll(() => intents).toEqual(['https://www.vuecinemas.nl/']);
+      await target.close();
+      console.log(
+        'PRODUCT_SHELL_FICTIVE_ONLY',
+        JSON.stringify({
+          path,
+          width,
+          height,
+          bounds,
+          requiredFields: 0,
+          primaryActions: 1,
+          backgroundCalls: control.calls!.length,
+          liveVueLoaded: false,
+        }),
+      );
+      await page.screenshot({
+        path: `test-results/product-${path}-${width}.png`,
+        fullPage: true,
+      });
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test('optional developer tools preserve unsaved fields, pause hidden polling and return focus; help launches the panel only on request', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage();
+    await page.clock.install();
+    const worker = new Coordinator();
+    const control: MockControl = {
+      worker,
+      unavailable: false,
+      calls: [],
+      launches: [],
+    };
+    await attachMockTransport(page, worker, control);
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await page.getByText('Ontwikkelaarstests', { exact: true }).click();
+    const film = page.locator('#plan-movie');
+    await film.fill('Onopgeslagen fictief concept');
+    await page.getByRole('button', { name: 'Terug naar Vue-start' }).click();
+    await expect(page.getByTestId('primary-action')).toBeFocused();
+    const count = control.calls!.length;
+    await page.clock.runFor(20_000);
+    expect(control.calls!.length).toBe(count);
+    await page.getByText('Ontwikkelaarstests', { exact: true }).click();
+    await expect(film).toHaveValue('Onopgeslagen fictief concept');
+    await page.goto('http://127.0.0.1:4173/popup.html');
+    expect(control.launches).toEqual([]);
+    await page.getByText('Hulp en privacy', { exact: true }).click();
+    await page
+      .getByRole('button', { name: 'Open boekingsassistent', exact: true })
+      .click();
+    expect(control.launches).toEqual([{ windowId: 17, gesture: true }]);
+    control.panelDenied = true;
+    await page
+      .getByRole('button', { name: 'Open boekingsassistent', exact: true })
+      .click();
+    await expect(page.getByRole('alert')).toContainText('niet openen');
+    await expect(
+      page.getByRole('button', {
+        name: 'Open assistent in normaal venster',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Chrome heeft het zijpaneel geopend.', { exact: false }),
+    ).toHaveCount(0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('FICTIVE_ONLY benchmark: identical invented showing, physical pair and two separate reviews, without account or real-speed claims', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const measure = async (page: Page) =>
+      page.evaluate(() => {
+        const metrics = {
+          clicks: 0,
+          keystrokes: 0,
+          scrollEvents: 0,
+          fields: document.querySelectorAll('input,select,textarea').length,
+          modals: document.querySelectorAll('[role=dialog]').length,
+          start: performance.now(),
+        };
+        document.addEventListener('click', () => metrics.clicks++);
+        document.addEventListener('keydown', () => metrics.keystrokes++);
+        document.addEventListener('scroll', () => metrics.scrollEvents++, true);
+        Reflect.set(globalThis, 's12Metrics', metrics);
+      });
+    const result = async (page: Page) =>
+      page.evaluate(() => ({
+        ...Reflect.get(globalThis, 's12Metrics'),
+        elapsedMs: Math.round(
+          performance.now() - Reflect.get(globalThis, 's12Metrics').start,
+        ),
+      }));
+    const baseline = [];
+    for (const role of ['A', 'B']) {
+      const context = await browser.newContext({
+        viewport: { width: 360, height: 780 },
+      });
+      const page = await context.newPage();
+      // Original test-only cinema, not copied Vue HTML. No network or real login.
+      await page.setContent(
+        `<h1>Fictief Filmhuis — eigen overzicht ${role}</h1><p>De maan van papier · 12 april 2030 · 19:30 · Zaal 2</p><button>Kies fictieve voorstelling</button><p id="pair" hidden>F10 / F11 · fysieke buren · Saver Lux / Super Saver Lux · fictief €0</p><button id="seat" hidden>Bekijk fictieve stoel</button><button id="review" hidden>Eigen fictief overzicht bekeken</button><p id="done" hidden>Fictief bekeken; niets geboekt</p>`,
+      );
+      await page.evaluate(() => {
+        const buttons = document.querySelectorAll('button');
+        buttons[0]!.onclick = () => {
+          buttons[0]!.hidden = true;
+          document.getElementById('pair')!.hidden = false;
+          buttons[1]!.hidden = false;
+        };
+        buttons[1]!.onclick = () => {
+          buttons[1]!.hidden = true;
+          buttons[2]!.hidden = false;
+        };
+        buttons[2]!.onclick = () => {
+          buttons[2]!.hidden = true;
+          document.getElementById('done')!.hidden = false;
+        };
+      });
+      await measure(page);
+      await page
+        .getByRole('button', { name: 'Kies fictieve voorstelling' })
+        .click();
+      await page.getByRole('button', { name: 'Bekijk fictieve stoel' }).click();
+      await page
+        .getByRole('button', { name: 'Eigen fictief overzicht bekeken' })
+        .click();
+      await expect(page.locator('#done')).toBeVisible();
+      baseline.push(await result(page));
+      await context.close();
+    }
+    const page = await browser.newPage({
+      viewport: { width: 360, height: 780 },
+    });
+    await page.clock.install();
+    await page.goto('http://127.0.0.1:4173/fixture.html');
+    await measure(page);
+    await exerciseCompactPrototype(page);
+    const candidate = await result(page);
+    expect(baseline.reduce((sum, metrics) => sum + metrics.clicks, 0)).toBe(6);
+    expect(candidate.clicks).toBe(3);
+    // The full fixture has older lab fields. None are required by this prototype.
+    expect(
+      await page
+        .getByRole('region', { name: 'Compact fictief Quick Ticket-prototype' })
+        .locator('input,select,textarea')
+        .count(),
+    ).toBe(0);
+    console.log(
+      'FICTIVE_ONLY_BENCHMARK',
+      JSON.stringify({
+        baseline,
+        candidate,
+        realTask: 'HUMAN_NOT_RUN',
+        productValue: 'NO-GO',
+      }),
+    );
+    await page.clock.runFor(30_001);
+    const prototype = page.getByRole('region', {
+      name: 'Compact fictief Quick Ticket-prototype',
+    });
+    await expect(prototype.getByRole('status')).toContainText(
+      'beide controles gewist',
+    );
+    await expect(prototype.getByTestId('prototype-reviews')).toHaveCount(0);
+    await prototype
+      .getByRole('button', { name: 'Kies deze fictieve voorstelling' })
+      .click();
+    await expect(prototype.getByTestId('prototype-reviews')).toHaveText(
+      'A: zelf bekijken · B: zelf bekijken',
+    );
   } finally {
     await browser.close();
   }

@@ -5,7 +5,7 @@
 | Documentcontrole | Waarde |
 | --- | --- |
 | Document-ID | `SEATMATES.MASTERPLAN.v0.2` |
-| Productversie | **0.10.1-test — Field Trial: gerichte popup-fallbackreparatie, gedistribueerde ZIP-/upgradeproeven en korte eigenaaroverdracht; G0 live geblokkeerd** |
+| Productversie | **0.11.0-test — Operation Reboot: compacte officiële-sitehandoff; PRODUCT_VALUE NO-GO, G0 live geblokkeerd** |
 | Datum | Ontwerp 20 oktober 2026; implementatiestatus bijgewerkt 22 oktober 2026 |
 | Project | SeatBuddies (voorheen SeatMates; naam-/merkrechten niet onderzocht) |
 | Productdoel | Twee geldige Vue Movie Pass-houders begeleiden naar dezelfde voorstelling en waar mogelijk aangrenzende stoelen |
@@ -33,6 +33,8 @@
 **Sprint 10:** [BR-001..012](docs/seatbuddies-business-rules.md) zijn vast productbeleid op instructie van de eigenaar: Ultra Lux uitgesloten, geen extra betaling, alleen drie kandidaatcategorieën met onafhankelijke kostencontrole. Alleen fictieve fysieke buurrelaties/feestempels bewezen; kleur/legenda/nummers zijn geen bewijs. De handmatige eigen categorie is optioneel en vluchtig, nooit opgeslagen of als externe nul-kostengarantie beschouwd; zie [ADR-009](docs/decisions/ADR-009-zero-extra-manual-category.md). Geen nieuwe rechten of G0-PASS.
 
 **Sprint 11:** kleine onderhoudsversie 0.10.1, geen nieuwe boekingsfunctie. De popup biedt de bestaande normale-vensterroute ook bij een geweigerde/ontbrekende Side Panel-API. CI toetst de echte Actions-wrapper/inner checksum en een vastgelegde 0.10.0-upgrade; menselijke Mac-acceptatie blijft NOT_RUN. Zie [oplevering](docs/field-trial-delivery.md) en [review](docs/security-review-sprint11.md).
+
+**Sprint12:** eigenaar rapporteert S11 geïnstalleerd/renderend maar UX FAIL. Compacte start met één officiële Vue-link, nul verplichte formulieren; oude assistent achter gesloten Ontwikkelaarstests. Pollingknipperen gereproduceerd/gerepareerd, geen maskering. Alleen een klein fictief drie-acties-ontwerpexperiment. **PRODUCT_VALUE NO-GO**: geen bewezen voordeel tegenover twee tabs; stop verdere uitbreiding totdat een toegestane bron echte coördinatiewinst mogelijk maakt. Zie [ADR-010](docs/decisions/ADR-010-product-shell-reboot.md), [benchmark](docs/ux-reset-benchmark.md) en [integratiebesluit](docs/vue-integration-decision-2026-10.md). Alle oorspronkelijke veiligheids-/opslaginvarianten blijven. Nieuwe menselijke proef NOT_RUN.
 
 **Interpretatie:** dit document beschrijft een kandidaatproduct en duidelijke beslisgates. Een ontwerpkeuze is geen bewezen Chrome/Vue-integratie. `UNKNOWN` blijft onbekend tot een reproduceerbare waarneming het oplost. Het OF-ontwerpkader en `AGENTS.md` geven geen bijzondere browserrechten of toestemming voor live boekingen.
 

@@ -1,4 +1,4 @@
-name: SeatBuddies Field Trial checks and Chrome test build
+name: SeatBuddies Operation Reboot checks and Chrome test build
 on:
   push:
   pull_request:

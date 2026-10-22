@@ -1,4 +1,13 @@
 import {
+  gotoDeveloper,
+  reloadDeveloper,
+  openDeveloperTools,
+} from '../helpers/browser-workflow';
+import {
+  checkProductShell,
+  exerciseCompactPrototype,
+} from '../helpers/product-shell';
+import {
   exerciseSeatPairLab,
   exerciseManualCategory,
 } from '../helpers/zero-extra-workflow';
@@ -30,8 +39,8 @@ import { savedDraftSchema } from '../../src/core/retained-data';
 let packaged: Awaited<ReturnType<typeof unpackPackagedExtension>>;
 test.beforeAll(async () => {
   packaged = await unpackPackagedExtension();
-  expect(packaged.sha256, 'Reviewed Field Trial inner runtime hash').toBe(
-    '3becb7b39b9a0cd3a60ee5f2f71a92300264872024a2341ae22cf69da505d238',
+  expect(packaged.sha256, 'Reviewed Operation Reboot inner runtime hash').toBe(
+    '3f6b602f853aff2dced0fc4406808436dc142dbe56c84098cec32819251c5c87',
   );
   console.log(
     `PACKAGED_EXTENSION ${packaged.version} SHA256 ${packaged.sha256}`,
@@ -82,7 +91,7 @@ test(
       context.on('request', (request) => {
         if (/^https?:/.test(request.url())) external.push(request.url());
       });
-      await page.goto(`chrome-extension://${id}/sidepanel.html`);
+      await gotoDeveloper(page, `chrome-extension://${id}/sidepanel.html`);
       await page
         .getByText('Diagnostiek zonder privégegevens', { exact: true })
         .click();
@@ -91,7 +100,7 @@ test(
         'SIDE_PANEL_AND_STORAGE',
       );
       await expect(page.getByTestId('diagnostic-report')).toContainText(
-        '"extensionVersion": "0.10.1"',
+        '"extensionVersion": "0.11.0"',
       );
       await expect(page.getByTestId('diagnostic-report')).toContainText(
         'NOT_IMPLEMENTED',
@@ -147,7 +156,7 @@ test(
       });
       const fixture = await context.newPage();
       fixture.on('pageerror', (error) => failures.push(error.message));
-      await fixture.goto(`chrome-extension://${id}/fixture.html`);
+      await gotoDeveloper(fixture, `chrome-extension://${id}/fixture.html`);
       await fixture
         .getByRole('button', { name: 'Koppel deze fictieve tab' })
         .click();
@@ -214,7 +223,7 @@ test(
       expect(refusedB.ok && refusedB.state.sessions.A.binding?.incognito).toBe(
         false,
       );
-      await fixture.reload();
+      await reloadDeveloper(fixture);
       await expect(page.getByTestId('status-A')).toHaveText('UNKNOWN');
       // Exercise the actual browser sidePanel configuration, beyond just the Vue page.
       expect(
@@ -229,7 +238,7 @@ test(
       ).toMatchObject({ openPanelOnActionClick: false });
       expect(failures).toEqual([]);
       expect(external).toEqual([]);
-      await page.reload();
+      await reloadDeveloper(page);
       await openSimulation(page);
       await expect(
         firstChecklist.getByRole('checkbox').first(),
@@ -268,14 +277,14 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
       (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
     const id = new URL(worker.url()).host;
     let page = await context.newPage();
-    await page.goto(`chrome-extension://${id}/sidepanel.html`);
+    await gotoDeveloper(page, `chrome-extension://${id}/sidepanel.html`);
     async function reopenPanel() {
       // Chrome unloads and re-registers the package after a permission change.
       // Wait for that read-only document readiness; no transaction is replayed.
       try {
         await expect(async () => {
           if (page.isClosed()) page = await context.newPage();
-          await page.goto(`chrome-extension://${id}/sidepanel.html`);
+          await gotoDeveloper(page, `chrome-extension://${id}/sidepanel.html`);
           await expect(
             page.getByRole('heading', {
               name: 'Samen naar de film',
@@ -318,7 +327,7 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     // Test actor grants consent through Chrome's actual settings UI in its fresh profile.
     // No policy/profile-file mutation, hidden extension API or real account is used.
     const settings = await context.newPage();
-    await settings.goto(`chrome://extensions/?id=${id}`);
+    await gotoDeveloper(settings, `chrome://extensions/?id=${id}`);
     // Match the documented Windows unpacked-install workflow. Without this
     // regular UI setting Chrome rejects the package when consent reloads it.
     const developerMode = settings.locator('extensions-toolbar #devMode');
@@ -431,7 +440,7 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
     );
     if (!planned.ok) throw new Error(planned.error);
     expect(planned.state.manual.plan?.movie).toBe('De maan van papier');
-    await page.reload();
+    await reloadDeveloper(page);
     await expect(page.locator('#plan-movie')).toHaveValue('De maan van papier');
     const cdp = await context.newCDPSession(page);
     let versionId: string | undefined;
@@ -469,7 +478,7 @@ test('real Chrome context pairing with explicit incognito opt-in, revocation and
 });
 
 test(
-  'Field Trial: distributed ZIP first-run card through real popup, native Side Panel, solo/buddy, self-test and ZERO EXTRA',
+  'Legacy developer regression: distributed ZIP popup, native Side Panel, solo/buddy, self-test and ZERO EXTRA',
   { tag: '@smoke' },
   async () => {
     test.setTimeout(90_000);
@@ -526,6 +535,7 @@ test(
       let popup;
       try {
         popup = await popupReady;
+        await openDeveloperTools(popup);
       } catch (error) {
         const targets = (await cdp.send('Target.getTargets')).targetInfos
           .filter((target) =>
@@ -632,6 +642,7 @@ test(
             page.url().split(/[?#]/)[0] ===
             `chrome-extension://${id}/sidepanel.html`,
         )!;
+      await openDeveloperTools(panel);
       await expect(panel.getByTestId('panel-buddy')).toContainText(
         'Ik ga alleen',
       );
@@ -732,7 +743,7 @@ test(
       ).toBeVisible();
       expect(await inspect()).toEqual(working);
       const fixture = await context.newPage();
-      await fixture.goto(`chrome-extension://${id}/fixture.html`);
+      await gotoDeveloper(fixture, `chrome-extension://${id}/fixture.html`);
       const lab = fixture.getByRole('region', {
         name: 'ZERO EXTRA · twee fictieve buurstoelen',
       });
@@ -761,7 +772,7 @@ test(
           throw new Error('Fictional API denial');
         };
       });
-      await recovery.goto(`chrome-extension://${id}/popup.html`);
+      await gotoDeveloper(recovery, `chrome-extension://${id}/popup.html`);
       await recovery
         .getByRole('button', { name: 'Open boekingsassistent', exact: true })
         .click();
@@ -776,6 +787,7 @@ test(
       await recovery.keyboard.press('Enter');
       const normal = await normalReady;
       await expect(normal).toHaveURL(`chrome-extension://${id}/sidepanel.html`);
+      await openDeveloperTools(normal);
       await expect(normal.getByTestId('hq-A')).toContainText('5/5');
       expect(
         await normal.evaluate(
@@ -812,7 +824,7 @@ test('Chrome local/session storage: opt-in nickname survives a real worker stop,
       (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
     const id = new URL(worker.url()).host;
     const panel = await context.newPage();
-    await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+    await gotoDeveloper(panel, `chrome-extension://${id}/sidepanel.html`);
     await panel.getByText('Buddy kiezen of beheren', { exact: true }).click();
     const remember = panel.getByRole('checkbox', {
       name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
@@ -896,7 +908,7 @@ test('Chrome local/session storage: opt-in nickname survives a real worker stop,
       'time',
     ]);
     const fixture = await context.newPage();
-    await fixture.goto(`chrome-extension://${id}/fixture.html`);
+    await gotoDeveloper(fixture, `chrome-extension://${id}/fixture.html`);
     expect(
       await fixture.evaluate(() =>
         chrome.runtime.sendMessage({ type: 'GET_BUDDY' }),
@@ -974,13 +986,13 @@ test('Chrome local/session storage: opt-in nickname survives a real worker stop,
     ).toEqual({});
     // A reload of an ordinary popup document reads the same worker and never re-enables consent.
     const popup = await context.newPage();
-    await popup.goto(`chrome-extension://${id}/popup.html`);
+    await gotoDeveloper(popup, `chrome-extension://${id}/popup.html`);
     await expect(
       popup.getByRole('checkbox', {
         name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
       }),
     ).not.toBeChecked();
-    await popup.reload();
+    await reloadDeveloper(popup);
     await expect(
       popup.getByRole('checkbox', {
         name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
@@ -1009,7 +1021,7 @@ test('spanning Chrome: a real incognito popup cannot read remembered names, chan
       (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
     const id = new URL(worker.url()).host;
     const settings = await context.newPage();
-    await settings.goto(`chrome://extensions/?id=${id}`);
+    await gotoDeveloper(settings, `chrome://extensions/?id=${id}`);
     const developer = settings.locator('extensions-toolbar #devMode');
     await expect(developer).toBeVisible();
     if (
@@ -1025,7 +1037,7 @@ test('spanning Chrome: a real incognito popup cannot read remembered names, chan
     await toggle.click();
     const panel = await context.newPage();
     await expect(async () => {
-      await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+      await gotoDeveloper(panel, `chrome-extension://${id}/sidepanel.html`);
       await expect(
         panel.getByRole('heading', { name: 'Samen naar de film', exact: true }),
       ).toBeVisible();
@@ -1072,6 +1084,7 @@ test('spanning Chrome: a real incognito popup cannot read remembered names, chan
       windowId,
     );
     const popup = await popupReady;
+    await openDeveloperTools(popup);
     await expect(popup.getByRole('alert')).toContainText('normaal venster');
     await expect(
       popup.getByRole('checkbox', {
@@ -1176,7 +1189,7 @@ test('real Chrome Projector Ready: solo intent, two-panel preflight races, parti
     context.on('request', (request) => {
       if (/^https?:/.test(request.url())) requests.push(request.url());
     });
-    await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+    await gotoDeveloper(panel, `chrome-extension://${id}/sidepanel.html`);
     await expect(panel.getByTestId('inactive-B')).toBeVisible();
     await planViaUI(panel, true);
     await enterSeats(panel, ['A', 'B']);
@@ -1200,7 +1213,7 @@ test('real Chrome Projector Ready: solo intent, two-panel preflight races, parti
       command: { type: 'ACKNOWLEDGE', role: 'B', step: 'ACCOUNT' },
     };
     const peer = await context.newPage();
-    await peer.goto(`chrome-extension://${id}/sidepanel.html`);
+    await gotoDeveloper(peer, `chrome-extension://${id}/sidepanel.html`);
     const original = before.state.manual.plan!;
     expect(
       await sendWorkflow(peer, {
@@ -1259,7 +1272,7 @@ test('real Chrome Projector Ready: solo intent, two-panel preflight races, parti
     await expect(report).toBeFocused();
     const text = await report.innerText();
     expect(JSON.parse(text)).toMatchObject({
-      extensionVersion: '0.10.1',
+      extensionVersion: '0.11.0',
       productionAdapter: 'DISABLED_G0',
       permissionScope: 'SIDE_PANEL_AND_STORAGE',
     });
@@ -1300,7 +1313,7 @@ test(
       context.on('request', (request) => {
         if (/^https?:/.test(request.url())) external.push(request.url());
       });
-      await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+      await gotoDeveloper(panel, `chrome-extension://${id}/sidepanel.html`);
       await expect(
         panel.getByRole('link', {
           name: 'Start met een fictieve proef ↗',
@@ -1368,7 +1381,7 @@ test(
       const text = await panel.getByTestId('local-test-report').innerText();
       expect(JSON.parse(text)).toMatchObject({
         kind: 'FICTIONAL_TEST',
-        extensionVersion: '0.10.1',
+        extensionVersion: '0.11.0',
         adapterVersion: 'FICTIONAL_V1',
       });
       for (const secret of [
@@ -1418,7 +1431,7 @@ test(
       context.on('request', (request) => {
         if (/^https?:/.test(request.url())) external.push(request.url());
       });
-      await page.goto(`chrome-extension://${id}/fixture.html`);
+      await gotoDeveloper(page, `chrome-extension://${id}/fixture.html`);
       await page.bringToFront();
       const manifest = await worker.evaluate(() =>
         chrome.runtime.getManifest(),
@@ -1565,9 +1578,9 @@ test(
         local: await chrome.storage.local.get(null),
         session: await chrome.storage.session.get(null),
       }));
-      await page.goto(`chrome-extension://${id}/fixture.html`);
+      await gotoDeveloper(page, `chrome-extension://${id}/fixture.html`);
       await exerciseSeatPairLab(page);
-      await page.goto(`chrome-extension://${id}/sidepanel.html`);
+      await gotoDeveloper(page, `chrome-extension://${id}/sidepanel.html`);
       await exerciseManualCategory(page);
       await page
         .getByText('Diagnostiek zonder privégegevens', { exact: true })
@@ -1672,7 +1685,7 @@ test(
         (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
       const id = new URL(worker.url()).host;
       let panel = await context.newPage();
-      await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+      await gotoDeveloper(panel, `chrome-extension://${id}/sidepanel.html`);
       expect(
         await panel.evaluate(() => chrome.runtime.getManifest().version),
       ).toBe('0.10.0');
@@ -1714,7 +1727,7 @@ test(
         })
         .click();
       const fixture = await context.newPage();
-      await fixture.goto(`chrome-extension://${id}/fixture.html`);
+      await gotoDeveloper(fixture, `chrome-extension://${id}/fixture.html`);
       await fixture
         .getByRole('button', { name: 'Koppel deze fictieve tab' })
         .click();
@@ -1735,7 +1748,7 @@ test(
       // re-registration after reload if developer mode was never enabled.
       // Use the ordinary UI in this disposable profile; never edit policy/profile files.
       const settings = await context.newPage();
-      await settings.goto(`chrome://extensions/?id=${id}`);
+      await gotoDeveloper(settings, `chrome://extensions/?id=${id}`);
       const developerMode = settings.locator('extensions-toolbar #devMode');
       await expect(developerMode).toBeVisible();
       if (
@@ -1763,7 +1776,7 @@ test(
       });
       await expect(async () => {
         if (panel.isClosed()) panel = await context.newPage();
-        await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+        await gotoDeveloper(panel, `chrome-extension://${id}/sidepanel.html`);
         expect(
           await panel.evaluate(() => chrome.runtime.getManifest().version),
         ).toBe(packaged.version);
@@ -1892,6 +1905,117 @@ test(
       await context.close();
       await baseline.cleanup();
       await rm(profile, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'Operation Reboot: distributed product shell, real action popup and Side Panel, static navigation and isolated three-action prototype',
+  { tag: '@smoke' },
+  async () => {
+    test.setTimeout(60_000);
+    const previousAttachment = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
+    process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
+    const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-product-'));
+    const context = await chromium.launchPersistentContext(profile, {
+      executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+      ignoreDefaultArgs: ['--disable-extensions'],
+      headless: process.env.HEADED !== '1',
+      args: [`--load-extension=${packaged.directory}`, '--no-sandbox'],
+    });
+    try {
+      const worker =
+        context.serviceWorkers()[0] ??
+        (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
+      const id = new URL(worker.url()).host;
+      await worker.evaluate(() => {
+        Reflect.set(globalThis, 'rebootUiMessages', 0);
+        chrome.runtime.onMessage.addListener(() => {
+          Reflect.set(
+            globalThis,
+            'rebootUiMessages',
+            Reflect.get(globalThis, 'rebootUiMessages') + 1,
+          );
+        });
+      });
+      const popupReady = context.waitForEvent('page', {
+        predicate: (page) =>
+          page.url().split(/[?#]/)[0] === `chrome-extension://${id}/popup.html`,
+      });
+      await worker.evaluate(() => chrome.action.openPopup());
+      const popup = await popupReady;
+      await checkProductShell(popup);
+      expect(
+        await worker.evaluate(() =>
+          Reflect.get(globalThis, 'rebootUiMessages'),
+        ),
+      ).toBe(0);
+      await popup.getByText('Hulp en privacy', { exact: true }).click();
+      await popup
+        .getByRole('button', { name: 'Open boekingsassistent', exact: true })
+        .click();
+      await expect
+        .poll(() =>
+          context
+            .pages()
+            .some(
+              (page) =>
+                page.url().split(/[?#]/)[0] ===
+                `chrome-extension://${id}/sidepanel.html`,
+            ),
+        )
+        .toBe(true);
+      const panel = context
+        .pages()
+        .find(
+          (page) =>
+            page.url().split(/[?#]/)[0] ===
+            `chrome-extension://${id}/sidepanel.html`,
+        )!;
+      // Native Side Panel dimensions are owned by Chrome; layout checked in a narrow own tab too.
+      await expect(panel.getByTestId('primary-action')).toBeVisible();
+      await expect(panel.getByTestId('legacy-tools')).toHaveCount(0);
+      const narrow = await context.newPage();
+      await narrow.setViewportSize({ width: 320, height: 640 });
+      await narrow.goto(`chrome-extension://${id}/sidepanel.html`);
+      await checkProductShell(narrow);
+      await narrow.screenshot({
+        path: 'test-results/packaged-product-shell.png',
+      });
+      const intents: string[] = [];
+      // Abort before any external page is fetched; this validates intent, not live Vue.
+      await context.route('https://www.vuecinemas.nl/**', async (route) => {
+        intents.push(route.request().url());
+        await route.abort();
+      });
+      const targetReady = context.waitForEvent('page');
+      await narrow.getByTestId('primary-action').press('Enter');
+      const target = await targetReady;
+      await expect.poll(() => intents).toEqual(['https://www.vuecinemas.nl/']);
+      await target.close();
+      expect(
+        await worker.evaluate(() =>
+          Reflect.get(globalThis, 'rebootUiMessages'),
+        ),
+      ).toBe(0);
+      await openDeveloperTools(narrow);
+      await expect(narrow.locator('#plan-movie')).toBeVisible();
+      await narrow
+        .getByRole('button', { name: 'Terug naar Vue-start' })
+        .click();
+      await expect(narrow.getByTestId('primary-action')).toBeFocused();
+      const fixture = await context.newPage();
+      await fixture.goto(`chrome-extension://${id}/fixture.html`);
+      await exerciseCompactPrototype(fixture);
+      console.log(
+        'PACKAGED_PRODUCT_SHELL PASS: native popup/panel, zero default messages, aborted static navigation, FICTIVE_ONLY prototype; real value HUMAN_NOT_RUN',
+      );
+    } finally {
+      await context.close();
+      await rm(profile, { recursive: true, force: true });
+      if (previousAttachment === undefined)
+        delete process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
+      else process.env.PW_CHROMIUM_ATTACH_TO_OTHER = previousAttachment;
     }
   },
 );

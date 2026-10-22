@@ -1,3 +1,5 @@
+> **Sprint12 / 0.11.0:** actuele [ZIP/checksum en CI](reboot-delivery.md). De standaardpopup/paneel heeft alleen **Open Vue Quick Ticket**. Onderstaande eerdere plannerproef is optionele QA achter **Ontwikkelaarstests**; oude artifactversies niet als actuele download gebruiken. Menselijke Windows-validatie NOT_RUN.
+
 # Windows — SeatBuddies 0.10.1-test
 
 Test uitsluitend met fictieve bijnamen, film/stoelen, neutrale tabs en een toegestaan testprofiel. Geen echte accounts of tickets. Menselijke Windows-QA is afzonderlijk van CI; [feasibility](feasibility.md) bevat werkelijk uitgevoerd bewijs.

@@ -1,6 +1,9 @@
 <script setup lang="ts">
+const props = withDefaults(defineProps<{ active?: boolean }>(), {
+  active: true,
+});
 import ZeroExtraNotice from './ZeroExtraNotice.vue';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, watch, ref } from 'vue';
 import { roles, type Scenario } from '../../core/types';
 import type { PanelCommand } from '../../privacy/protocol';
 import { useCompanion } from '../use-companion';
@@ -36,8 +39,16 @@ async function openFixture() {
 }
 onMounted(() => {
   void command({ type: 'GET_STATE' });
-  timer = setInterval(() => void command({ type: 'GET_STATE' }), 2000);
+  timer = setInterval(() => {
+    if (props.active) void command({ type: 'GET_STATE' });
+  }, 2000);
 });
+watch(
+  () => props.active,
+  (value) => {
+    if (value) void command({ type: 'GET_STATE' });
+  },
+);
 onUnmounted(() => clearInterval(timer));
 </script>
 
