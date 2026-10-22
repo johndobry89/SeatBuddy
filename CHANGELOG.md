@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0-test — 22 oktober 2026 (Sprint 10, ZERO EXTRA)
+
+- Harde productregels BR-001..012: geen betaalde fallback, Ultra Lux altijd uitgesloten, drie mogelijke kandidaatcategorieën. Onbekende kosten worden nooit €0; eigenaarbeleid is geen officiële Vue-prijsgarantie.
+- Pure getypeerde fictieve seat policy/matcher: expliciete rij/kolom, gangpad/onderbreking/bezetting/ambiguïteit, afzonderlijke A/B-context en stoel-/voorstellinggebonden huidige post-pass-fees. Rangschikking pas na alle harde filters. Legenda, onvolledig tussentotaal, kleur en nummering zijn geen bewijs.
+- Getekend Seat Pair Lab met 18 verzonnen kaarten, bron-/tijdlabels, UNKNOWN/fallback, 30s verval, expliciete toegankelijkheidsroute met aparte voorwaarden en geen gezondheidsvragen. Geen stoelactie of productieadapter.
+- Optionele eigen categorie in bestaand formulier; bekende Ultra Lux blokkeert review en eigen stappen in de kern. B-only wijzigingen/reset behouden A; WORKFLOW-guards, privacyretentie en diagnoseallowlist ongewijzigd. Oude statusdemo blijft expliciet onderscheiden van ZERO EXTRA-aanbevelingen.
+- Kritische review reproduceerde gekopieerde €0-evidence voor een andere stoel; gebonden aan stoel/voorstelling en gerepareerd met FAIL→PASS-regressie. Nieuwe unit/UI/native ZIP-gevallen, bestaande regressies behouden. Werkelijke platformstatus en checksum in feasibility/oplevering.
+
 ## 0.9.0-test — 22 oktober 2026 (Sprint 09, The Reality Gate)
 
 - Alleen-lezende fictieve port met screening/stoellabels, provenance/freshness en compatibility. UNKNOWN is de enige status; geen omzetting naar boeking, selectie, beschikbaarheid of geverifieerde geometrie.

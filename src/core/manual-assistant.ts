@@ -1,3 +1,4 @@
+import { seatCategorySchema } from './seat-policy';
 import { z } from '../privacy/schema';
 import { roles, roleSchema, showtimeSchema } from './types';
 import { matchShowtimes } from './showtime-matcher';
@@ -47,6 +48,7 @@ export const manualTrackSchema = z.strictObject({
   context: browserContextSchema.nullable(),
   reportedShowtime: showtimeSchema.nullable(),
   seat: intendedSeatSchema,
+  category: seatCategorySchema.default('UNKNOWN'),
   completed: z.array(manualStepSchema).max(5),
   reviewedAt: z.number().int().nonnegative().nullable(),
   problem: problemSchema.nullable(),
@@ -78,6 +80,7 @@ export const manualCommandSchema = z.discriminatedUnion('type', [
     role: roleSchema,
     showtime: showtimeSchema,
     seat: intendedSeatSchema,
+    category: seatCategorySchema.optional(),
   }),
   z.strictObject({
     type: z.literal('ACKNOWLEDGE'),
@@ -103,6 +106,7 @@ function emptyTrack(): ManualState['tracks']['A'] {
     context: null,
     reportedShowtime: null,
     seat: { row: '', number: '' },
+    category: 'UNKNOWN',
     completed: [],
     reviewedAt: null,
     problem: null,
@@ -131,6 +135,7 @@ export function hasBHistory(state: ManualState) {
     B.completed.length ||
     B.seat.row ||
     B.seat.number ||
+    B.category !== 'UNKNOWN' ||
     (B.reportedShowtime &&
       JSON.stringify(B.reportedShowtime) !== JSON.stringify(state.plan)),
   );
@@ -149,6 +154,8 @@ export function preflightIssue(state: ManualState): string | null {
       return `${role}: voorstelling ontbreekt of wijkt af. Vergelijk ook de zaal.`;
     if (!track.seat.row || !track.seat.number)
       return `${role}: bewaar de gewenste rij en stoel in eigen invoer.`;
+    if (track.category === 'ULTRA_LUX')
+      return `${role}: Ultra Lux is uitgesloten. Kies zelf een andere categorie; geen bijbetaling is een harde productregel.`;
     if (track.problem)
       return `${role}: controleer de eigen invoer opnieuw na het gemelde probleem.`;
   }
@@ -261,10 +268,13 @@ export function applyManual(
     invalidateReview(state);
     track.reportedShowtime = structuredClone(command.showtime);
     track.seat = { ...command.seat };
+    track.category = command.category ?? 'UNKNOWN';
     clearProgress(track);
     track.problem = null;
     return null;
   }
+  if (track.category === 'ULTRA_LUX')
+    return 'Ultra Lux is uitgesloten; kies en controleer een andere stoel voordat je doorgaat.';
   if (!state.review)
     return 'Controleer eerst de filmavond; de lokale review ontbreekt of is vervallen.';
   if (manualSteps[track.completed.length] !== command.step)

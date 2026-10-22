@@ -5,7 +5,7 @@
 | Documentcontrole | Waarde |
 | --- | --- |
 | Document-ID | `SEATMATES.MASTERPLAN.v0.2` |
-| Productversie | **0.9.0-test — The Reality Gate: fictieve read-only port; openbaar voorwaardenonderzoek BLOCKED; G0 live open** |
+| Productversie | **0.10.0-test — ZERO EXTRA: harde stoel-/bijbetalingsregels, fictieve duo-zoeker en optionele eigen categorie; G0 live geblokkeerd** |
 | Datum | Ontwerp 20 oktober 2026; implementatiestatus bijgewerkt 22 oktober 2026 |
 | Project | SeatBuddies (voorheen SeatMates; naam-/merkrechten niet onderzocht) |
 | Productdoel | Twee geldige Vue Movie Pass-houders begeleiden naar dezelfde voorstelling en waar mogelijk aangrenzende stoelen |
@@ -29,6 +29,8 @@
 **Sprint 08:** technische/securityreview en twee lokaal gerepeteerde integratiepaden, met exacte tree-identiteit en gerichte reset-/TTL-/diagnosefixes. Geen echte merge of release. Actuele go/no-go en grenzen in `docs/integration-readiness.md`, `docs/security-review-sprint08.md`, `docs/merge-plan.md` en `docs/project-readiness.md`.
 
 **Sprint 09:** openbare voorwaardenindex opnieuw proxy-403, geen gelezen primaire Movie Pass-tekst/toestemming. Alleen de lokale fictieve read-only port en haar compatibility-/provenancegrenzen gebouwd; productie uit, geen extra rechten. Zie [onderzoek](docs/g0-public-research-2026-10.md), [beslismatrix](docs/g0-decision-matrix.md) en [ADR-008](docs/decisions/ADR-008-fiction-only-read-port.md). Twee korte menselijke kaarten blijven NOT_RUN.
+
+**Sprint 10:** [BR-001..012](docs/seatbuddies-business-rules.md) zijn vast productbeleid op instructie van de eigenaar: Ultra Lux uitgesloten, geen extra betaling, alleen drie kandidaatcategorieën met onafhankelijke kostencontrole. Alleen fictieve fysieke buurrelaties/feestempels bewezen; kleur/legenda/nummers zijn geen bewijs. De handmatige eigen categorie is optioneel en vluchtig, nooit opgeslagen of als externe nul-kostengarantie beschouwd; zie [ADR-009](docs/decisions/ADR-009-zero-extra-manual-category.md). Geen nieuwe rechten of G0-PASS.
 
 **Interpretatie:** dit document beschrijft een kandidaatproduct en duidelijke beslisgates. Een ontwerpkeuze is geen bewezen Chrome/Vue-integratie. `UNKNOWN` blijft onbekend tot een reproduceerbare waarneming het oplost. Het OF-ontwerpkader en `AGENTS.md` geven geen bijzondere browserrechten of toestemming voor live boekingen.
 
@@ -107,6 +109,7 @@ SeatMates helpt twee legitieme, afzonderlijk ingelogde gebruikers dezelfde voors
 - `ADR-006`: expliciet lokaal onthouden van nickname/ID en herstel van uitsluitend ongecommitteerde filmplan-conceptvelden — [`docs/decisions/ADR-006-explicit-local-retention.md`](docs/decisions/ADR-006-explicit-local-retention.md).
 - `ADR-007`: vluchtige solo/samenkeuze, review en generatie/revisie/B-epoch op alle handmatige mutaties — [`docs/decisions/ADR-007-ephemeral-planning-review.md`](docs/decisions/ADR-007-ephemeral-planning-review.md).
 - `ADR-008`: fictieve read-only port zonder boekingsbewijs of productieautoriteit — [`docs/decisions/ADR-008-fiction-only-read-port.md`](docs/decisions/ADR-008-fiction-only-read-port.md).
+- `ADR-009`: harde ZERO EXTRA-policy, fictieve duo-matcher en vluchtige eigen categorie — [`docs/decisions/ADR-009-zero-extra-manual-category.md`](docs/decisions/ADR-009-zero-extra-manual-category.md).
 - Een besluit mag wijzigen als de feiten veranderen; leg motivatie, impact, bewijs en vervangende ADR vast.
 
 ---

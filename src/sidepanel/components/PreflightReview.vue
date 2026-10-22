@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { categoryLabels, categoryEligibility } from '../../core/seat-policy';
 import { computed } from 'vue';
 import type { ManualState } from '../../core/manual-assistant';
 import { activeRoles, preflightIssue } from '../../core/manual-assistant';
@@ -45,6 +46,11 @@ const issue = computed(() => preflightIssue(props.state));
           account zelf controleren.<br />
           Gewenst: {{ state.tracks[role].seat.row || '?'
           }}{{ state.tracks[role].seat.number || '?' }} · eigen invoer.<br />
+          Categorie: {{ categoryLabels[state.tracks[role].category] }} ·
+          {{ categoryEligibility(state.tracks[role].category) }} ·
+          USER_ENTERED_LABELS.<br />
+          Kosten: UNKNOWN — kosten nog op Vue controleren, apart na Movie Pass
+          en vóór afronden.<br />
           Voorstelling:
           {{ matchShowtimes(state.plan, state.tracks[role].reportedShowtime) }}
           · {{ state.tracks[role].problem ?? 'geen probleem gemeld' }}.

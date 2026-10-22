@@ -1,4 +1,4 @@
-name: SeatBuddies Reality Gate checks and Chrome test build
+name: SeatBuddies ZERO EXTRA checks and Chrome test build
 on:
   push:
   pull_request:

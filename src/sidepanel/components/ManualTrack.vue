@@ -8,6 +8,11 @@ import {
   recoveryText,
 } from '../../core/manual-assistant';
 import type { PanelCommand } from '../../privacy/protocol';
+import {
+  categoryLabels,
+  seatCategorySchema,
+  type SeatCategory,
+} from '../../core/seat-policy';
 import SeatFields from './SeatFields.vue';
 import ShowtimeFields from './ShowtimeFields.vue';
 const props = defineProps<{
@@ -29,13 +34,19 @@ const showtime = ref({
   ...(track.value.reportedShowtime ?? props.state.manual.plan ?? empty),
 });
 const seat = ref({ ...track.value.seat });
+const category = ref<SeatCategory>(track.value.category);
 const isDirty = computed(
   () =>
-    JSON.stringify({ showtime: showtime.value, seat: seat.value }) !==
+    JSON.stringify({
+      showtime: showtime.value,
+      seat: seat.value,
+      category: category.value,
+    }) !==
     JSON.stringify({
       showtime:
         track.value.reportedShowtime ?? props.state.manual.plan ?? empty,
       seat: track.value.seat,
+      category: track.value.category,
     }),
 );
 watch(isDirty, (value) => emit('dirty', value));
@@ -60,6 +71,7 @@ const canonical = () =>
   JSON.stringify({
     showtime: track.value.reportedShowtime ?? props.state.manual.plan ?? empty,
     seat: track.value.seat,
+    category: track.value.category,
   });
 watch(
   [canonical, () => props.state.generation],
@@ -67,10 +79,12 @@ watch(
     const local = JSON.stringify({
       showtime: showtime.value,
       seat: seat.value,
+      category: category.value,
     });
     if (generation !== previousGeneration) {
       selectedContext.value = '';
       contextFeedback.value = '';
+      category.value = 'UNKNOWN';
     }
     if (
       props.role === 'A' &&
@@ -87,6 +101,7 @@ watch(
       ...(track.value.reportedShowtime ?? props.state.manual.plan ?? empty),
     };
     seat.value = { ...track.value.seat };
+    category.value = track.value.category;
     retainedDraft.value = false;
     if (track.value.seat.row && track.value.seat.number)
       detailsOpen.value = false;
@@ -104,6 +119,7 @@ function saveDetails() {
     role: props.role,
     showtime: showtime.value,
     seat: seat.value,
+    category: category.value,
   });
 }
 </script>
@@ -235,6 +251,23 @@ function saveDetails() {
       <form @submit.prevent="saveDetails">
         <ShowtimeFields v-model="showtime" :prefix="`reported-${role}`" />
         <SeatFields v-model="seat" :role="role" />
+        <label :for="`category-${role}`"
+          >Stoelcategorie {{ role }} (optioneel)</label
+        >
+        <select :id="`category-${role}`" v-model="category">
+          <option
+            v-for="value in seatCategorySchema.options"
+            :key="value"
+            :value="value"
+          >
+            {{ categoryLabels[value] }}
+          </option>
+        </select>
+        <p class="source">
+          USER_ENTERED_LABELS · eigen categorie, geen waarneming op Vue. Ultra
+          Lux uitgesloten; bij Lux, Saver Lux en Super Saver Lux blijven kosten
+          onbekend. Onbekend kiezen is toegestaan, geen gratisverklaring.
+        </p>
         <button class="secondary" :disabled="busy || !state.manual.plan">
           Bewaar eigen invoer {{ role }}
         </button>
@@ -275,7 +308,13 @@ function saveDetails() {
         <p v-if="next">
           {{ stepLabels[next] }}. Open en controleer de officiële website zelf.
         </p>
-        <p v-else>
+        <p v-if="next === 'SEATS'" class="notice">
+          Controleer per eigen account na Movie Pass-toepassing of het bij te
+          betalen bedrag €0,00 blijft, ook eventuele latere
+          service-/boekingskosten. Bij bijbetaling zelf stoppen en
+          herbeoordelen; geen automatische annulering.
+        </p>
+        <p v-if="!next">
           Je meldt dat je zelf hebt afgerond. Controleer de echte bevestiging op
           Vue; de extensie heeft die niet waargenomen.
         </p>
