@@ -1,8 +1,8 @@
-# Mac-kaart — eerste 5–8 minuten, 0.9.0-test
+# Mac-kaart — eerste 5–8 minuten, 0.10.0-test
 
 **Alle menselijke resultaten nu NOT_RUN.** Alleen eigen toegestaan Chrome-testprofiel en verzonnen gegevens. Geen Vue-login nodig; geen echte pagina, stoelactie of ticket. Deze sprint wacht niet op je proef. De losse [optionele publieke G0-kaart](g0-owner-observation-card.md) komt pas daarna.
 
-1. **0–2 min:** open [Sprint 09 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-21-sprint-09), kies de exacte oplever-SHA en controleer Linux én macOS Intel. Download **seatbuddies-chrome-test**; pak de buitenste artifact-ZIP uit. Vergelijk `shasum -a 256 seatbuddies-0.9.0-chrome-test.zip` met `.zip.sha256`; pak daarna deze **binnenste ZIP** uit naar een vaste map. Chrome 116+ → chrome://extensions → ontwikkelaarsmodus → Uitgepakte extensie laden → map met **manifest.json direct aan root**. Controleer 0.9.0, twee rode stoelen, alleen sidePanel/storage en geen websiterechten. Beleidblokkade = BLOCKED, geen omzeiling.
+1. **0–2 min:** open [Sprint 10 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-23-sprint-10), kies de exacte oplever-SHA en controleer Linux én macOS Intel. Download **seatbuddies-chrome-test**; pak de buitenste artifact-ZIP uit. Vergelijk `shasum -a 256 seatbuddies-0.10.0-chrome-test.zip` met `.zip.sha256`; pak daarna deze **binnenste ZIP** uit naar een vaste map. Chrome 116+ → chrome://extensions → ontwikkelaarsmodus → Uitgepakte extensie laden → map met **manifest.json direct aan root**. Controleer 0.10.0, twee rode stoelen, alleen sidePanel/storage en geen websiterechten. Beleidblokkade = BLOCKED, geen omzeiling.
 2. **2–3 min:** pin het toolbaricoon → popup → **Open boekingsassistent**. Noteer echte Side Panel-opening apart van de normale-tabfallback. Houd incognitotoegang voor deze eerste proef uit; bij herkomstfout is **Open assistent in normaal venster** de expliciete fallback.
 3. **3–5 min:** SOLO, fictief **De maan van papier / Fictief Filmhuis / 12-04-2030 / 19:30 / Zaal 2 / F10**. Bewaar filmplan → **Ik heb de gegevens gecontroleerd — naar de eigen stappen** → A's vijf eigen stappen. Kies **Ook met buddy plannen**, vul B dezelfde voorstelling en F11 in, bewaar B en review opnieuw. A blijft zelfstandig; beide zijn uitsluitend zelf gemeld. Geen aangrenzendheid/boekingsgarantie.
 4. **5–6 min:** wijzig B naar F12 → review vervalt, A blijft. **Ik ga alleen** → **Wis lokaal B en plan solo**: B weg, A behouden. Dit wist alleen lokale data en annuleert niets. Bijnaam is optioneel; onthouden/vergeten staat in de bijlage.
@@ -10,7 +10,7 @@
 
 | Controle                                                   | Status (PASS/FAIL/BLOCKED/NOT_RUN) | Geschoonde afwijking |
 | ---------------------------------------------------------- | ---------------------------------- | -------------------- |
-| ZIP/checksum/rootmanifest/0.9.0/twee rechten               | NOT_RUN                            | —                    |
+| ZIP/checksum/rootmanifest/0.10.0/twee rechten              | NOT_RUN                            | —                    |
 | Echte popup → Side Panel (of apart normale-tabfallback)    | NOT_RUN                            | —                    |
 | SOLO → review → eigen A-stappen                            | NOT_RUN                            | —                    |
 | Samen → aparte B-invoer/review; A behouden                 | NOT_RUN                            | —                    |
@@ -18,6 +18,19 @@
 | Lokale zelftest / huidige filmavond gelijk / veilige kopie | NOT_RUN                            | —                    |
 
 Veilig terugmelden: **exacte Actions-SHA/run-URL**, alleen OS/Chrome-versies, stap, verwacht/feitelijk en status. Geen echte naam, pasnummer, persoonlijke URL, screenshot van ingelogde pagina of volledige browserlogs. VoiceOver, arm64, browserherstart en alle niet uitgevoerde proeven blijven NOT_RUN. [QA-formulier](qa-evidence-template.md). Herladen/update wist voortgang en sessieconcept; alleen bewust bewaarde nickname-lijst mag blijven. Verwijderen via Chrome wist extensieopslag. **G0 live Vue NOT PASSED.**
+
+## ZERO EXTRA — optioneel daarna, circa drie minuten
+
+Alle onderstaande menselijke regels blijven **NOT_RUN**. Alleen verzonnen gegevens, geen echte accounts/stoelen of betaling.
+
+| Proef                                                                                             | Verwacht                                                                                                                                         | Menselijke status |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
+| Open bestaande fictieve testpagina → ZERO EXTRA-lab → gemengde Saver/Super Saver → Zoek 2 stoelen | Alleen DEMO/FICTIONAL_GEOMETRY, twee fysieke fixtureburen, geen echte beschikbaarheid/boeking                                                    | NOT_RUN           |
+| Kies uitsluitend Ultra Lux met fictief €0, daarna gangpad en onbekende fees                       | Nooit Ultra Lux-paar; geen paar over gangpad; onbekend is geen nul                                                                               | NOT_RUN           |
+| Toegankelijke DEMO-route                                                                          | Standaard geen kandidaat; alleen bewuste route plus bekende fictieve voorwaarden; onbekende voorwaarden blijven UNKNOWN                          | NOT_RUN           |
+| Bewaar in bestaande eigen-invoerkaart B optioneel Ultra Lux                                       | Review geblokkeerd; A blijft. Saver Lux daarna slechts categorie-CANDIDATE, bijbetaling UNKNOWN; zelf op Vue na pas en vóór afronden controleren | NOT_RUN           |
+
+Geen gezondheidsgegevens, pasnummers, account-/prijsbeelden delen. [Productregels en tegenvoorbeelden](seatbuddies-business-rules.md). De hoofdroute heeft geen nieuwe verplichte categorie/kostencheckbox.
 
 ---
 
@@ -27,9 +40,9 @@ Deze menselijke proef volgt **na de bouw**. Alleen fictieve namen/film/stoelen, 
 
 ## 0–3 minuten: installeren en openen
 
-1. Download **seatbuddies-chrome-test** uit [Sprint 09 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-21-sprint-09); controleer SHA en beide jobs. Pak de Actions-wrapper en daarna **seatbuddies-0.9.0-chrome-test.zip** uit. Vergelijk desgewenst `shasum -a 256 seatbuddies-0.9.0-chrome-test.zip` met de bijbehorende `.sha256`.
-2. Bewaar de binnenste map bijvoorbeeld in Documenten/SeatBuddies-test/0.9.0. Daar staan direct manifest.json, popup.html, sidepanel.html, fixture.html, background.js, icons/ en assets/. Chrome 116+ → chrome://extensions → Ontwikkelaarsmodus → Uitgepakte extensie laden → kies die map. Verplaats hem daarna niet.
-3. Controleer versie 0.9.0, twee rode stoelen en rechten **sidePanel + storage**. Storage is nodig voor expliciet onthouden/conceptopslag. Geen websitehostrechten. Pin SeatBuddies en klik het icoon: de echte popup opent. Klik **Open boekingsassistent** voor het paneel. Bij blokkade normale Chrome-zijpaneelroute proberen; geen organisatiebeleid wijzigen.
+1. Download **seatbuddies-chrome-test** uit [Sprint 10 Actions](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-23-sprint-10); controleer SHA en beide jobs. Pak de Actions-wrapper en daarna **seatbuddies-0.10.0-chrome-test.zip** uit. Vergelijk desgewenst `shasum -a 256 seatbuddies-0.10.0-chrome-test.zip` met de bijbehorende `.sha256`.
+2. Bewaar de binnenste map bijvoorbeeld in Documenten/SeatBuddies-test/0.10.0. Daar staan direct manifest.json, popup.html, sidepanel.html, fixture.html, background.js, icons/ en assets/. Chrome 116+ → chrome://extensions → Ontwikkelaarsmodus → Uitgepakte extensie laden → kies die map. Verplaats hem daarna niet.
+3. Controleer versie 0.10.0, twee rode stoelen en rechten **sidePanel + storage**. Storage is nodig voor expliciet onthouden/conceptopslag. Geen websitehostrechten. Pin SeatBuddies en klik het icoon: de echte popup opent. Klik **Open boekingsassistent** voor het paneel. Bij blokkade normale Chrome-zijpaneelroute proberen; geen organisatiebeleid wijzigen.
 
 ## 3–6 minuten: buddy’s en toestemming
 
@@ -69,4 +82,4 @@ Deze menselijke proef volgt **na de bouw**. Alleen fictieve namen/film/stoelen, 
 3. Toetsenbord: Tab/Shift+Tab/Enter/Spatie, zichtbare focus, buddybevestiging, privacycheckbox, conceptknoppen; richting 320px geen horizontale overflow. Controleer desgewenst VoiceOver apart. Automatische Mac-UI-tests bewijzen geen VoiceOver of native Mac-bediening.
 4. **Diagnostiek zonder privégegevens** mag alleen versie/capabilities/rechtenscope/bewijsklassen/opslagmodus tonen; geen namen, film, URL’s of tab-ID’s. **Wis alle tijdelijke gegevens** en expliciet herverbinden wissen ook opgeslagen bijnamen/concept. Verwijderen: chrome://extensions → SeatBuddies → Verwijderen; daarna eigen uitgepakte map wissen.
 
-Meld uitsluitend fictieve geschoonde feiten met [het QA-formulier](qa-evidence-template.md): OS/Chrome/0.9.0/commit/run/stap/verwacht/feitelijk en PASS/FAIL/NOT_RUN/BLOCKED/INCONCLUSIVE. Geen privébrowserbeelden, accountdata, tickets of echte nicknames. Bij beleidblokkade BLOCKED registreren en handmatig verder; geen beleid/profielbestanden omzeilen.
+Meld uitsluitend fictieve geschoonde feiten met [het QA-formulier](qa-evidence-template.md): OS/Chrome/0.10.0/commit/run/stap/verwacht/feitelijk en PASS/FAIL/NOT_RUN/BLOCKED/INCONCLUSIVE. Geen privébrowserbeelden, accountdata, tickets of echte nicknames. Bij beleidblokkade BLOCKED registreren en handmatig verder; geen beleid/profielbestanden omzeilen.

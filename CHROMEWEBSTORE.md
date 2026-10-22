@@ -1,6 +1,6 @@
 # Chrome Web Store — SeatBuddies (voorbereiding)
 
-Bijgewerkt **22 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.9.0**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.
+Bijgewerkt **22 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.10.0**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.
 
 ## Conceptlisting
 
@@ -17,6 +17,8 @@ Bijnamen zijn standaard tijdelijk. Alleen na expliciet inschakelen worden nickna
 Independent third-party tool. Not affiliated with or endorsed by Vue Cinemas. Reservations remain separate and are only final when independently confirmed by Vue.
 
 **Sprint 09:** alleen een verpakt fictief read-only adapterlab; geen echte Vue-observer of injectie. Openbaar voorwaardenonderzoek BLOCKED; FAQ/voorwaarden/toestemming onbekend. Observaties blijven UNKNOWN, worden niet bewaard of in diagnose gekopieerd. Geen aangezette Vue-integratie adverteren.
+
+**ZERO EXTRA, Sprint 10:** harde SeatBuddies-productkeuze van de eigenaar: nooit Ultra Lux of een betaalde fallback. Alleen Lux/Saver Lux/Super Saver Lux als mogelijke categorie, kosten blijven op Vue te controleren; geen geverifieerde universele Vue-prijsaanspraak. Werkende duo-zoeker uitsluitend op fictieve kaart, inclusief toegankelijkheidsroute zonder gezondheidsgegevens. Optionele eigen categorie blijft vluchtig en ontbreekt in opslag/diagnostiek. Geen live beschikbaarheid/hold/boekingsclaim.
 
 ## Lokale eerste proef
 
@@ -65,15 +67,16 @@ Originele SVG en PNG-iconen 16/32/48/128px zijn aanwezig. [Designsystem](docs/de
 
 Support/homepage: https://github.com/johndobry89/SeatBuddy. Huidige distributie is broncode en unpacked test-ZIP/checksum via Actions. Geen accountinstellingen, zichtbaarheid of Storepublicatie wijzigen binnen deze sprint.
 
-| Versie     | Datum      | Wijziging                                                                                         | Storestatus           |
-| ---------- | ---------- | ------------------------------------------------------------------------------------------------- | --------------------- |
-| 0.9.0-test | 2026-10-22 | The Reality Gate: fictieve read-only port, openbaar onderzoek BLOCKED, G0-matrix                  | Draft, niet ingediend |
-| 0.8.0-test | 2026-10-22 | Integration Forge: reset/TTL/diagnosehardening, echte verpakte native testbron en runtime-notices | Draft, niet ingediend |
-| 0.7.0-test | 2026-10-21 | First-Run Forge: kortere planning en geïsoleerde lokale proef                                     | Draft, niet ingediend |
-| 0.6.0-test | 2026-10-21 | Projector Ready: solo/samen, lokale review, herstel en diagnosekopie                              | Draft, niet ingediend |
-| 0.5.0-test | 2026-10-21 | Movie Night HQ, expliciet nickname-onthouden en concept-only herstel                              | Draft, niet ingediend |
-| 0.4.0-test | 2026-10-21 | Werkende Buddy Manager, popup/paneel, originele iconen en fictieve widget                         | Niet ingediend        |
-| 0.3.0-test | 2026-10-21 | Platformneutrale testbuild, Mac-QA, herstel en diagnostiek                                        | Niet ingediend        |
-| 0.2.0-test | 2026-10-20 | Handmatige A/B-assistent                                                                          | Niet ingediend        |
+| Versie      | Datum      | Wijziging                                                                                         | Storestatus           |
+| ----------- | ---------- | ------------------------------------------------------------------------------------------------- | --------------------- |
+| 0.10.0-test | 2026-10-22 | ZERO EXTRA: fictieve duo-matcher, harde Ultra Lux-/kostenfilter en optionele eigen categorie      | Draft, niet ingediend |
+| 0.9.0-test  | 2026-10-22 | The Reality Gate: fictieve read-only port, openbaar onderzoek BLOCKED, G0-matrix                  | Draft, niet ingediend |
+| 0.8.0-test  | 2026-10-22 | Integration Forge: reset/TTL/diagnosehardening, echte verpakte native testbron en runtime-notices | Draft, niet ingediend |
+| 0.7.0-test  | 2026-10-21 | First-Run Forge: kortere planning en geïsoleerde lokale proef                                     | Draft, niet ingediend |
+| 0.6.0-test  | 2026-10-21 | Projector Ready: solo/samen, lokale review, herstel en diagnosekopie                              | Draft, niet ingediend |
+| 0.5.0-test  | 2026-10-21 | Movie Night HQ, expliciet nickname-onthouden en concept-only herstel                              | Draft, niet ingediend |
+| 0.4.0-test  | 2026-10-21 | Werkende Buddy Manager, popup/paneel, originele iconen en fictieve widget                         | Niet ingediend        |
+| 0.3.0-test  | 2026-10-21 | Platformneutrale testbuild, Mac-QA, herstel en diagnostiek                                        | Niet ingediend        |
+| 0.2.0-test  | 2026-10-20 | Handmatige A/B-assistent                                                                          | Niet ingediend        |
 
 Feitelijke controles en platformgrenzen: [feasibility](docs/feasibility.md). G0 live Vue **NOT PASSED**. Geen Storebeoordeling, echte boekingsbevestiging of menselijke Mac-acceptatie geclaimd. De op 20 oktober gemelde opening blijft USER_REPORTED_PARTIAL_SMOKE.

@@ -20,6 +20,6 @@ Kopieer dit formulier en vul alleen feitelijke, niet-gevoelige observaties in. G
 
 Voor echte websiteobservaties gebruik je ook het begrensde formulier in [g0-human-observation-guide.md](g0-human-observation-guide.md). Geen boeking uitvoeren voor deze QA.
 
-## Eerste 0.9.0-test
+## Eerste 0.10.0-test
 
-De [Mac-installatiegids](macos-test-guide.md) bevat één veilig kopieerbaar compact formulier met alle menselijke regels aanvankelijk **NOT_RUN**. Vul de exacte volledige SHA uit de gedownloade Actions-run in, niet alleen 0.9.0. Lokale FICTIONAL_TEST-resultaten zijn afzonderlijk van menselijke/native QA. Upload nooit een heel profiel of ruwe browserlog; **Meld een probleem** opent een leeg issue en verstuurt niets automatisch.
+De [Mac-installatiegids](macos-test-guide.md) bevat één veilig kopieerbaar compact formulier met alle menselijke regels aanvankelijk **NOT_RUN**. Vul de exacte volledige SHA uit de gedownloade Actions-run in, niet alleen 0.10.0. Lokale FICTIONAL_TEST-resultaten zijn afzonderlijk van menselijke/native QA. Upload nooit een heel profiel of ruwe browserlog; **Meld een probleem** opent een leeg issue en verstuurt niets automatisch.
