@@ -23,6 +23,7 @@ interface MockControl {
   worker: Coordinator;
   panelDenied?: boolean;
   launches?: { windowId: number; gesture: boolean }[];
+  normalWindows?: unknown[];
   widgetReads?: number;
   retained?: RetainedData;
 }
@@ -92,10 +93,18 @@ async function attachMockTransport(
       if (control.panelDenied) throw new Error('Fictional policy denial');
     },
   );
+  await page.exposeFunction('mockNormalWindow', (options: unknown) => {
+    control.normalWindows?.push(options);
+    return { id: 18 };
+  });
   await page.addInitScript(() => {
     Object.defineProperty(globalThis, 'chrome', {
       value: {
-        windows: { getCurrent: async () => ({ id: 17 }) },
+        windows: {
+          getCurrent: async () => ({ id: 17 }),
+          create: (options: unknown) =>
+            Reflect.get(globalThis, 'mockNormalWindow')(options),
+        },
         sidePanel: {
           open: ({ windowId }: { windowId: number }) => {
             const bridge = Reflect.get(globalThis, 'mockPanelOpen') as (
@@ -111,9 +120,11 @@ async function attachMockTransport(
         },
         runtime: {
           id: 'fictional-extension',
+          getURL: (path: string) =>
+            `chrome-extension://fictional-extension/${path}`,
           getManifest: () => ({
             manifest_version: 3,
-            version: '0.10.0',
+            version: '0.10.1',
             permissions: ['sidePanel', 'storage'],
           }),
           sendMessage: (message: unknown) => {
@@ -248,7 +259,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).focus();
     await page.keyboard.press('Enter');
     const report = page.getByTestId('diagnostic-report');
-    await expect(report).toContainText('"extensionVersion": "0.10.0"');
+    await expect(report).toContainText('"extensionVersion": "0.10.1"');
     await expect(report).toContainText('NOT_IMPLEMENTED');
     await expect(report).toContainText('SIDE_PANEL_AND_STORAGE');
     await expect(report).not.toContainText('De maan van papier');
@@ -1169,7 +1180,7 @@ test('diagnostic copy previews exact allowlisted text, waits for clipboard succe
     await expect(report).toBeFocused();
     const preview = await report.innerText();
     expect(JSON.parse(preview)).toMatchObject({
-      build: { version: '0.10.0' },
+      build: { version: '0.10.1' },
       productionAdapter: 'DISABLED_G0',
     });
     for (const secret of [
@@ -1933,3 +1944,71 @@ test('ZERO EXTRA manual: optional categories, Ultra Lux review block, independen
     await browser.close();
   }
 });
+
+for (const failure of ['rejected', 'missing'] as const) {
+  test(`first popup: ${failure} Side Panel API offers a normal-window fallback without claiming success`, async () => {
+    const browser = await chromium.launch({
+      executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+      args: ['--no-sandbox'],
+    });
+    try {
+      const page = await browser.newPage({
+        viewport: { width: 320, height: 900 },
+      });
+      const worker = new Coordinator();
+      const control: MockControl = {
+        worker,
+        unavailable: false,
+        panelDenied: true,
+        launches: [],
+        normalWindows: [],
+      };
+      await attachMockTransport(page, worker, control);
+      if (failure === 'missing')
+        await page.addInitScript(() => {
+          Reflect.deleteProperty(chrome, 'sidePanel');
+        });
+      await page.goto('http://127.0.0.1:4173/popup.html');
+      await expect(
+        page.getByText('Nog geen buddy’s.', { exact: false }),
+      ).toBeVisible();
+      const before = worker.snapshot(Date.now(), false);
+      await page
+        .getByRole('button', { name: 'Open boekingsassistent', exact: true })
+        .focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('alert')).toContainText(
+        failure === 'missing' ? 'Chrome-zijpaneelmenu' : 'niet openen',
+      );
+      await expect(
+        page.getByText('Chrome heeft het zijpaneel geopend.', { exact: false }),
+      ).toHaveCount(0);
+      const fallback = page.getByRole('button', {
+        name: 'Open assistent in normaal venster',
+        exact: true,
+      });
+      await expect(fallback).toBeEnabled();
+      await fallback.focus();
+      await page.keyboard.press('Enter');
+      await expect
+        .poll(() => control.normalWindows)
+        .toEqual([
+          {
+            url: 'chrome-extension://fictional-extension/sidepanel.html',
+            incognito: false,
+            type: 'normal',
+          },
+        ]);
+      expect(worker.snapshot(Date.now(), false)).toEqual(before);
+      expect(
+        await page.evaluate(
+          () =>
+            document.documentElement.scrollWidth <=
+            document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+    } finally {
+      await browser.close();
+    }
+  });
+}
