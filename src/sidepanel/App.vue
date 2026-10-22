@@ -176,7 +176,15 @@ function clearForm() {
 }
 watch(snapshot, (current, previous) => {
   if (!current || !previous) return;
-  if (current.generation !== previous.generation) {
+  if (
+    current.generation !== previous.generation &&
+    !offline.value &&
+    current.resetVersion > 0
+  ) {
+    // A fresh worker may already have received an explicit clear from another panel.
+    clearForm();
+    discardVersion.value++;
+  } else if (current.generation !== previous.generation) {
     const edited = (['movie', 'cinema', 'date', 'time', 'hall'] as const).some(
       (key) =>
         plan.value[key] !== previous.manual.plan?.[key] &&

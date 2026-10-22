@@ -1,3 +1,4 @@
+import { unpackPackagedExtension } from '../helpers/packaged-extension';
 import { openSimulation } from '../helpers/browser-workflow';
 import {
   firstPlanViaUI,
@@ -10,9 +11,20 @@ import type { ManualCommand } from '../../src/core/manual-assistant';
 import { chromium, expect, test } from '@playwright/test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { resolve, join } from 'node:path';
+import { join } from 'node:path';
 import { panelReplySchema } from '../../src/privacy/protocol';
 import { savedDraftSchema } from '../../src/core/retained-data';
+
+let packaged: Awaited<ReturnType<typeof unpackPackagedExtension>>;
+test.beforeAll(async () => {
+  packaged = await unpackPackagedExtension();
+  console.log(
+    `PACKAGED_EXTENSION ${packaged.version} SHA256 ${packaged.sha256}`,
+  );
+});
+test.afterAll(async () => {
+  await packaged?.cleanup();
+});
 
 // The real built MV3 package runs with system Chromium. No production sites are opened.
 async function sendWorkflow(page: Page, command: ManualCommand) {
@@ -36,7 +48,7 @@ test(
   { tag: '@smoke' },
   async () => {
     const profile = await mkdtemp(join(tmpdir(), 'seatmates-browser-'));
-    const extension = resolve('dist');
+    const extension = packaged.directory;
     const context = await chromium.launchPersistentContext(profile, {
       executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
       ignoreDefaultArgs: ['--disable-extensions'],
@@ -64,7 +76,7 @@ test(
         'SIDE_PANEL_AND_STORAGE',
       );
       await expect(page.getByTestId('diagnostic-report')).toContainText(
-        '"extensionVersion": "0.7.0"',
+        '"extensionVersion": "0.8.0"',
       );
       await expect(page.getByTestId('diagnostic-report')).toContainText(
         'NOT_IMPLEMENTED',
@@ -228,7 +240,7 @@ test(
 test('real Chrome context pairing with explicit incognito opt-in, revocation and worker suspension', async () => {
   test.setTimeout(60_000);
   const profile = await mkdtemp(join(tmpdir(), 'seatmates-incognito-'));
-  const extension = resolve('dist');
+  const extension = packaged.directory;
   const context = await chromium.launchPersistentContext(profile, {
     executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
     ignoreDefaultArgs: ['--disable-extensions'],
@@ -452,7 +464,7 @@ test('real action popup shares one buddy with the panel and opens a native Side 
     executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
     ignoreDefaultArgs: ['--disable-extensions'],
     headless: process.env.HEADED !== '1',
-    args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
+    args: [`--load-extension=${packaged.directory}`, '--no-sandbox'],
   });
   context.setDefaultTimeout(7_000);
   try {
@@ -619,7 +631,7 @@ test('Chrome local/session storage: opt-in nickname survives a real worker stop,
     executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
     ignoreDefaultArgs: ['--disable-extensions'],
     headless: process.env.HEADED !== '1',
-    args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
+    args: [`--load-extension=${packaged.directory}`, '--no-sandbox'],
   });
   try {
     const worker =
@@ -816,7 +828,7 @@ test('spanning Chrome: a real incognito popup cannot read remembered names, chan
     executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
     ignoreDefaultArgs: ['--disable-extensions'],
     headless: process.env.HEADED !== '1',
-    args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
+    args: [`--load-extension=${packaged.directory}`, '--no-sandbox'],
   });
   try {
     const worker =
@@ -979,7 +991,7 @@ test('real Chrome Projector Ready: solo intent, two-panel preflight races, parti
     executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
     ignoreDefaultArgs: ['--disable-extensions'],
     headless: process.env.HEADED !== '1',
-    args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
+    args: [`--load-extension=${packaged.directory}`, '--no-sandbox'],
   });
   try {
     const worker =
@@ -1074,7 +1086,7 @@ test('real Chrome Projector Ready: solo intent, two-panel preflight races, parti
     await expect(report).toBeFocused();
     const text = await report.innerText();
     expect(JSON.parse(text)).toMatchObject({
-      extensionVersion: '0.7.0',
+      extensionVersion: '0.8.0',
       productionAdapter: 'DISABLED_G0',
       permissionScope: 'SIDE_PANEL_AND_STORAGE',
     });
@@ -1103,7 +1115,7 @@ test(
       executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
       ignoreDefaultArgs: ['--disable-extensions'],
       headless: process.env.HEADED !== '1',
-      args: [`--load-extension=${resolve('dist')}`, '--no-sandbox'],
+      args: [`--load-extension=${packaged.directory}`, '--no-sandbox'],
     });
     try {
       const worker =
@@ -1183,7 +1195,7 @@ test(
       const text = await panel.getByTestId('local-test-report').innerText();
       expect(JSON.parse(text)).toMatchObject({
         kind: 'FICTIONAL_TEST',
-        extensionVersion: '0.7.0',
+        extensionVersion: '0.8.0',
         adapterVersion: 'FICTIONAL_V1',
       });
       for (const secret of [

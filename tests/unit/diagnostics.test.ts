@@ -9,7 +9,7 @@ it('reduces diagnostics to an explicit allowlist without enumerating tabs or exp
     runtime: {
       getManifest: () => ({
         manifest_version: 3,
-        version: '0.7.0',
+        version: '0.8.0',
         permissions: ['sidePanel', 'storage'],
         author: 'fictional-private-name',
       }),
@@ -41,7 +41,7 @@ it('reduces diagnostics to an explicit allowlist without enumerating tabs or exp
   });
   const report = selfCheck(c.snapshot(now, true), false);
   expect(report).toMatchObject({
-    extensionVersion: '0.7.0',
+    extensionVersion: '0.8.0',
     permissionScope: 'SIDE_PANEL_AND_STORAGE',
     transport: 'EXTENSION',
     realVueConfirmation: 'NOT_IMPLEMENTED',
@@ -105,3 +105,26 @@ it('flags additional privileges and refuses unsafe version strings without copyi
   expect(report.extensionVersion).toBeNull();
   expect(JSON.stringify(report)).not.toContain('@');
 });
+
+it.each([
+  { host_permissions: '' },
+  { optional_permissions: null },
+  { content_scripts: {} },
+  { web_accessible_resources: [{ resources: ['*'], matches: ['<all_urls>'] }] },
+  { externally_connectable: { matches: ['https://fictional.invalid/*'] } },
+])(
+  'never describes an unexpected or malformed exposure as the reviewed permission scope: %j',
+  (extra) => {
+    vi.stubGlobal('chrome', {
+      runtime: {
+        getManifest: () => ({
+          manifest_version: 3,
+          version: '0.8.0',
+          permissions: ['sidePanel', 'storage'],
+          ...extra,
+        }),
+      },
+    });
+    expect(selfCheck(null, false).permissionScope).toBe('UNEXPECTED');
+  },
+);

@@ -1,4 +1,5 @@
 import { z } from './schema';
+import { extensionVersionSchema, reviewedManifestScope } from './manifest';
 import type { Snapshot } from '../background/coordinator';
 import { version as buildVersion } from '../../package.json';
 import { problemSchema } from '../core/manual-assistant';
@@ -12,11 +13,7 @@ export const diagnosticSchema = z.strictObject({
   }),
   fixtureAdapter: z.literal('FICTIONAL_V1_ONLY'),
   failedStep: z.enum(['NONE', 'TRANSPORT', ...problemSchema.options]),
-  extensionVersion: z
-    .string()
-    .regex(/^\d+(\.\d+){1,3}$/)
-    .max(24)
-    .nullable(),
+  extensionVersion: extensionVersionSchema,
   transport: z.enum(['EXTENSION', 'LOCAL_ONLY']),
   mode: z.enum(['MANUAL', 'DEMO', 'FIXTURE', 'UNKNOWN']),
   capabilities: z.strictObject({
@@ -48,16 +45,9 @@ export function selfCheck(
       manifest.version,
     );
     if (parsed.success) version = parsed.data;
-    scope =
-      manifest.manifest_version === 3 &&
-      JSON.stringify(manifest.permissions) ===
-        JSON.stringify(['sidePanel', 'storage']) &&
-      !manifest.host_permissions?.length &&
-      !manifest.optional_host_permissions?.length &&
-      !manifest.optional_permissions?.length &&
-      !manifest.content_scripts?.length
-        ? 'SIDE_PANEL_AND_STORAGE'
-        : 'UNEXPECTED';
+    scope = reviewedManifestScope.safeParse(manifest).success
+      ? 'SIDE_PANEL_AND_STORAGE'
+      : 'UNEXPECTED';
   } catch {
     // An ordinary local preview has no extension manifest.
     scope = 'UNKNOWN';

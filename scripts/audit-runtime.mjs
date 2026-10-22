@@ -33,6 +33,8 @@ export function auditRuntime(manifest, files) {
     'content_security_policy',
     'icons',
   ]);
+  if (manifest.incognito !== 'spanning')
+    throw new Error('Unexpected incognito mode');
   if (Object.keys(manifest).some((key) => !allowedManifestKeys.has(key)))
     throw new Error('Unexpected generated manifest field');
   if (

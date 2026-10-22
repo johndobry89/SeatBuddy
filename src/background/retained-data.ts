@@ -40,7 +40,7 @@ export class RetainedData {
   ) {}
 
   private async load(
-    now: number,
+    now: () => number,
     restoreRoster: boolean,
     obsolete: () => boolean,
   ) {
@@ -95,9 +95,9 @@ export class RetainedData {
       this.c.retention.draftExpiresAt = null;
     }
   }
-  private async readDraft(now: number) {
+  private async readDraft(now: () => number) {
     const value = (await this.port!.session.get(DRAFT_KEY))[DRAFT_KEY];
-    const draft = boundedRecord(value) ? freshDraft(value, now) : null;
+    const draft = boundedRecord(value) ? freshDraft(value, now()) : null;
     if (value !== undefined && !draft)
       await this.port!.session.remove(DRAFT_KEY);
     this.c.retention.draftExpiresAt = draft
@@ -136,7 +136,7 @@ export class RetainedData {
   }
   execute<T extends CoreReply>(
     raw: unknown,
-    now: number,
+    time: number | (() => number),
     allowed: boolean,
     core: () => T,
     read: () => T,
@@ -156,6 +156,9 @@ export class RetainedData {
         ),
       );
     this.pending++;
+    // Tests may supply a fixed instant; the worker supplies a live clock.
+    // Never decide retention age from a timestamp captured before an async await.
+    const now = typeof time === 'function' ? time : () => time;
     const operation = this.tail
       .then(async () => {
         const isReset =
@@ -224,14 +227,21 @@ export class RetainedData {
               'Tijdelijk concept niet beschikbaar. Handmatig plannen blijft werken.',
             );
           if (draft.data.type === 'DRAFT_SAVE') {
+            const createdAt = now();
             await this.port!.session.set({
               [DRAFT_KEY]: {
                 version: 1,
-                createdAt: now,
+                createdAt,
                 plan: draft.data.plan,
               },
             });
-            this.c.retention.draftExpiresAt = now + DRAFT_TTL_MS;
+            this.c.retention.draftExpiresAt = createdAt + DRAFT_TTL_MS;
+            if (now() < createdAt || now() >= createdAt + DRAFT_TTL_MS) {
+              await this.deleteDraft();
+              return failed(
+                'Concept tijdens opslaan verlopen. Controleer de filmgegevens en bewaar bewust opnieuw.',
+              );
+            }
           } else if (draft.data.type === 'DRAFT_DELETE')
             await this.deleteDraft();
           else {
@@ -245,7 +255,7 @@ export class RetainedData {
           this.c.buddy.revision++;
         } else if (
           this.c.retention.draftExpiresAt !== null &&
-          this.c.retention.draftExpiresAt <= now
+          this.c.retention.draftExpiresAt <= now()
         )
           await this.deleteDraft();
         if (obsolete()) return stale();

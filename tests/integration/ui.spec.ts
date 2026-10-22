@@ -68,7 +68,7 @@ async function attachMockTransport(
     return control.retained
       ? control.retained.execute(
           raw,
-          Date.now(),
+          Date.now,
           false,
           () => route(raw),
           () =>
@@ -109,7 +109,7 @@ async function attachMockTransport(
           id: 'fictional-extension',
           getManifest: () => ({
             manifest_version: 3,
-            version: '0.7.0',
+            version: '0.8.0',
             permissions: ['sidePanel', 'storage'],
           }),
           sendMessage: (message: unknown) => {
@@ -244,7 +244,7 @@ test('reconnection, worker generation and explicit privacy-safe diagnostic in a 
     await page.getByRole('button', { name: 'Voer zelfcontrole uit' }).focus();
     await page.keyboard.press('Enter');
     const report = page.getByTestId('diagnostic-report');
-    await expect(report).toContainText('"extensionVersion": "0.7.0"');
+    await expect(report).toContainText('"extensionVersion": "0.8.0"');
     await expect(report).toContainText('NOT_IMPLEMENTED');
     await expect(report).toContainText('SIDE_PANEL_AND_STORAGE');
     await expect(report).not.toContainText('De maan van papier');
@@ -1165,7 +1165,7 @@ test('diagnostic copy previews exact allowlisted text, waits for clipboard succe
     await expect(report).toBeFocused();
     const preview = await report.innerText();
     expect(JSON.parse(preview)).toMatchObject({
-      build: { version: '0.7.0' },
+      build: { version: '0.8.0' },
       productionAdapter: 'DISABLED_G0',
     });
     for (const secret of [
@@ -1640,6 +1640,64 @@ test('review regression: a buddy switch clears uncommitted initial B seats while
     await expect(page.getByTestId('panel-buddy')).toContainText('Ik + Mark');
     await expect(page.locator('#plan-row-A')).toHaveValue('K');
     await expect(page.locator('#plan-row-B')).toHaveValue('');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Integration Forge: an explicit reset on a replacement worker clears dirty local concepts', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage();
+    const control: MockControl = {
+      worker: new Coordinator(),
+      unavailable: false,
+    };
+    await attachMockTransport(page, control.worker, control);
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await firstPlanViaUI(page, true);
+    await openInputs(page, 'A');
+    await page.locator('#row-A').fill('K');
+    await page.locator('#plan-movie').fill('Te wissen fictief concept');
+    control.worker = new Coordinator();
+    control.worker.reset(); // Another normal panel explicitly cleared this fresh worker.
+    await expect(page.getByTestId('lifecycle-notice')).toBeVisible();
+    await expect(page.locator('#plan-movie')).toHaveValue('');
+    await expect(page.locator('#row-A')).toHaveValue('');
+    await expect(page.getByTestId('retained-track-draft')).toHaveCount(0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Integration Forge: Begin A opnieuw discards dirty A fields and preserves B', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage();
+    const worker = new Coordinator();
+    await attachMockTransport(page, worker);
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await firstPlanViaUI(page, true);
+    const beforeB = structuredClone(worker.manual.tracks.B);
+    await openInputs(page, 'A');
+    await page.locator('#row-A').fill('K');
+    await page
+      .locator('.track')
+      .first()
+      .getByText('Probleem of opnieuw beginnen', { exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Begin A opnieuw', exact: true })
+      .click();
+    await expect(page.locator('#row-A')).toHaveValue('');
+    await expect(page.getByTestId('retained-track-draft')).toHaveCount(0);
+    expect(worker.manual.tracks.B).toEqual(beforeB);
   } finally {
     await browser.close();
   }
