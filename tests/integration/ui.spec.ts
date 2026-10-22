@@ -26,6 +26,8 @@ interface MockControl {
   normalWindows?: unknown[];
   widgetReads?: number;
   retained?: RetainedData;
+  holdRead?: (reply: unknown) => Promise<unknown>;
+  holdSubmit?: (reply: unknown) => Promise<unknown>;
 }
 async function attachMockTransport(
   page: Page,
@@ -70,7 +72,7 @@ async function attachMockTransport(
         false,
         Date.now(),
       );
-    return control.retained
+    const reply = control.retained
       ? control.retained.execute(
           raw,
           Date.now,
@@ -85,6 +87,21 @@ async function attachMockTransport(
           () => false,
         )
       : route(raw);
+    if (
+      typeof raw === 'object' &&
+      raw &&
+      'type' in raw &&
+      raw.type === 'DEMO' &&
+      control.holdSubmit
+    )
+      return Promise.resolve(reply).then(control.holdSubmit);
+    return typeof raw === 'object' &&
+      raw &&
+      'type' in raw &&
+      raw.type === 'GET_STATE' &&
+      control.holdRead
+      ? Promise.resolve(reply).then(control.holdRead)
+      : reply;
   });
   await page.exposeFunction(
     'mockPanelOpen',
@@ -2012,3 +2029,87 @@ for (const failure of ['rejected', 'missing'] as const) {
     }
   });
 }
+
+test('simulation: ten delayed two-second reads never pulse disabled opacity, lose focus or repeat live text', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+    args: ['--no-sandbox'],
+  });
+  try {
+    const page = await browser.newPage();
+    await page.clock.install();
+    const worker = new Coordinator();
+    const control: MockControl = { worker, unavailable: false };
+    await attachMockTransport(page, worker, control);
+    await page.goto('http://127.0.0.1:4173/sidepanel.html');
+    await openSimulation(page);
+    const button = page.getByRole('button', {
+      name: 'Start simulatie',
+      exact: true,
+    });
+    await expect(button).toBeEnabled();
+    await button.focus();
+    const pending: { reply: unknown; resolve: (reply: unknown) => void }[] = [];
+    control.holdRead = (reply) =>
+      new Promise((resolve) => pending.push({ reply, resolve }));
+    await page.evaluate(() => {
+      const live = document.querySelector('aside[aria-live]')!;
+      Reflect.set(globalThis, 's12LiveChanges', 0);
+      new MutationObserver((records) =>
+        Reflect.set(
+          globalThis,
+          's12LiveChanges',
+          Reflect.get(globalThis, 's12LiveChanges') + records.length,
+        ),
+      ).observe(live, { subtree: true, childList: true, characterData: true });
+    });
+    const samples = [];
+    for (let poll = 0; poll < 10; poll++) {
+      await page.clock.runFor(2000);
+      await expect.poll(() => pending.length).toBe(1);
+      samples.push(
+        await button.evaluate((element) => ({
+          disabled: (element as HTMLButtonElement).disabled,
+          opacity: getComputedStyle(element).opacity,
+          focused: document.activeElement === element,
+        })),
+      );
+      const read = pending.shift()!;
+      read.resolve(read.reply);
+      await expect(button).toBeEnabled();
+      await button.focus();
+    }
+    expect(samples).toEqual(
+      Array.from({ length: 10 }, () => ({
+        disabled: false,
+        opacity: '1',
+        focused: true,
+      })),
+    );
+    expect(
+      await page.evaluate(() => Reflect.get(globalThis, 's12LiveChanges')),
+    ).toBe(0);
+    // An actual user action must still disable the button until its reply, never a read.
+    await page.clock.runFor(2000);
+    await expect.poll(() => pending.length).toBe(1);
+    let finishSubmit: ((reply: unknown) => void) | undefined;
+    let submitted: unknown;
+    control.holdSubmit = (reply) => {
+      submitted = reply;
+      return new Promise((resolve) => {
+        finishSubmit = resolve;
+      });
+    };
+    await button.click();
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveCSS('opacity', '0.6');
+    finishSubmit!(submitted);
+    await expect(button).toBeEnabled();
+    await expect(page.getByTestId('status-A')).toHaveText('SELECTED');
+    const older = pending.shift()!;
+    older.resolve(older.reply);
+    await expect(page.getByTestId('status-A')).toHaveText('SELECTED');
+  } finally {
+    await browser.close();
+  }
+});
