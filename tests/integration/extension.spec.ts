@@ -40,7 +40,7 @@ let packaged: Awaited<ReturnType<typeof unpackPackagedExtension>>;
 test.beforeAll(async () => {
   packaged = await unpackPackagedExtension();
   expect(packaged.sha256, 'Reviewed Operation Reboot inner runtime hash').toBe(
-    '3f6b602f853aff2dced0fc4406808436dc142dbe56c84098cec32819251c5c87',
+    '355a4260140495f990c7b4b282b62a160068bc4af1eeb89a431aecd509a2cb37',
   );
   console.log(
     `PACKAGED_EXTENSION ${packaged.version} SHA256 ${packaged.sha256}`,
@@ -1145,6 +1145,7 @@ test('spanning Chrome: a real incognito popup cannot read remembered names, chan
       })
       .click();
     const recovered = await recoveredPage;
+    await openDeveloperTools(recovered);
     await expect(
       recovered.getByRole('heading', {
         name: 'Filmavond-overzicht',

@@ -2,8 +2,10 @@
 
 **Titel:** Sprint12: compacte Vue-start, gerepareerde pollingknop en eerlijk product-NO-GO
 
-**Base:** `feat/issue-25-sprint-11`  
-**Head:** `feat/issue-27-sprint-12`  
+**Base:** `feat/issue-25-sprint-11`
+
+**Head:** `feat/issue-27-sprint-12`
+
 **State:** DRAFT; niets mergen/publiceren. Refs #27.
 
 ## Probleem en gedrag
@@ -24,7 +26,7 @@ Exact sidePanel/storage, spanning en strikte CSP. Geen hosts/content scripts/act
 
 Zie [concreet uitvoeringsledger](reboot-delivery.md) voor exacte runs/head/conclusies en hash.331 unit/contract en31 UI zijn de verwachte suiteomvang na de daadwerkelijk uitgevoerde regressies; platformbewijs wordt uitsluitend op afgeronde runs geclaimd. Native Linux volledige11, Mac Intel7smoke inclusief nieuwe product-shellproef; lokale beheerde installaties blijven afzonderlijk BLOCKED. Tests installeren echte Actions-wrapper na buitenste digest + inner checksum, geen dist-vervanging. Geen menselijke Finder/arm64/VoiceOver of live Vue-PASS.
 
-Runtime **seatbuddies-0.11.0-chrome-test.zip**,31files/127414bytes, SHA256 `3f6b602f853aff2dced0fc4406808436dc142dbe56c84098cec32819251c5c87`. Alleen runtime/iconen/volledige notices. Korte installatie-/Mac-kaart, benchmark, ADR010, bronmapping en securityreview bijgewerkt.
+Runtime **seatbuddies-0.11.0-chrome-test.zip**,31files/127404bytes, SHA256 `355a4260140495f990c7b4b282b62a160068bc4af1eeb89a431aecd509a2cb37`. Alleen runtime/iconen/volledige notices. Korte installatie-/Mac-kaart, benchmark, ADR010, bronmapping en securityreview bijgewerkt.
 
 ## Beoordelen
 

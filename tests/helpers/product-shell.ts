@@ -27,8 +27,12 @@ export async function checkProductShell(page: Page) {
     width: document.documentElement.scrollWidth,
     clientWidth: innerWidth,
   }));
-  expect(bounds.width).toBeLessThanOrEqual(bounds.clientWidth);
-  expect(bounds.height).toBeLessThanOrEqual(bounds.clientHeight);
+  expect(bounds.width, JSON.stringify(bounds)).toBeLessThanOrEqual(
+    bounds.clientWidth,
+  );
+  expect(bounds.height, JSON.stringify(bounds)).toBeLessThanOrEqual(
+    bounds.clientHeight,
+  );
   return bounds;
 }
 

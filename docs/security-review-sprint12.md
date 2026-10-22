@@ -26,6 +26,12 @@ Tiny isolated preset flow reuses strict ZERO EXTRA matcher. No new worker messag
 
 Manifest stays exactly sidePanel/storage, spanning, no hosts/optional permissions/content scripts/externally connectable/web accessible resources. CSP unchanged: local script, no objects/connections/base. No new dependency or OSS source/assets copied. Notes/clipboard remain allowlisted; no personal owner screenshots/data committed. Fresh package includes original own license and five complete runtime notices. Dependency audit is a tool result, not a complete supply-chain assurance.
 
+## 5. Real packaged Chrome caught intrinsic popup width — repaired, not waived
+
+Initial Linux CI [39860781659](https://github.com/johndobry89/SeatBuddy/actions/runs/39860781659) on5269c77 passed31renderer/9native but failed2native cases. The new real action-popup test measured871px document height against600px available: the `width:360px; max-width:100vw` body can feed Chrome's initial tiny popup viewport back into its intrinsic-size calculation. Fixed the popup body's minimum intrinsic width to320px, preserving responsive320/360/420 behavior. Same no-scroll assertion retained; bounds diagnostics strengthened. The mock renderer had a fixed viewport, so it did not expose this browser-owned sizing defect.
+
+The older incognito normal-window recovery test expected the old planner immediately after opening the recovered document. It now explicitly opens Ontwikkelaarstests before asserting the preserved legacy planner/privacy behavior. The new compact default itself was correct in that path. No sender/storage assertion removed. HTML titles also now describe the actual default. Subsequent runtime hash differs; only the current reviewed hash in delivery is installable evidence.
+
 ## Verification and residual risk
 
 Actual commands, counts, checksum, source SHA and CI conclusions are recorded in [delivery](reboot-delivery.md), not inferred from static review. Local native extension install remains BLOCKED by managed policy; no bypass. Native CI uses its own disposable profile and distributed digest-verified artifact; intercepted official-link intent never fetches live Vue. Mac Intel is the smoke subset, not Apple Silicon/VoiceOver/Finder or real Chrome116 proof.
