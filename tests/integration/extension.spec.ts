@@ -40,7 +40,7 @@ let packaged: Awaited<ReturnType<typeof unpackPackagedExtension>>;
 test.beforeAll(async () => {
   packaged = await unpackPackagedExtension();
   expect(packaged.sha256, 'Reviewed Operation Reboot inner runtime hash').toBe(
-    '355a4260140495f990c7b4b282b62a160068bc4af1eeb89a431aecd509a2cb37',
+    '5b4e69b7780d85d808d97f43e372982926b39fca7984eb78d395d5a02fb800c8',
   );
   console.log(
     `PACKAGED_EXTENSION ${packaged.version} SHA256 ${packaged.sha256}`,
@@ -1772,17 +1772,28 @@ test(
           force: true,
         });
       await cp(packaged.directory, baseline.directory, { recursive: true });
+      // Don't navigate a document while Chrome tears down its Response channel.
+      // A new worker for this exact extension is the reload/registration barrier.
+      await panel.close();
+      const upgradedWorkerReady = context.waitForEvent('serviceworker', {
+        predicate: (next) => next !== worker && new URL(next.url()).host === id,
+        timeout: 10_000,
+      });
       await worker.evaluate(() => {
         setTimeout(() => chrome.runtime.reload(), 50);
       });
-      await expect(async () => {
-        if (panel.isClosed()) panel = await context.newPage();
-        await gotoDeveloper(panel, `chrome-extension://${id}/sidepanel.html`);
-        expect(
-          await panel.evaluate(() => chrome.runtime.getManifest().version),
-        ).toBe(packaged.version);
-        await expect(panel.getByTestId('inactive-B')).toBeVisible();
-      }).toPass({ timeout: 10_000 });
+      const upgradedWorker = await upgradedWorkerReady;
+      expect(
+        await upgradedWorker.evaluate(
+          () => chrome.runtime.getManifest().version,
+        ),
+      ).toBe(packaged.version);
+      panel = await context.newPage();
+      await gotoDeveloper(panel, `chrome-extension://${id}/sidepanel.html`);
+      expect(
+        await panel.evaluate(() => chrome.runtime.getManifest().version),
+      ).toBe(packaged.version);
+      await expect(panel.getByTestId('inactive-B')).toBeVisible();
       remember = panel.getByRole('checkbox', {
         name: 'Onthoud mijn buddy-bijnamen op dit apparaat',
         exact: true,

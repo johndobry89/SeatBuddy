@@ -1,4 +1,4 @@
-# Sprint12 — defect review and privacy/security boundaries
+# Sprint 12 — defect review and privacy/security boundaries
 
 Review date22 October2026. Scope: S11 `764234ca94fbaafbeaa96281add7182ea704c728` → Operation Reboot. No formal independent security audit or human Mac acceptance implied. Owner report is **USER_REPORTED installed/rendered, UX FAIL**. New version human acceptance NOT_RUN.
 
@@ -28,12 +28,16 @@ Manifest stays exactly sidePanel/storage, spanning, no hosts/optional permission
 
 ## 5. Real packaged Chrome caught intrinsic popup width — repaired, not waived
 
-Initial Linux CI [39860781659](https://github.com/johndobry89/SeatBuddy/actions/runs/39860781659) on5269c77 passed31renderer/9native but failed2native cases. The new real action-popup test measured871px document height against600px available: the `width:360px; max-width:100vw` body can feed Chrome's initial tiny popup viewport back into its intrinsic-size calculation. Fixed the popup body's minimum intrinsic width to320px, preserving responsive320/360/420 behavior. Same no-scroll assertion retained; bounds diagnostics strengthened. The mock renderer had a fixed viewport, so it did not expose this browser-owned sizing defect.
+Initial Linux CI [39860781659](https://github.com/johndobry89/SeatBuddy/actions/runs/39860781659) on5269c77 passed31renderer/9 native but failed2 native cases. The new real action-popup test measured871px document height against600px available: the `width:360px; max-width:100vw` body can feed Chrome's initial tiny popup viewport back into its intrinsic-size calculation. Fixed the popup body's minimum intrinsic width to320px, preserving responsive320/360/420 behavior. Same no-scroll assertion retained; bounds diagnostics strengthened. The mock renderer had a fixed viewport, so it did not expose this browser-owned sizing defect.
 
 The older incognito normal-window recovery test expected the old planner immediately after opening the recovered document. It now explicitly opens Ontwikkelaarstests before asserting the preserved legacy planner/privacy behavior. The new compact default itself was correct in that path. No sender/storage assertion removed. HTML titles also now describe the actual default. Subsequent runtime hash differs; only the current reviewed hash in delivery is installable evidence.
 
+Second Linux CI [39861828658](https://github.com/johndobry89/SeatBuddy/actions/runs/39861828658) confirmed the width fix (335px) but caught fractional auto-height rounding:541px document versus540px native viewport. The compact home's line heights/paragraph margins and the developer summary now use a rem rhythm that produces whole default CSS-pixel layout heights. No overflow hiding, geometry tolerance or removed assertion. Relative sizing still follows the root font.
+
+That run also surfaced an intermittent Playwright “Response object not bound” error during the pinned upgrade test. The test previously navigated an old extension document while runtime.reload tore it down. It now closes only the test panel before reload, waits for a new serviceworker for the exact extension ID, verifies its manifest, then opens a fresh panel. The bound fixture stays open until Chrome reload closes it, so the upgrade's binding-clear assertions remain meaningful. All original consent/storage/generation/replay assertions remain. This repairs the test actor's lifecycle race, not a fabricated production data bug. Subsequent CI establishes whether these corrections pass.
+
 ## Verification and residual risk
 
-Actual commands, counts, checksum, source SHA and CI conclusions are recorded in [delivery](reboot-delivery.md), not inferred from static review. Local native extension install remains BLOCKED by managed policy; no bypass. Native CI uses its own disposable profile and distributed digest-verified artifact; intercepted official-link intent never fetches live Vue. Mac Intel is the smoke subset, not Apple Silicon/VoiceOver/Finder or real Chrome116 proof.
+Actual commands, counts, checksum, source SHA and CI conclusions are recorded in [delivery](reboot-delivery.md), not inferred from static review. Local native extension install remains BLOCKED by managed policy; no bypass. Native CI uses its own disposable profile and distributed digest-verified artifact; intercepted official-link intent never fetches live Vue. Mac Intel is the smoke subset, not Apple Silicon/VoiceOver/Finder or real Chrome 116 proof.
 
 **PRODUCT_VALUE NO-GO** despite technical tests: official data/read-only permission absent, real-task comparison HUMAN_NOT_RUN, owner previously rejected administration. G0 remains NO-GO/INCONCLUSIVE. Remaining principal risk is building an unnecessary companion. Stop feature growth pending a lawful useful source. No merges, releases, publication or emails.

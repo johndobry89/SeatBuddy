@@ -32,7 +32,7 @@ Workerherstart: nooit stoelen, checks, categorie, kosten, buddyselectie, samenmo
 
 ## Bouwen en controleren
 
-Node24 LTS (`.nvmrc`), geen secrets:
+Node 24 LTS (`.nvmrc`), geen secrets:
 
 ```sh
 npm ci
@@ -45,7 +45,7 @@ npm audit
 
 `dist/` is direct unpacked laadbaar; `build/seatbuddies-0.11.0-chrome-test.zip` bevat uitsluitend runtime, iconen, LICENSE en vijf volledige MIT-notices. Reproduceerbare ZIP/CRC/checksum, gegenereerde imports/CSP/netwerkprimitieven en minimale rechten worden gecontroleerd. Geen code/assets/dependencies van de onderzochte projecten opgenomen.
 
-Native tests installeren de echte gedownloade Actions-wrapper na controle van buitenste digest én binnenste checksum. Linux draait de volledige native suite; macOS Intel de @smoke-subset, beide met de nieuwe compacte-shellproef. Native upgradeproef gebruikt de vaste Sprint10-baseline uit de workflow. Linux headed: `HEADED=1 xvfb-run -a npm run test:e2e`; Mac: `HEADED=1 npm run test:smoke:chrome`. Installatie van testbrowser: `npm exec playwright install -- --with-deps chromium` (Linux), `npm exec playwright install -- chromium` (Mac).
+Native tests installeren de echte gedownloade Actions-wrapper na controle van buitenste digest én binnenste checksum. Linux draait de volledige native suite; macOS Intel de @smoke-subset, beide met de nieuwe compacte-shellproef. Native upgradeproef gebruikt de vaste Sprint 10-baseline uit de workflow. Linux headed: `HEADED=1 xvfb-run -a npm run test:e2e`; Mac: `HEADED=1 npm run test:smoke:chrome`. Installatie van testbrowser: `npm exec playwright install -- --with-deps chromium` (Linux), `npm exec playwright install -- chromium` (Mac).
 
 Deze beheerde cloud blokkeert unpacked extensies. Lokaal rendererbewijs: `CHROMIUM_PATH=/usr/bin/chromium XDG_CONFIG_HOME=/tmp/seatbuddy-chromium-config XDG_CACHE_HOME=/tmp/seatbuddy-chromium-cache npm run test:ui`. Native lokale blokkade is geen PASS; CI wordt afzonderlijk gelezen. [Feasibility](docs/feasibility.md) en [oplevering](docs/reboot-delivery.md) bevatten werkelijk uitgevoerde checks en grenzen.
 
