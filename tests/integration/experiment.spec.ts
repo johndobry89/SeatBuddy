@@ -7,10 +7,15 @@ import {
   unpackExtensionArchive,
 } from '../helpers/packaged-extension';
 import { publicShowing } from '../fixtures/vue-page-reader';
+import {
+  bookingAlpha,
+  bookingBeta,
+  quickSelected,
+} from '../fixtures/vue-header';
 
 test('packaged experiment: native action grant, one popup click, fixture-only isolated observation, no retained data', async () => {
   test.setTimeout(45_000);
-  const label = '0.11.1-experimental';
+  const label = '0.11.2-experimental';
   const path = `build/experiment/seatbuddies-${label}-chrome-test.zip`;
   const packaged = process.env.SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP
     ? await unpackActionsArtifact(
@@ -25,7 +30,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       );
   const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-read-spike-'));
   expect(packaged.sha256).toBe(
-    '661d5e41e378f3ff2921717fd24bf34b0843613a28dde4f8975c930bdf5fd028',
+    '7a3c9cd9f043a40d1ba3ce94021e65d1e90a64e1fd749300cdfa65a3e818438c',
   );
   const previous = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
   process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
@@ -66,12 +71,14 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     const fixtureUrl =
       'https://www.vuecinemas.nl/seatbuddies-invented-public-fixture';
     const unexpected: string[] = [];
+    let fixtureHtml = publicShowing;
+    const heroUrl = 'https://www.vuecinemas.nl/kopen/overzicht/fictief';
     await context.route(/^https?:/, async (route) => {
       if (
-        route.request().url() === fixtureUrl &&
+        [fixtureUrl, heroUrl].includes(route.request().url()) &&
         route.request().resourceType() === 'document'
       )
-        await route.fulfill({ contentType: 'text/html', body: publicShowing });
+        await route.fulfill({ contentType: 'text/html', body: fixtureHtml });
       else {
         unexpected.push(route.request().resourceType());
         await route.abort();
@@ -127,7 +134,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     }
     await expect(
       popup.getByRole('button', { name: 'Lees deze Vue-pagina', exact: true }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(popup.getByTestId('page-read-result')).toContainText(
       'niet bevestigd door Vue',
     );
@@ -155,6 +162,80 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       fresh.getByRole('button', { name: 'Lees deze Vue-pagina', exact: true }),
     ).toBeEnabled();
     await expect(fresh.getByTestId('read-movie')).toHaveCount(0);
+    await fresh.close();
+    // Same one button, with real Chrome serialization/visibility for both new sources.
+    fixtureHtml = quickSelected;
+    await source.reload();
+    const quick = await openPopup();
+    await quick
+      .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
+      .click();
+    await expect(quick.getByTestId('page-read-result')).toHaveAttribute(
+      'data-source',
+      'VISIBLE_QUICK_TICKET',
+    );
+    for (const [key, value] of Object.entries({
+      movie: 'Demo Alpha',
+      cinema: 'Vue Teststad',
+      date: 'za 13 apr',
+      time: '20:45',
+    }))
+      await expect(quick.getByTestId(`read-${key}`)).toHaveText(value);
+    await expect(quick.getByTestId('read-hall')).toHaveText('ONBEKEND');
+    await source.evaluate(() => {
+      document.querySelector(
+        'li[data-test="quick-book-film-selector"] .dropdown-opener__title-value',
+      )!.textContent = 'Demo Beta';
+    });
+    await quick
+      .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
+      .click();
+    await expect(quick.getByTestId('read-movie')).toHaveText('Demo Beta');
+    await quick.close();
+    fixtureHtml = bookingAlpha;
+    await source.goto(heroUrl);
+    const hero = await openPopup();
+    await hero
+      .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
+      .click();
+    await expect(hero.getByTestId('page-read-result')).toHaveAttribute(
+      'data-source',
+      'VISIBLE_BOOKING_HERO',
+    );
+    for (const [key, value] of Object.entries({
+      movie: 'Demo Alpha',
+      cinema: 'Vue Teststad',
+      date: '2030-04-12',
+      time: '19:30',
+      hall: 'Zaal 2',
+    }))
+      await expect(hero.getByTestId(`read-${key}`)).toHaveText(value);
+    await hero.close();
+    fixtureHtml = bookingBeta;
+    await source.reload();
+    const checkout = await openPopup();
+    await checkout
+      .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
+      .click();
+    await expect(checkout.getByTestId('page-read-result')).toContainText(
+      'NIET BESCHIKBAAR',
+    );
+    await expect(checkout.getByTestId('read-movie')).toHaveCount(0);
+    await expect(checkout.locator('body')).not.toContainText(
+      'dummy-private-value',
+    );
+    expect(
+      await worker.evaluate(async () => ({
+        local: await chrome.storage.local.get(null),
+        session: await chrome.storage.session.get(null),
+      })),
+    ).toEqual(storageBefore);
+    expect(
+      await worker.evaluate(() =>
+        Reflect.get(globalThis, 'experimentMessages'),
+      ),
+    ).toBe(0);
+    expect(unexpected).toEqual([]);
     console.log(
       `EXPERIMENT FIXTURE_NATIVE PASS SHA256 ${packaged.sha256}; OWNER_MANUAL_LIVE NOT_RUN`,
     );

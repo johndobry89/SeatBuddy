@@ -7,7 +7,6 @@ const LegacyPopup = defineAsyncComponent(
 );
 const result = ref<PageRead | null>(null);
 const busy = ref(false),
-  used = ref(false),
   message = ref('');
 let disposed = false;
 const session = createPageReadSession(() => {
@@ -17,9 +16,10 @@ const session = createPageReadSession(() => {
       'NIET BESCHIKBAAR — tab gewijzigd of geen tijdelijke toegang. Incognitotoegang moet uit staan. Heropen de popup op een openbare Vue-voorstelling.';
 });
 async function read() {
-  if (busy.value || used.value) return;
+  if (busy.value) return;
+  result.value = null;
+  message.value = '';
   busy.value = true;
-  used.value = true;
   try {
     const observation = await session.read();
     if (disposed) return;
@@ -27,9 +27,11 @@ async function read() {
     message.value =
       observation.reason === 'PROTECTED_PAGE'
         ? 'NIET BESCHIKBAAR — dialoog, account- of betaalpagina. Er zijn geen voorstellingsgegevens gelezen.'
-        : observation.reason === 'UNSUPPORTED'
-          ? 'ONBEKEND — geen ondersteunde zichtbare metadata. Stop deze proef; geen gegevens opnieuw invoeren.'
-          : 'Gelezen van deze pagina, niet bevestigd door Vue. Geen ticket geboekt.';
+        : observation.reason === 'AMBIGUOUS_CONTEXT'
+          ? 'ONBEKEND — meerdere voorstellingscontexten. Er zijn geen gegevens gecombineerd.'
+          : observation.reason === 'UNSUPPORTED'
+            ? 'ONBEKEND — geen eenduidige zichtbare selectie. Kies op Vue en lees opnieuw; stop als de pagina niet wordt herkend.'
+            : 'Gelezen van deze pagina, niet bevestigd door Vue. Geen ticket geboekt.';
   } catch (error) {
     if (!disposed)
       message.value =
@@ -54,13 +56,18 @@ const labels = {
 };
 </script>
 <template>
-  <ProductShell popup test-version="0.11.1-experimental">
+  <ProductShell popup test-version="0.11.2-experimental">
     <template #page-reader>
       <p class="source">EXPERIMENT 01 · tijdelijke toegang na je klik</p>
-      <button :disabled="busy || used" @click="read">
+      <button :disabled="busy" @click="read">
         {{ busy ? 'Pagina lezen…' : 'Lees deze Vue-pagina' }}
       </button>
-      <div role="status" aria-live="polite" data-testid="page-read-result">
+      <div
+        role="status"
+        aria-live="polite"
+        data-testid="page-read-result"
+        :data-source="result?.screenScope"
+      >
         <p v-if="message">{{ message }}</p>
         <template v-if="result && result.reason !== 'PROTECTED_PAGE'">
           <dl>
@@ -82,10 +89,15 @@ const labels = {
           <small
             >Momentopname
             {{ new Date(result.observedAt).toLocaleTimeString('nl-NL') }} ·
-            alleen zichtbare kop/metadata in main. Geen account-, stoel- of
-            kostenbewijs.</small
+            {{
+              result.screenScope === 'VISIBLE_QUICK_TICKET'
+                ? 'Quick Ticket, zonder jaar of zaal'
+                : result.screenScope === 'VISIBLE_BOOKING_HERO'
+                  ? 'Booking-header'
+                  : 'Zichtbare metadata'
+            }}. Geen account-, stoel- of kostenbewijs.</small
           >
-          <p>Opnieuw lezen? Sluit en heropen de popup.</p>
+          <p>Keuze gewijzigd? Klik opnieuw op Lees deze Vue-pagina.</p>
         </template>
       </div>
     </template>

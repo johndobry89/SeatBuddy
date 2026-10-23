@@ -1,49 +1,12 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { JSDOM } from 'jsdom';
-import {
-  createPageReadSession,
-  readVisibleVuePage,
-  type PageRead,
-} from '../../src/experiment/vue-page-reader';
+import { createPageReadSession } from '../../src/experiment/vue-page-reader';
 import { publicShowing } from '../fixtures/vue-page-reader';
+import { extract } from '../helpers/vue-page-reader';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
-function extract(
-  html: string,
-  url = 'https://www.vuecinemas.nl/public-fixture',
-): PageRead {
-  const dom = new JSDOM(html, { url, runScripts: 'outside-only' });
-  const { window } = dom;
-  // DOM-layout doubles only; actual visibility/serialization is separately tested in Chrome.
-  Object.defineProperty(window.HTMLElement.prototype, 'checkVisibility', {
-    value() {
-      return !this.closest('[hidden], [style="display:none"]');
-    },
-  });
-  Object.defineProperty(window.HTMLElement.prototype, 'getClientRects', {
-    value() {
-      return [{}];
-    },
-  });
-  Object.defineProperty(window.HTMLElement.prototype, 'innerText', {
-    get() {
-      return this.textContent;
-    },
-  });
-  Object.defineProperty(window.HTMLInputElement.prototype, 'value', {
-    get() {
-      throw new Error('Input must never be read');
-    },
-  });
-  try {
-    return window.eval(`(${readVisibleVuePage.toString()})()`) as PageRead;
-  } finally {
-    window.close();
-  }
-}
 
 test('one invented public showing returns only the exact visible allowlisted fields', () => {
   const result = extract(
@@ -152,7 +115,7 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
     session.dispose();
     expect(removeListener).toHaveBeenCalledTimes(2);
   }
-  // Also exercise post-injection validation and the one-call lifetime cap.
+  // Also exercise post-injection validation and one injection per explicit read.
   const executeScript = vi.fn().mockResolvedValue([
     {
       frameId: 0,
@@ -181,7 +144,7 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
   const session = createPageReadSession(vi.fn());
   await expect(session.read()).rejects.toThrow('NIET BESCHIKBAAR');
   await expect(session.read()).rejects.toThrow('NIET BESCHIKBAAR');
-  expect(executeScript).toHaveBeenCalledOnce();
+  expect(executeScript).toHaveBeenCalledTimes(2);
   expect(executeScript.mock.calls[0]?.[0]).toMatchObject({
     target: { tabId: 12, frameIds: [0] },
     world: 'ISOLATED',
@@ -196,7 +159,7 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
   ) => void;
   callback(12, { status: 'loading' });
   await expect(navigated.read()).rejects.toThrow('NIET BESCHIKBAAR');
-  expect(executeScript).toHaveBeenCalledOnce();
+  expect(executeScript).toHaveBeenCalledTimes(2);
   navigated.dispose();
 });
 

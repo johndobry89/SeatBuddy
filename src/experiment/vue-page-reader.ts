@@ -12,9 +12,18 @@ const fieldSchema = z
     (field) => !field.value || !/[@<>\r\n]|https?:|\d{7}/i.test(field.value),
   );
 const resultSchema = z.strictObject({
-  reason: z.enum(['VISIBLE_METADATA', 'UNSUPPORTED', 'PROTECTED_PAGE']),
+  reason: z.enum([
+    'VISIBLE_METADATA',
+    'UNSUPPORTED',
+    'PROTECTED_PAGE',
+    'AMBIGUOUS_CONTEXT',
+  ]),
   observedAt: z.number().int().positive(),
-  screenScope: z.literal('VISIBLE_MAIN_METADATA'),
+  screenScope: z.enum([
+    'VISIBLE_MAIN_METADATA',
+    'VISIBLE_QUICK_TICKET',
+    'VISIBLE_BOOKING_HERO',
+  ]),
   fields: z.strictObject({
     movie: fieldSchema,
     cinema: fieldSchema,
@@ -26,7 +35,7 @@ const resultSchema = z.strictObject({
 export type PageRead = z.infer<typeof resultSchema>;
 
 /** Serialized by Chrome: deliberately self-contained, no imported closures.
- * This semantic pattern is fixture-tested, NOT a verified Vue-site selector map. */
+ * Vue selectors are issue #31's sanitised snapshot evidence, not a live guarantee. */
 export function readVisibleVuePage(): PageRead {
   const unknown = () => ({ status: 'UNKNOWN' as const, value: null });
   const result: PageRead = {
@@ -60,13 +69,230 @@ export function readVisibleVuePage(): PageRead {
     ) ||
     [
       ...document.querySelectorAll(
-        'dialog[open], [role="dialog"], [aria-modal="true"], input[type="password"], input[type="email"], input[autocomplete="username"], input[autocomplete^="cc-"]',
+        '.checkout, dialog[open], [role="dialog"], [aria-modal="true"], input[type="password"], input[type="email"], input[autocomplete="username"], input[autocomplete^="cc-"]',
       ),
     ].some(visible)
   ) {
     result.reason = 'PROTECTED_PAGE';
     return result;
   }
+  const validDate = (value: string) => {
+    // Only explicit calendar dates, never infer today/tomorrow or a year.
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    const dutch = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(value);
+    if (!iso && !dutch) return false;
+    const year = Number(iso?.[1] ?? dutch?.[3]),
+      month = Number(iso?.[2] ?? dutch?.[2]),
+      day = Number(iso?.[3] ?? dutch?.[1]);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return (
+      year >= 2000 &&
+      year <= 2100 &&
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day
+    );
+  };
+  // Two narrow, independent sources. Never inspect menus, CTA URLs or siblings.
+  const display = (node: Element) => {
+    if (!visible(node) || node.children.length || node.closest('.checkout'))
+      return null;
+    const value = node.textContent?.trim().replace(/\s+/g, ' ');
+    return value && value.length <= 120 && !/[@<>]|https?:|\d{7}/i.test(value)
+      ? value
+      : null;
+  };
+  const single = (root: ParentNode, selector: string) => {
+    const nodes = root.querySelectorAll(selector);
+    if (nodes.length !== 1)
+      return {
+        node: null,
+        field:
+          nodes.length > 1
+            ? { status: 'AMBIGUOUS' as const, value: null }
+            : unknown(),
+      };
+    const node = nodes[0]!;
+    const value = display(node);
+    return {
+      node,
+      field: value ? { status: 'OBSERVED_VISIBLE' as const, value } : unknown(),
+    };
+  };
+  const ambiguousContext = () => {
+    result.reason = 'AMBIGUOUS_CONTEXT';
+    for (const key of Object.keys(
+      result.fields,
+    ) as (keyof PageRead['fields'])[])
+      result.fields[key] = { status: 'AMBIGUOUS', value: null };
+    return result;
+  };
+  const months = [
+    'jan',
+    'feb',
+    'mrt',
+    'apr',
+    'mei',
+    'jun',
+    'jul',
+    'aug',
+    'sep',
+    'okt',
+    'nov',
+    'dec',
+  ];
+  const shortDate = (value: string) => {
+    const parts =
+      /^(zo|ma|di|wo|do|vr|za) ([1-9]|[12]\d|3[01]) (jan|feb|mrt|apr|mei|jun|jul|aug|sep|okt|nov|dec)$/.exec(
+        value,
+      );
+    if (!parts) return null;
+    const month = months.indexOf(parts[3]!) + 1,
+      day = Number(parts[2]);
+    return day <= [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]!
+      ? { weekday: parts[1], month, day }
+      : null;
+  };
+  const validTime = (value: string) =>
+    /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+  const heroes = document.querySelectorAll('[data-test="booking-hero"]');
+  const quicks = document.querySelectorAll(
+    'div.quick-book[role="complementary"]',
+  );
+  if (heroes.length) {
+    result.screenScope = 'VISIBLE_BOOKING_HERO';
+    if (heroes.length !== 1) return ambiguousContext();
+    const hero = heroes[0]!;
+    if (!visible(hero)) return result;
+    if ([...quicks].some(visible)) return ambiguousContext();
+    const movie = single(
+      hero,
+      'h1[data-test="booking-film-title"], h1.booking-heading__title',
+    );
+    const cinema = single(hero, '.booking-hero__cinema');
+    const hall = single(
+      hero,
+      '[data-test="booking-hero-cinema-screen-name"], .booking-hero__cinema-screen',
+    );
+    const date = single(
+      hero,
+      'time[data-test="booking-date-date"], time.booking-date__date',
+    );
+    const time = single(
+      hero,
+      'time[data-test="booking-date-start-time"], time.booking-date__time__start',
+    );
+    result.fields = {
+      movie: movie.field,
+      cinema: cinema.field,
+      hall: hall.field,
+      date: unknown(),
+      time: time.field,
+    };
+    // Local calendar fields only. No timezone conversion or inferred year.
+    const stamp = date.field.value ? date.node?.getAttribute('datetime') : null;
+    const local = stamp
+      ? /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::([0-5]\d))?$/.exec(stamp)
+      : null;
+    if (date.field.status === 'AMBIGUOUS') result.fields.date = date.field;
+    else if (local && validDate(local[1]!) && validTime(local[2]!)) {
+      const shown = shortDate(date.field.value!);
+      const calendar = new Date(`${local[1]}T00:00:00Z`);
+      const matches =
+        date.field.value === local[1] ||
+        (shown &&
+          shown.day === calendar.getUTCDate() &&
+          shown.month === calendar.getUTCMonth() + 1 &&
+          shown.weekday ===
+            ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'][calendar.getUTCDay()]);
+      result.fields.date = matches
+        ? { status: 'OBSERVED_VISIBLE', value: local[1]! }
+        : { status: 'AMBIGUOUS', value: null };
+      if (time.field.value) {
+        const timeStamp = time.node?.getAttribute('datetime');
+        if (!validTime(time.field.value)) result.fields.time = unknown();
+        else if (
+          time.field.value !== local[2] ||
+          (timeStamp !== null &&
+            timeStamp !== undefined &&
+            timeStamp !== time.field.value &&
+            timeStamp !== stamp)
+        )
+          result.fields.time = { status: 'AMBIGUOUS', value: null };
+      }
+    }
+    if (
+      result.fields.date.status !== 'OBSERVED_VISIBLE' &&
+      result.fields.time.status === 'OBSERVED_VISIBLE'
+    )
+      result.fields.time = unknown();
+    if (hall.field.value && !/^Zaal [1-9]\d?$/.test(hall.field.value))
+      result.fields.hall = unknown();
+    // Explicitly allowlisted hall heading only; never read the seat grid.
+    const screenNodes = [
+      ...document.querySelectorAll('[data-test="screen-title"]'),
+    ].filter(visible);
+    if (result.fields.hall.value && screenNodes.length) {
+      if (
+        screenNodes.length !== 1 ||
+        display(screenNodes[0]!) !== result.fields.hall.value
+      )
+        result.fields.hall = { status: 'AMBIGUOUS', value: null };
+    }
+    result.reason = 'VISIBLE_METADATA';
+    return result;
+  }
+  if (quicks.length) {
+    result.screenScope = 'VISIBLE_QUICK_TICKET';
+    if (quicks.length !== 1) return ambiguousContext();
+    const quick = quicks[0]!;
+    if (!visible(quick)) return result;
+    const definitions = [
+      ['cinema', 'venue', 'Kies een locatie'],
+      ['movie', 'film', 'Kies een film of evenement'],
+      ['date', 'date', 'Kies een datum'],
+      ['time', 'time', 'Kies een tijd'],
+    ] as const;
+    for (const [key, category, placeholder] of definitions) {
+      const containers = quick.querySelectorAll(
+        `li[data-test="quick-book-${category}-selector"]`,
+      );
+      if (containers.length !== 1) {
+        result.fields[key] =
+          containers.length > 1
+            ? { status: 'AMBIGUOUS', value: null }
+            : unknown();
+        continue;
+      }
+      const container = containers[0]!;
+      if (!visible(container)) continue;
+      const openers = container.querySelectorAll(
+        'button[data-test="dropdown-opener"]',
+      );
+      if (openers.length !== 1) {
+        result.fields[key] =
+          openers.length > 1 ? { status: 'AMBIGUOUS', value: null } : unknown();
+        continue;
+      }
+      const opener = openers[0]!;
+      if (!visible(opener)) continue;
+      const selected = single(opener, '.dropdown-opener__title-value').field;
+      const value = selected.value;
+      result.fields[key] =
+        value === placeholder ||
+        (value &&
+          ((key === 'date' && !shortDate(value)) ||
+            (key === 'time' && !validTime(value))))
+          ? unknown()
+          : selected;
+    }
+    if (
+      Object.values(result.fields).some((field) => field.status !== 'UNKNOWN')
+    )
+      result.reason = 'VISIBLE_METADATA';
+    return result;
+  }
+  if (location.pathname.startsWith('/kopen/')) return result;
   const mains = [...document.querySelectorAll('main')].filter(visible);
   if (mains.length !== 1) return result;
   const main = mains[0]!;
@@ -115,23 +341,6 @@ export function readVisibleVuePage(): PageRead {
     zaal: 'hall',
   };
   const invalid = new Set<keyof PageRead['fields']>();
-  const validDate = (value: string) => {
-    // Only explicit calendar dates, never infer today/tomorrow or a year.
-    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-    const dutch = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(value);
-    if (!iso && !dutch) return false;
-    const year = Number(iso?.[1] ?? dutch?.[3]),
-      month = Number(iso?.[2] ?? dutch?.[2]),
-      day = Number(iso?.[3] ?? dutch?.[1]);
-    const date = new Date(Date.UTC(year, month - 1, day));
-    return (
-      year >= 2000 &&
-      year <= 2100 &&
-      date.getUTCFullYear() === year &&
-      date.getUTCMonth() === month - 1 &&
-      date.getUTCDate() === day
-    );
-  };
   const terms = main.querySelectorAll('dl > dt');
   if (terms.length > 40) return result;
   for (const term of terms) {
@@ -187,7 +396,7 @@ export function readVisibleVuePage(): PageRead {
 /** Only the lifetime of this action popup. No worker, retained data or retries. */
 export function createPageReadSession(invalidate: () => void) {
   let revoked = false,
-    used = false;
+    reading = false;
   let target: { id: number; windowId: number; url: string } | undefined;
   const bounded = async <T>(operation: Promise<T>): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -274,8 +483,8 @@ export function createPageReadSession(invalidate: () => void) {
   return {
     async read(): Promise<PageRead> {
       await initialized;
-      if (used || revoked || !target) throw unavailable();
-      used = true;
+      if (reading || revoked || !target) throw unavailable();
+      reading = true;
       try {
         const [current] = await bounded(
           chrome.tabs.query({ active: true, currentWindow: true }),
@@ -316,6 +525,8 @@ export function createPageReadSession(invalidate: () => void) {
         return result;
       } catch {
         throw unavailable();
+      } finally {
+        reading = false;
       }
     },
     dispose() {
