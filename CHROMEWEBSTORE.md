@@ -1,3 +1,5 @@
+> **0.11.0-test / Sprint12:** geen Storepublicatie. Compacte standaardstart met uitsluitend officiële Vue-link; eerdere plannerfuncties alleen achter Ontwikkelaarstests. PRODUCT_VALUE NO-GO; onderstaande historische listingconcepten zijn niet publicatieklaar. Zie [huidige productbeslissing](docs/ux-reset-benchmark.md).
+
 # Chrome Web Store — SeatBuddies (voorbereiding)
 
 Bijgewerkt **22 oktober 2026**. **DRAFT — niet ingediend, gepubliceerd of goedgekeurd.** Testversie **0.10.1**, MV3, Chrome 116+. Dit document beschrijft de huidige runtime en is geen Storetoelating. [ADR-006](docs/decisions/ADR-006-explicit-local-retention.md) vervangt uitsluitend de oudere geen-opslagkeuze; overige invarianten blijven gelden.

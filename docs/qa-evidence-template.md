@@ -1,3 +1,5 @@
+> Actuele Sprint12-overdracht: gebruik het korte rapport op de [Mac-kaart](macos-test-guide.md). S11 geïnstalleerd/renderend maar **USER_REPORTED UX FAIL**; nieuwe 0.11.0-acceptatie **NOT_RUN**. De onderstaande M1–M7-tekst betreft historische optionele ontwikkelaartests.
+
 # Veilig terugmelden
 
 Gebruik uitsluitend het **ene kopieerbare rapport op de [Mac-kaart](macos-test-guide.md)**. Het vraagt volledige buildcommit, run, inner ZIP-hash, OS/Chrome en M1–M7 met korte geschoonde waarneming. Alle menselijke regels beginnen NOT_RUN; vul uitsluitend werkelijk uitgevoerde stappen in. De optionele ZERO EXTRA-proef hoort bij M7, niet bij een extra formulier.

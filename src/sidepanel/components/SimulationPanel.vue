@@ -1,14 +1,20 @@
 <script setup lang="ts">
+const props = withDefaults(defineProps<{ active?: boolean }>(), {
+  active: true,
+});
 import ZeroExtraNotice from './ZeroExtraNotice.vue';
-import { onMounted, onUnmounted, ref } from 'vue';
-import type { Snapshot } from '../../background/coordinator';
+import { onMounted, onUnmounted, watch, ref } from 'vue';
 import { roles, type Scenario } from '../../core/types';
-import { panelReplySchema, type PanelCommand } from '../../privacy/protocol';
+import type { PanelCommand } from '../../privacy/protocol';
+import { useCompanion } from '../use-companion';
 import { liveDetection } from '../../adapters/vue-cinemas';
 
-const state = ref<Snapshot | null>(null);
-const error = ref('');
-const busy = ref(false);
+const {
+  snapshot: state,
+  error,
+  isSubmitting: busy,
+  command: send,
+} = useCompanion();
 const scenario = ref<Scenario>('matching');
 const checks = ref<Record<string, boolean>>({});
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -20,22 +26,9 @@ const checklist = [
   'Controleer iedere echte bevestiging apart; een vinkje hier bewijst niets.',
 ];
 async function command(message: PanelCommand) {
-  if (busy.value) return;
-  busy.value = true;
-  try {
-    const reply: unknown = await chrome.runtime.sendMessage(message);
-    const result = panelReplySchema.parse(reply);
-    if (!result.ok) throw new Error(result.error);
-    state.value = result.state;
-    error.value = '';
-    if (message.type !== 'GET_STATE') checks.value = {};
-  } catch {
-    state.value = null;
-    error.value =
-      'Geen betrouwbare verbinding met de extensie. Status UNKNOWN. Gebruik de handmatige checklist.';
-  } finally {
-    busy.value = false;
-  }
+  // Same audited read/submission barriers as the manual assistant. Passive reads
+  // never disable buttons, discard local checkmarks or overwrite a newer action.
+  if ((await send(message)) && message.type !== 'GET_STATE') checks.value = {};
 }
 async function openFixture() {
   try {
@@ -46,8 +39,16 @@ async function openFixture() {
 }
 onMounted(() => {
   void command({ type: 'GET_STATE' });
-  timer = setInterval(() => void command({ type: 'GET_STATE' }), 2000);
+  timer = setInterval(() => {
+    if (props.active) void command({ type: 'GET_STATE' });
+  }, 2000);
 });
+watch(
+  () => props.active,
+  (value) => {
+    if (value) void command({ type: 'GET_STATE' });
+  },
+);
 onUnmounted(() => clearInterval(timer));
 </script>
 

@@ -245,6 +245,32 @@ it('rejects syntactically broken generated JavaScript', async () => {
   await expect(packageRuntime(root)).rejects.toThrow(/Invalid generated/);
 });
 
+it('accepts a static local backtick module import emitted by Vite, with exact target validation', async () => {
+  const { root } = await fixture();
+  await writeFile(
+    join(root, 'dist/background.js'),
+    'import(`./assets/panel.js`);',
+  );
+  await expect(packageRuntime(root)).resolves.toMatchObject({
+    name: 'seatbuddies-0.8.0-chrome-test.zip',
+  });
+});
+it.each([
+  'import(`https://fictional.invalid/remote.js`);',
+  'import(`./assets/${name}.js`);',
+  'import(path);',
+  'import(`./assets/missing.js`);',
+  'import(`../outside.js`);',
+  'globalThis[`fetch`]("https://fictional.invalid");',
+])(
+  'keeps dynamic/remote/missing/escaping imports and backtick network primitives blocked: %s',
+  async (source) => {
+    const { root } = await fixture();
+    await writeFile(join(root, 'dist/background.js'), source);
+    await expect(packageRuntime(root)).rejects.toThrow();
+  },
+);
+
 it.each(['LICENSE', 'THIRD_PARTY_NOTICES.txt'])(
   'refuses missing runtime attribution: %s',
   async (file) => {

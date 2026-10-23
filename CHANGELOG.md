@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.0-test — Sprint12 / Operation Reboot (2026-10-22)
+
+- Compacte gedeelde standaardpopup/Side Panel met één statische officiële Quick Ticket-link; geen verplichte administratie of workerpolling. Eerdere tools bewust achter Ontwikkelaarstests, zonder stilzwijgend gegevensverlies.
+- Knipperen van Start simulatie bij de bron gerepareerd: passief verversen en gebruikersacties gescheiden, late antwoorden/unmount afgeschermd, daadwerkelijke FAIL→PASS-regressie met twintig seconden virtuele polling.
+- Klein geïsoleerd fictief drie-acties-prototype met bestaande ZERO EXTRA-engine en twee onafhankelijke reviews; geen live voordeelclaim. Onderzoek vijf OSS-projecten, expliciete bronbeperkingen, onverzonden Vue-verduidelijking en eerlijke two-tabbenchmark.
+- PRODUCT_VALUE NO-GO; G0 NO-GO/toestemming INCONCLUSIVE. Geen nieuwe rechten, afhankelijkheden, live sitecode, accounts, reserveringen of publicatie. Uitgevoerde checks/CI/hash: [oplevering](docs/reboot-delivery.md). Nieuwe menselijke Mac-proef NOT_RUN; oude 0.10.1 proef geïnstalleerd/renderend maar UX FAIL.
+
 ## 0.10.1-test — 22 oktober 2026 (Sprint 11, Field Trial)
 
 - Gerichte popupfix: de bestaande normale-vensterfallback verschijnt ook bij een geweigerde/ontbrekende Side Panel-API terwijl buddybeheer gewoon werkt. Twee daadwerkelijke FAIL→PASS-regressies, keyboard en 320px, geen onterechte openingsmelding.

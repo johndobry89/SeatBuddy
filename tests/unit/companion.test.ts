@@ -1,3 +1,4 @@
+import { effectScope } from 'vue';
 import { workflow } from '../helpers/workflow';
 import { afterEach, expect, it, vi } from 'vitest';
 import { useBuddies } from '../../src/popup/use-buddies';
@@ -255,3 +256,46 @@ it('completion of an older read cannot release an active mutation busy barrier',
   expect(ui.busy.value).toBe(false);
   expect(ui.snapshot.value?.manual.plan).toEqual(plan);
 });
+
+it.each(['panel', 'popup'] as const)(
+  'disposed %s ignores its pending read and sends no further commands',
+  async (kind) => {
+    const worker = new Coordinator();
+    const sender =
+      kind === 'panel'
+        ? panel
+        : { ...panel, url: 'chrome-extension://test/popup.html' };
+    const send = runtime(worker, sender);
+    let finish: ((reply: ReturnType<typeof routeMessage>) => void) | undefined;
+    send.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const scope = effectScope();
+    const ui = scope.run(() =>
+      kind === 'panel' ? useCompanion() : useBuddies(),
+    )!;
+    const action =
+      'command' in ui
+        ? () => ui.command({ type: 'GET_STATE' })
+        : () => ui.load();
+    const pending = action();
+    scope.stop();
+    finish!(
+      routeMessage(
+        worker,
+        { type: kind === 'panel' ? 'GET_STATE' : 'BUDDY_READ' },
+        sender,
+        'test',
+        false,
+        Date.now(),
+      ),
+    );
+    await pending;
+    expect('snapshot' in ui ? ui.snapshot.value : ui.state.value).toBeNull();
+    await action();
+    expect(send).toHaveBeenCalledTimes(1);
+  },
+);

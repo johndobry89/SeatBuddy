@@ -1,4 +1,4 @@
-name: SeatBuddies Field Trial checks and Chrome test build
+name: SeatBuddies Operation Reboot checks and Chrome test build
 on:
   push:
   pull_request:
@@ -10,7 +10,7 @@ permissions:
 jobs:
   package:
     name: Package distributed trial
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
@@ -40,9 +40,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-15-intel]
+        # Avoid the moving ubuntu-latest image during the reported Ubuntu 26 migration.
+        os: [ubuntu-24.04, macos-15-intel]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       SEATBUDDIES_ARTIFACT_SHA256: ${{ needs.package.outputs.artifact-digest }}
     steps:
@@ -74,7 +75,7 @@ jobs:
           echo "SEATBUDDIES_BASELINE_ZIP=$RUNNER_TEMP/seatbuddies-sprint10/build/seatbuddies-0.10.0-chrome-test.zip" >> "$GITHUB_ENV"
       - name: Install Chromium system dependencies on Linux
         if: runner.os == 'Linux'
-        timeout-minutes: 3
+        timeout-minutes: 5
         run: npm exec playwright install-deps -- chromium
       - name: Install Chromium on Linux
         if: runner.os == 'Linux'

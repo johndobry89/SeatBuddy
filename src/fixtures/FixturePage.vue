@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import ReadOnlyLab from './ReadOnlyLab.vue';
+import QuickTicketPrototype from './QuickTicketPrototype.vue';
 import CompanionWidget from './CompanionWidget.vue';
 const fixtureStep = ref('Fictieve voorstelling');
 const showWidget = ref(true);
@@ -68,6 +69,7 @@ async function act(kind: 'BIND' | 'OBSERVE') {
 </script>
 <template>
   <main class="fictional-page">
+    <QuickTicketPrototype />
     <div class="fixture-controls">
       <label for="fixture-schema">Fictief adapterschema</label
       ><select id="fixture-schema" v-model="fixtureSchema">

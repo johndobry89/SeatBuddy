@@ -1,3 +1,11 @@
+# SeatBuddies — compacte start 0.11.0-test
+
+[ADR-010](decisions/ADR-010-product-shell-reboot.md): één officiële Quick Ticket-link, nul verplichte velden, korte ZERO EXTRA-regel, gesloten Hulp/privacy en Ontwikkelaarstests. Geen lege A/B-kaarten, technische broncodes of lange checklist als standaard. Geteste breedtes320/360/420, volledig boven de vouw bij640px hoogte. Toetsenbordfocus zichtbaar op de primaire link.
+
+![Werkelijk gebouwde compacte start, 320×640, toetsenbordfocus](images/seatbuddies-reboot.png)
+
+Werkelijke lokale Chromium-rendererfoto met fictieve/geen gegevens, geen marketingmockup of menselijke Mac-acceptatie. Hieronder de historische ontwerpafspraken/beelden voor optionele ontwikkelaartools; deze zijn niet meer de standaardstart.
+
 # SeatBuddies — visuele afspraken 0.7.0-test
 
 Twee originele, vereenvoudigde bioscoopstoelen vormen het merk: eigen crimson silhouetten, één warme gouden armleuning en een charcoal ondergrond. Geen Vue-/Netflix-logo, externe merkasset, webfont of glow. De naam en beschrijvende tekst vormen het compacte woordmerk; naam-/merkrechten voor publicatie zijn nog niet beoordeeld.

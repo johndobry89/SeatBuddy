@@ -94,14 +94,14 @@ export function auditRuntime(manifest, files) {
       throw new Error(`Invalid generated JavaScript in ${name}`);
     function visit(node) {
       if (
-        (ts.isIdentifier(node) || ts.isStringLiteral(node)) &&
+        (ts.isIdentifier(node) || ts.isStringLiteralLike(node)) &&
         forbidden.has(node.text)
       )
         throw new Error(`Network or dynamic execution primitive in ${name}`);
       if (
         (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
         node.moduleSpecifier &&
-        (!ts.isStringLiteral(node.moduleSpecifier) ||
+        (!ts.isStringLiteralLike(node.moduleSpecifier) ||
           !/^\.\.?\//.test(node.moduleSpecifier.text))
       )
         throw new Error(`Nonlocal module in ${name}`);
@@ -109,21 +109,21 @@ export function auditRuntime(manifest, files) {
         ts.isCallExpression(node) &&
         node.expression.kind === ts.SyntaxKind.ImportKeyword &&
         (!node.arguments[0] ||
-          !ts.isStringLiteral(node.arguments[0]) ||
+          !ts.isStringLiteralLike(node.arguments[0]) ||
           !/^\.\.?\//.test(node.arguments[0].text))
       )
         throw new Error(`Unbounded module import in ${name}`);
       if (
         (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
         node.moduleSpecifier &&
-        ts.isStringLiteral(node.moduleSpecifier)
+        ts.isStringLiteralLike(node.moduleSpecifier)
       )
         localResource(node.moduleSpecifier.text);
       if (
         ts.isCallExpression(node) &&
         node.expression.kind === ts.SyntaxKind.ImportKeyword &&
         node.arguments[0] &&
-        ts.isStringLiteral(node.arguments[0])
+        ts.isStringLiteralLike(node.arguments[0])
       )
         localResource(node.arguments[0].text);
       ts.forEachChild(node, visit);

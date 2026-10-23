@@ -1,4 +1,4 @@
-import { ref } from 'vue';
+import { getCurrentScope, onScopeDispose, ref } from 'vue';
 import { sendRuntime } from '../chrome/messaging';
 import { Coordinator, type Snapshot } from '../background/coordinator';
 import { panelReplySchema, type PanelCommand } from '../privacy/protocol';
@@ -17,7 +17,13 @@ export function useCompanion() {
   const restoredDraft = ref<Showtime | null>(null);
   const local = new Coordinator();
   let operation = 0;
-  let reading = false;
+  const isRefreshing = ref(false);
+  let active = true;
+  if (getCurrentScope())
+    onScopeDispose(() => {
+      active = false;
+      operation++;
+    });
   function disconnect() {
     offline.value = true;
     local.reset();
@@ -30,11 +36,12 @@ export function useCompanion() {
   // A deliberate user action discards both local and worker drafts. No failed
   // PLAN/ACKNOWLEDGE is queued, merged or replayed after a transport failure.
   async function reconnect() {
-    if (busy.value || !offline.value) return false;
+    if (!active || busy.value || !offline.value) return false;
     busy.value = true;
     operation++; // Invalidate a read already in flight before explicit reconnect.
     try {
       const reply = await send({ type: 'RESET' });
+      if (!active) return false;
       if (!reply.ok) throw new Error('Unavailable');
       local.reset();
       snapshot.value = reply.state;
@@ -45,20 +52,21 @@ export function useCompanion() {
       return true;
     } catch {
       // Keep the user's local draft if a reconnect attempt is unsuccessful.
+      if (!active) return false;
       error.value =
         'Opnieuw verbinden is niet gelukt. Je kunt lokaal verder; heropen of herlaad de extensie via chrome://extensions.';
       return false;
     } finally {
-      busy.value = false;
+      if (active) busy.value = false;
     }
   }
   async function command(message: PanelCommand) {
     const read = message.type === 'GET_STATE';
-    if (busy.value || (read && reading)) return false;
+    if (!active || busy.value || (read && isRefreshing.value)) return false;
     const current = ++operation;
     // Background reads must not disable a focused button or drop a user action.
     // A mutation supersedes an in-flight read; its late reply is ignored.
-    if (read) reading = true;
+    if (read) isRefreshing.value = true;
     else busy.value = true;
     try {
       if (offline.value) {
@@ -96,12 +104,13 @@ export function useCompanion() {
             }
           : message;
       const reply = await send(request);
-      if (current !== operation) return false;
+      if (!active || current !== operation) return false;
       if (!reply.ok) {
         if (reply.code === 'BROWSER_UNAVAILABLE') throw new Error(reply.error);
         if (reply.code === 'STALE_BUDDY' || reply.code === 'STALE_WORKFLOW') {
-          const current = await send({ type: 'GET_STATE' });
-          if (current.ok) snapshot.value = current.state;
+          const latest = await send({ type: 'GET_STATE' });
+          if (!active || current !== operation) return false;
+          if (latest.ok) snapshot.value = latest.state;
         }
         error.value = reply.error;
         return false;
@@ -123,11 +132,13 @@ export function useCompanion() {
       if (message.type !== 'GET_STATE') error.value = '';
       return true;
     } catch {
-      if (current === operation) disconnect();
+      if (active && current === operation) disconnect();
       return false;
     } finally {
-      if (read) reading = false;
-      else busy.value = false;
+      if (active) {
+        if (read) isRefreshing.value = false;
+        else busy.value = false;
+      }
     }
   }
   return {
@@ -135,6 +146,8 @@ export function useCompanion() {
     offline,
     error,
     busy,
+    isSubmitting: busy,
+    isRefreshing,
     lifecycleNotice,
     command,
     reconnect,
