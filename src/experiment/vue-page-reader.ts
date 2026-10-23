@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import {
+  duoCategorySchema,
+  duoStatusSchema,
+  formatDuoPlan,
+  validateDuoPlan,
+  type DuoPlan,
+} from './duo-plan';
 
 const fieldSchema = z
   .strictObject({
@@ -11,14 +18,7 @@ const fieldSchema = z
   .refine(
     (field) => !field.value || !/[@<>\r\n]|https?:|\d{7}/i.test(field.value),
   );
-const candidateCategory = z.enum([
-  'Lux',
-  'Saver Lux',
-  'Super Saver Lux',
-  'Regular',
-  'Saver',
-  'Super Saver',
-]);
+const candidateCategory = duoCategorySchema;
 const seatSummarySchema = z
   .strictObject({
     source: z.literal('VISIBLE_LIVE_SEATMAP'),
@@ -94,6 +94,7 @@ export const resultSchema = z.strictObject({
     'VISIBLE_BOOKING_HERO',
   ]),
   seats: seatSummarySchema.optional(),
+  duo: duoStatusSchema.optional(),
   fields: z.strictObject({
     movie: fieldSchema,
     cinema: fieldSchema,
@@ -104,9 +105,54 @@ export const resultSchema = z.strictObject({
 });
 export type PageRead = z.infer<typeof resultSchema>;
 
+/** A deliberate selection from this current observation, never imported evidence. */
+export function createDuoPlan(
+  raw: unknown,
+  selected: number,
+  now = Date.now(),
+): string {
+  const read = resultSchema.parse(raw),
+    map = read.seats;
+  if (
+    read.reason !== 'VISIBLE_METADATA' ||
+    read.screenScope !== 'VISIBLE_BOOKING_HERO' ||
+    !Object.values(read.fields).every(
+      (field) => field.status === 'OBSERVED_VISIBLE',
+    ) ||
+    !map ||
+    map.reason !== 'CHECK_VISUALLY' ||
+    map.categoryEvidence !== 'EXACT_VISIBLE_ICON' ||
+    map.scheme === 'UNKNOWN' ||
+    map.observedAt !== read.observedAt ||
+    !Number.isInteger(selected) ||
+    selected < 0 ||
+    !map.pairs[selected]
+  )
+    throw new Error('STOP — kies een paar uit een verse volledige waarneming.');
+  const pair = map.pairs[selected]!;
+  return formatDuoPlan(
+    {
+      version: 1,
+      source: 'OWNER_VISIBLE_PAGE',
+      state: 'NOT_BOOKED',
+      observedAt: read.observedAt,
+      showing: Object.fromEntries(
+        Object.entries(read.fields).map(([key, field]) => [key, field.value]),
+      ),
+      pair: {
+        row: pair.row,
+        A: pair.seats[0],
+        B: pair.seats[1],
+        categories: pair.categories,
+      },
+    },
+    now,
+  );
+}
+
 /** Serialized by Chrome: deliberately self-contained, no imported closures.
  * Selectors are issues #31/#33's sanitised evidence, not a live guarantee. */
-export function readVisibleVuePage(): PageRead {
+export function readVisibleVuePage(target?: DuoPlan): PageRead {
   const unknown = () => ({ status: 'UNKNOWN' as const, value: null });
   const result: PageRead = {
     reason: 'UNSUPPORTED',
@@ -120,6 +166,14 @@ export function readVisibleVuePage(): PageRead {
       hall: unknown(),
     },
   };
+  if (target) {
+    result.duo = 'UNKNOWN_STOP';
+    if (
+      Date.now() < target.observedAt ||
+      Date.now() - target.observedAt >= 300_000
+    )
+      return result;
+  }
   if (
     window !== window.top ||
     !['https://www.vuecinemas.nl', 'https://vuecinemas.nl'].includes(
@@ -326,7 +380,7 @@ export function readVisibleVuePage(): PageRead {
       counts: null,
       pairs: [],
     };
-    result.seats = summary;
+    if (!target) result.seats = summary;
     const observeSeats = () => {
       summary.reason = 'MAP_UNKNOWN';
       const scenes = document.querySelectorAll('.seat-map__scaled-scene');
@@ -600,13 +654,12 @@ export function readVisibleVuePage(): PageRead {
       if (!legendKnown) return;
       // Unlike the fictional matcher, these observations prove neither fees,
       // account eligibility nor a hold. Retain its gap/unknown/Ultra exclusions.
-      const candidates: {
-        pair: SeatSummary['pairs'][number];
-        same: boolean;
-      }[] = [];
-      for (let i = 0; i < parsed.length - 1; i++) {
-        const a = parsed[i]!,
-          b = parsed[i + 1]!;
+      type ObservedSeat = (typeof parsed)[number];
+      // One physical safety predicate for discovery AND exact received-pair checks.
+      const assessPair = (
+        a: ObservedSeat,
+        b: ObservedSeat,
+      ): SeatSummary['pairs'][number] | null => {
         if (
           a.state !== 'available' ||
           b.state !== 'available' ||
@@ -619,12 +672,12 @@ export function readVisibleVuePage(): PageRead {
           Math.abs(a.seat - b.seat) !== 1 ||
           Math.abs(a.column - b.column) !== 1
         )
-          continue;
+          return null;
         // Ignore formatting whitespace only. A span, comment or other node breaks adjacency.
         let next = a.button.nextSibling;
         while (next?.nodeType === Node.TEXT_NODE && !next.textContent?.trim())
           next = next.nextSibling;
-        if (next !== b.button) continue;
+        if (next !== b.button) return null;
         if (
           [a.button, b.button, a.button.parentElement!].some((node) =>
             /accessible|wheelchair|disabled|companion|special|recliner|paired|sofa/i.test(
@@ -632,7 +685,7 @@ export function readVisibleVuePage(): PageRead {
             ),
           )
         )
-          continue;
+          return null;
         const ar = a.button.getBoundingClientRect(),
           br = b.button.getBoundingClientRect();
         // Counts-only when layout is unavailable. Reject overlap, large gaps,
@@ -662,26 +715,64 @@ export function readVisibleVuePage(): PageRead {
           right.left < left.right ||
           right.left - left.right > width * 0.3
         )
-          continue;
-        candidates.push({
-          pair: {
-            row: a.row,
-            seats: [a.seat, b.seat],
-            categories: [a.category, b.category],
-          },
-          same: a.category === b.category,
-        });
+          return null;
+        return {
+          row: a.row,
+          seats: [a.seat, b.seat],
+          categories: [a.category, b.category],
+        };
+      };
+      if (target) {
+        const a = parsed.find(
+          (seat) => seat.row === target.pair.row && seat.seat === target.pair.A,
+        );
+        const b = parsed.find(
+          (seat) => seat.row === target.pair.row && seat.seat === target.pair.B,
+        );
+        if (!a || !b || !a.state || !b.state) return;
+        if (a.state !== 'available' || b.state !== 'available') {
+          result.duo = 'PAIR_UNAVAILABLE';
+          return;
+        }
+        const pair = assessPair(a, b);
+        if (
+          pair &&
+          pair.categories.every(
+            (category, i) => category === target.pair.categories[i],
+          )
+        )
+          result.duo = 'DUO_MATCH_POSSIBLE';
+        return;
+      }
+      const candidates: {
+        pair: SeatSummary['pairs'][number];
+        same: boolean;
+      }[] = [];
+      for (let i = 0; i < parsed.length - 1; i++) {
+        const pair = assessPair(parsed[i]!, parsed[i + 1]!);
+        if (pair)
+          candidates.push({
+            pair,
+            same: pair.categories[0] === pair.categories[1],
+          });
       }
       candidates.sort((a, b) => Number(b.same) - Number(a.same));
       summary.pairs = candidates.slice(0, 3).map((candidate) => candidate.pair);
       if (summary.pairs.length) summary.reason = 'CHECK_VISUALLY';
     };
+    const complete = Object.values(result.fields).every(
+      (field) => field.status === 'OBSERVED_VISIBLE',
+    );
     if (
-      Object.values(result.fields).every(
-        (field) => field.status === 'OBSERVED_VISIBLE',
+      target &&
+      complete &&
+      Object.entries(target.showing).some(
+        ([key, value]) =>
+          result.fields[key as keyof PageRead['fields']].value !== value,
       )
     )
-      observeSeats();
+      result.duo = 'MISMATCH_SHOWING';
+    else if (complete) observeSeats();
     result.reason = 'VISIBLE_METADATA';
     return result;
   }
@@ -924,11 +1015,13 @@ export function createPageReadSession(invalidate: () => void) {
     else revoke();
   })().catch(revoke);
   return {
-    async read(): Promise<PageRead> {
+    async read(plan?: DuoPlan): Promise<PageRead> {
       await initialized;
       if (reading || revoked || !target) throw unavailable();
       reading = true;
       try {
+        const verifiedPlan =
+          plan === undefined ? undefined : validateDuoPlan(plan);
         const [current] = await bounded(
           chrome.tabs.query({ active: true, currentWindow: true }),
         );
@@ -944,6 +1037,7 @@ export function createPageReadSession(invalidate: () => void) {
             target: { tabId: current.id!, frameIds: [0] },
             world: 'ISOLATED',
             func: readVisibleVuePage,
+            args: verifiedPlan ? [verifiedPlan] : [],
           }),
         );
         const [after] = await bounded(
@@ -960,6 +1054,11 @@ export function createPageReadSession(invalidate: () => void) {
         )
           throw unavailable();
         const result = resultSchema.parse(results[0].result);
+        if (verifiedPlan) {
+          validateDuoPlan(verifiedPlan);
+          if (result.duo === undefined || result.seats !== undefined)
+            throw unavailable();
+        }
         if (
           Date.now() < result.observedAt ||
           Date.now() - result.observedAt > 4000

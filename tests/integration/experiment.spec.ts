@@ -14,6 +14,8 @@ import {
   dynamicRankPage,
   fixtureIconPath,
 } from '../fixtures/vue-legend';
+import { duoPage } from '../fixtures/duo-handoff';
+import { parseDuoPlan } from '../../src/experiment/duo-plan';
 import { seatPage } from '../fixtures/vue-seatmap';
 import {
   bookingAlpha,
@@ -21,9 +23,8 @@ import {
   quickSelected,
 } from '../fixtures/vue-header';
 
-test('packaged experiment: native action grant, one popup click, fixture-only isolated observation, no retained data', async () => {
-  test.setTimeout(45_000);
-  const label = '0.11.6-experimental';
+async function experimentPackage() {
+  const label = '0.11.7-experimental';
   const path = `build/experiment/seatbuddies-${label}-chrome-test.zip`;
   const packaged = process.env.SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP
     ? await unpackActionsArtifact(
@@ -36,10 +37,16 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
         await readFile(`${path}.sha256`, 'utf8'),
         label,
       );
-  const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-read-spike-'));
   expect(packaged.sha256).toBe(
-    '6514244749b0035655c52471300dae65bf962dfe2769b6508485925c79e148e1',
+    'a2aefdaff669d4fb81a9517e2c4a826e8f4d5f6d067f4e61f98c23aef64376e8',
   );
+  return packaged;
+}
+
+test('packaged experiment: native action grant, one popup click, fixture-only isolated observation, no retained data', async () => {
+  test.setTimeout(45_000);
+  const packaged = await experimentPackage();
+  const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-read-spike-'));
   const previous = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
   process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
   const context = await chromium.launchPersistentContext(profile, {
@@ -345,7 +352,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       await expect(variant.getByTestId('seat-pairs')).toHaveText(
         `Rij 1: 1 + 2 · ${category}`,
       );
-      await expect(variant.getByTestId('read-seats')).toContainText(
+      await expect(variant.locator('body')).toContainText(
         'Movie Pass-bijbetaling niet gecontroleerd',
       );
       expect(
@@ -391,6 +398,269 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     await context.close();
     await packaged.cleanup();
     await rm(profile, { recursive: true, force: true });
+    if (previous === undefined) delete process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
+    else process.env.PW_CHROMIUM_ATTACH_TO_OTHER = previous;
+  }
+});
+
+test('duo handoff: verified ZIP in two independent profiles, explicit pair and exact fresh target, honest STOP and no retention', async () => {
+  test.setTimeout(60_000);
+  const packaged = await experimentPackage();
+  const profiles: string[] = [];
+  const contexts: Awaited<
+    ReturnType<typeof chromium.launchPersistentContext>
+  >[] = [];
+  const previous = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
+  process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
+  try {
+    async function actor(forA: boolean) {
+      const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-duo-'));
+      profiles.push(profile);
+      const context = await chromium.launchPersistentContext(profile, {
+        executablePath: process.env.CHROMIUM_PATH ?? chromium.executablePath(),
+        ignoreDefaultArgs: ['--disable-extensions'],
+        headless: process.env.HEADED !== '1',
+        args: [
+          `--load-extension=${packaged.directory}`,
+          '--enable-unsafe-extension-debugging',
+          '--no-sandbox',
+        ],
+      });
+      contexts.push(context);
+      const worker =
+        context.serviceWorkers()[0] ??
+        (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
+      const id = new URL(worker.url()).host;
+      await worker.evaluate(() => {
+        Reflect.set(globalThis, 'duoMessages', 0);
+        chrome.runtime.onMessage.addListener(() =>
+          Reflect.set(
+            globalThis,
+            'duoMessages',
+            Reflect.get(globalThis, 'duoMessages') + 1,
+          ),
+        );
+      });
+      const storageBefore = await worker.evaluate(async () => ({
+        local: await chrome.storage.local.get(null),
+        session: await chrome.storage.session.get(null),
+      }));
+      const unexpected: string[] = [];
+      const url = 'https://www.vuecinemas.nl/kopen/overzicht/fictief';
+      await context.route(/^https?:/, async (route) => {
+        if (
+          route.request().url() === url &&
+          route.request().resourceType() === 'document'
+        )
+          await route.fulfill({
+            contentType: 'text/html',
+            body: duoPage(forA),
+          });
+        else {
+          unexpected.push(route.request().resourceType());
+          await route.abort();
+        }
+      });
+      const source = await context.newPage();
+      await source.goto(url);
+      const browser = context.browser();
+      if (!browser) throw new Error('Browser CDP required');
+      const control = await browser.newBrowserCDPSession();
+      const { targetInfos } = await control.send('Target.getTargets', {
+        filter: [{ type: 'tab' }],
+      });
+      const targets = targetInfos.filter((target) => target.url === url);
+      expect(targets).toHaveLength(1);
+      const [popup] = await Promise.all([
+        context.waitForEvent('page', {
+          predicate: (page) =>
+            page.url().split(/[?#]/)[0] ===
+            `chrome-extension://${id}/popup.html`,
+        }),
+        control.send('Extensions.triggerAction', {
+          id,
+          targetId: targets[0]!.targetId,
+        }),
+      ]);
+      const assertPrivacy = async () => {
+        expect(
+          await worker.evaluate(async () => ({
+            local: await chrome.storage.local.get(null),
+            session: await chrome.storage.session.get(null),
+          })),
+        ).toEqual(storageBefore);
+        expect(
+          await worker.evaluate(() => Reflect.get(globalThis, 'duoMessages')),
+        ).toBe(0);
+        expect(unexpected).toEqual([]);
+      };
+      return { popup, source, assertPrivacy };
+    }
+    const a = await actor(true);
+    await a.popup
+      .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
+      .click();
+    const choice = a.popup.getByRole('radio');
+    await expect(choice).toHaveCount(3);
+    await expect(a.popup.locator('input:checked')).toHaveCount(0);
+    const copy = a.popup.getByRole('button', {
+      name: 'Kopieer duo-plan',
+      exact: true,
+    });
+    await expect(copy).toHaveCount(0);
+    await choice.first().focus();
+    await choice.first().press('Space');
+    await a.popup.evaluate(() =>
+      Object.defineProperty(navigator.clipboard, 'writeText', {
+        configurable: true,
+        value: async (text: string) => {
+          Reflect.set(window, 'fixtureDuo', text);
+        },
+      }),
+    );
+    await copy.focus();
+    await copy.press('Enter');
+    await expect(a.popup.getByTestId('copy-report-status')).toHaveText(
+      'Gekopieerd',
+    );
+    const text = await a.popup.evaluate(
+      () => Reflect.get(window, 'fixtureDuo') as string,
+    );
+    expect(parseDuoPlan(text).pair).toMatchObject({ A: 5, B: 6 });
+    const fits = async (page: typeof a.popup) =>
+      page.evaluate(() => ({
+        width: innerWidth,
+        height: document.documentElement.scrollHeight,
+        noHorizontalScroll: document.documentElement.scrollWidth <= innerWidth,
+      }));
+    const aSize = await fits(a.popup);
+    expect(aSize.noHorizontalScroll).toBe(true);
+    expect(aSize.height).toBeLessThanOrEqual(600);
+    await a.popup.screenshot({ path: 'test-results/duo-A-fixture.png' });
+    // Clipboard denial is not reported as copied. No automatic clipboard reading.
+    await a.popup.evaluate(() =>
+      Object.defineProperty(navigator.clipboard, 'writeText', {
+        configurable: true,
+        value: async () => {
+          throw new Error('fixture denial');
+        },
+      }),
+    );
+    await copy.click();
+    await expect(a.popup.getByTestId('copy-report-status')).toContainText(
+      'Duo-plan niet gekopieerd',
+    );
+    // The second browser context is a separate disk profile, not another tab/login.
+    const b = await actor(false);
+    expect(profiles[0]).not.toBe(profiles[1]);
+    await b.popup.getByText('Duo-plan ontvangen', { exact: true }).click();
+    const input = b.popup.getByLabel(
+      'Plak het volledige duo-plan in je eigen Chrome-profiel',
+    );
+    await input.fill(text);
+    await b.popup.evaluate(() => {
+      const original = chrome.scripting.executeScript.bind(chrome.scripting);
+      Reflect.set(window, 'duoInjections', 0);
+      chrome.scripting.executeScript = (async (
+        injection: chrome.scripting.ScriptInjection<unknown[], unknown>,
+      ) => {
+        Reflect.set(
+          window,
+          'duoInjections',
+          Reflect.get(window, 'duoInjections') + 1,
+        );
+        const barrier = Reflect.get(window, 'duoBarrier') as
+          Promise<void> | undefined;
+        if (barrier) await barrier;
+        return original(injection);
+      }) as typeof chrome.scripting.executeScript;
+    });
+    const check = b.popup.getByRole('button', {
+      name: 'Controleer duo-plan op deze Vue-pagina',
+      exact: true,
+    });
+    await check.click();
+    await expect(b.popup.getByTestId('duo-status')).toHaveAttribute(
+      'data-status',
+      'DUO_MATCH_POSSIBLE',
+    );
+    expect(
+      await b.popup.evaluate(() => Reflect.get(window, 'duoInjections')),
+    ).toBe(1);
+    await expect(b.popup.getByTestId('seat-pairs')).toHaveCount(0);
+    await expect(b.popup.locator('body')).toContainText(
+      'A: rij 1, stoel 5 · B: stoel 6',
+    );
+    const bSize = await fits(b.popup);
+    expect(bSize.noHorizontalScroll).toBe(true);
+    expect(bSize.height).toBeLessThanOrEqual(600);
+    await b.popup.screenshot({ path: 'test-results/duo-B-fixture.png' });
+    // A delayed browser reply cannot resurrect a plan after input changed away
+    // and back to the same text. This exercises the local observation revision.
+    await b.popup.evaluate(() =>
+      Reflect.set(
+        window,
+        'duoBarrier',
+        new Promise<void>((resolve) =>
+          Reflect.set(window, 'releaseDuo', resolve),
+        ),
+      ),
+    );
+    await check.click();
+    await expect(b.popup.getByTestId('duo-status')).not.toHaveAttribute(
+      'data-status',
+      'DUO_MATCH_POSSIBLE',
+    );
+    await input.fill('changed');
+    await input.fill(text);
+    await b.popup.evaluate(() => Reflect.get(window, 'releaseDuo')());
+    await expect(check).toBeEnabled();
+    await expect(b.popup.getByTestId('duo-status')).not.toHaveAttribute(
+      'data-status',
+      'DUO_MATCH_POSSIBLE',
+    );
+    // Only fixture DOM is mutated. A new conscious check invalidates prior GO.
+    await b.source.evaluate(() => {
+      const button = document.querySelector<HTMLButtonElement>(
+        '[data-test="fake-seat-1-6"]',
+      )!;
+      button.setAttribute('aria-label', 'Seat 1-6, unavailable');
+      button.disabled = true;
+    });
+    await check.click();
+    await expect(b.popup.getByTestId('duo-status')).toHaveAttribute(
+      'data-status',
+      'PAIR_UNAVAILABLE',
+    );
+    const beforeInvalid = await b.popup.evaluate(() =>
+      Reflect.get(window, 'duoInjections'),
+    );
+    await input.fill(text.replace('Demo Alpha', 'account: hidden'));
+    await expect(b.popup.getByTestId('duo-status')).not.toHaveAttribute(
+      'data-status',
+      'PAIR_UNAVAILABLE',
+    );
+    await check.click();
+    await expect(b.popup.getByTestId('duo-status')).toHaveAttribute(
+      'data-status',
+      'UNKNOWN_STOP',
+    );
+    await expect(b.popup.locator('body')).not.toContainText('Mogelijk passend');
+    expect(
+      await b.popup.evaluate(() => Reflect.get(window, 'duoInjections')),
+    ).toBe(beforeInvalid);
+    // Closing B destroys the import/result; nothing is restored from storage.
+    await b.popup.close();
+    await a.assertPrivacy();
+    await b.assertPrivacy();
+    console.log(
+      `DUO FIXTURE_NATIVE PASS two independent profiles; popup A ${aSize.width}x${aSize.height}, B ${bSize.width}x${bSize.height}; HUMAN_TASK_SPEEDUP NOT_RUN; OWNER_LIVE_DUO NOT_RUN`,
+    );
+  } finally {
+    for (const context of contexts) await context.close();
+    for (const profile of profiles)
+      await rm(profile, { recursive: true, force: true });
+    await packaged.cleanup();
     if (previous === undefined) delete process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
     else process.env.PW_CHROMIUM_ATTACH_TO_OTHER = previous;
   }
