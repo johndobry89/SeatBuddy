@@ -40,7 +40,7 @@ let packaged: Awaited<ReturnType<typeof unpackPackagedExtension>>;
 test.beforeAll(async () => {
   packaged = await unpackPackagedExtension();
   expect(packaged.sha256, 'Reviewed Operation Reboot inner runtime hash').toBe(
-    '5b4e69b7780d85d808d97f43e372982926b39fca7984eb78d395d5a02fb800c8',
+    '372d6ef1682ae3a9c339f1bd9f4a3d044c3eebf3a693453e0dcc6fdb675625fc',
   );
   console.log(
     `PACKAGED_EXTENSION ${packaged.version} SHA256 ${packaged.sha256}`,

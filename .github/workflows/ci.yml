@@ -15,6 +15,8 @@ jobs:
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
       artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+      experiment-id: ${{ steps.experiment.outputs.artifact-id }}
+      experiment-digest: ${{ steps.experiment.outputs.artifact-digest }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,6 +25,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run package
+      - run: npm run package:experiment
       - id: upload
         uses: actions/upload-artifact@v4
         with:
@@ -31,6 +34,14 @@ jobs:
           path: |
             build/*-chrome-test.zip
             build/*-chrome-test.zip.sha256
+      - id: experiment
+        uses: actions/upload-artifact@v4
+        with:
+          name: seatbuddies-vue-page-reader-experiment
+          if-no-files-found: error
+          path: |
+            build/experiment/*-chrome-test.zip
+            build/experiment/*-chrome-test.zip.sha256
   checks:
     name: Checks (${{ matrix.os }})
     needs: package
@@ -46,6 +57,7 @@ jobs:
     timeout-minutes: 15
     env:
       SEATBUDDIES_ARTIFACT_SHA256: ${{ needs.package.outputs.artifact-digest }}
+      SEATBUDDIES_EXPERIMENT_ARTIFACT_SHA256: ${{ needs.package.outputs.experiment-digest }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -58,10 +70,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ARTIFACT_ID: ${{ needs.package.outputs.artifact-id }}
+          EXPERIMENT_ID: ${{ needs.package.outputs.experiment-id }}
         shell: bash
         run: |
           gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" > "$RUNNER_TEMP/seatbuddies-actions.zip"
           echo "SEATBUDDIES_ARTIFACT_ZIP=$RUNNER_TEMP/seatbuddies-actions.zip" >> "$GITHUB_ENV"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$EXPERIMENT_ID/zip" > "$RUNNER_TEMP/seatbuddies-experiment-actions.zip"
+          echo "SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP=$RUNNER_TEMP/seatbuddies-experiment-actions.zip" >> "$GITHUB_ENV"
       - name: Reproduce trusted Sprint 10 upgrade baseline
         shell: bash
         env:
@@ -98,3 +113,9 @@ jobs:
       - name: Native Chrome smoke on macOS Intel
         if: runner.os == 'macOS'
         run: HEADED=1 npm run test:smoke:chrome
+      - name: Native experimental popup on Linux (invented DOM only)
+        if: runner.os == 'Linux'
+        run: HEADED=1 xvfb-run -a npm run test:experiment
+      - name: Native experimental popup on macOS Intel (invented DOM only)
+        if: runner.os == 'macOS'
+        run: HEADED=1 npm run test:experiment

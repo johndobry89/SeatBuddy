@@ -3,7 +3,7 @@ import { nextTick, ref } from 'vue';
 import BrandHeader from './BrandHeader.vue';
 import PanelLauncher from './PanelLauncher.vue';
 import { version } from '../../package.json';
-defineProps<{ popup?: boolean }>();
+defineProps<{ popup?: boolean; testVersion?: string }>();
 const developerOpen = ref(false),
   developerLoaded = ref(false),
   helpLoaded = ref(false);
@@ -30,6 +30,7 @@ async function closeDeveloper() {
       <BrandHeader compact />
       <h1>Verder op Vue</h1>
       <p>Kies je voorstelling op de officiële website en boek daar zelf.</p>
+      <slot name="page-reader" />
       <a
         ref="primary"
         class="primary-action"
@@ -40,7 +41,11 @@ async function closeDeveloper() {
       >
         Open Vue Quick Ticket
       </a>
-      <p class="product-boundary">Deze versie leest Vue niet en boekt niets.</p>
+      <slot name="page-boundary">
+        <p class="product-boundary">
+          Deze versie leest Vue niet en boekt niets.
+        </p>
+      </slot>
       <p class="product-policy">
         Geen Ultra Lux; controleer de uiteindelijke bijbetaling op Vue.
       </p>
@@ -63,7 +68,9 @@ async function closeDeveloper() {
         </p>
         <PanelLauncher v-if="popup && helpLoaded" />
       </details>
-      <footer>Onafhankelijk van Vue Cinemas · test {{ version }}</footer>
+      <footer>
+        Onafhankelijk van Vue Cinemas · test {{ testVersion ?? version }}
+      </footer>
     </main>
     <details
       ref="developer"
