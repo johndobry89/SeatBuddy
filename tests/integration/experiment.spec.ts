@@ -7,6 +7,11 @@ import {
   unpackExtensionArchive,
 } from '../helpers/packaged-extension';
 import { publicShowing } from '../fixtures/vue-page-reader';
+import {
+  dynamicLuxPage,
+  dynamicRankPage,
+  fixtureIconPath,
+} from '../fixtures/vue-legend';
 import { seatPage } from '../fixtures/vue-seatmap';
 import {
   bookingAlpha,
@@ -16,7 +21,7 @@ import {
 
 test('packaged experiment: native action grant, one popup click, fixture-only isolated observation, no retained data', async () => {
   test.setTimeout(45_000);
-  const label = '0.11.3-experimental';
+  const label = '0.11.4-experimental';
   const path = `build/experiment/seatbuddies-${label}-chrome-test.zip`;
   const packaged = process.env.SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP
     ? await unpackActionsArtifact(
@@ -31,7 +36,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       );
   const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-read-spike-'));
   expect(packaged.sha256).toBe(
-    'ec416947c8f5f18e37efb8efcac2d4b7c3d9d0e65e74a73c42f7399db86d1eac',
+    'a2f846231045615f4120d8c8e23b6e9136ba7dad079fdc6a242fdcde3f46b8ca',
   );
   const previous = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
   process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
@@ -80,6 +85,18 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
         route.request().resourceType() === 'document'
       )
         await route.fulfill({ contentType: 'text/html', body: fixtureHtml });
+      else if (
+        ['ultra', 'lux', 'saver', 'super', 'special'].some(
+          (key) =>
+            route.request().url() ===
+            `https://www.vuecinemas.nl${fixtureIconPath(key)}`,
+        ) &&
+        route.request().resourceType() === 'image'
+      )
+        await route.fulfill({
+          contentType: 'image/svg+xml',
+          body: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16"/></svg>',
+        });
       else {
         unexpected.push(route.request().resourceType());
         await route.abort();
@@ -117,6 +134,9 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     await expect(popup.locator('input, select, textarea')).toHaveCount(0);
     await expect(popup.getByTestId('legacy-tools')).toHaveCount(0);
     await expect(popup.getByTestId('read-movie')).toHaveCount(0);
+    await expect(
+      popup.getByRole('button', { name: 'Kopieer rapport', exact: true }),
+    ).toBeDisabled();
     await popup
       .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
       .click();
@@ -183,15 +203,70 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     }))
       await expect(quick.getByTestId(`read-${key}`)).toHaveText(value);
     await expect(quick.getByTestId('read-hall')).toHaveText('ONBEKEND');
+    // Test-only clipboard double: real button/keyboard and awaited success/error.
+    await quick.evaluate(() => {
+      Object.defineProperty(navigator.clipboard, 'writeText', {
+        configurable: true,
+        value: async (text: string) => {
+          Reflect.set(window, 'fixtureReport', text);
+        },
+      });
+    });
+    const copy = quick.getByRole('button', {
+      name: 'Kopieer rapport',
+      exact: true,
+    });
+    await copy.focus();
+    await copy.press('Enter');
+    await expect(quick.getByTestId('copy-report-status')).toHaveText(
+      'Gekopieerd',
+    );
+    const report = await quick.evaluate(
+      () => Reflect.get(window, 'fixtureReport') as string,
+    );
+    expect(report).toContain('Datum: za 13 apr');
+    expect(report).toContain('Zaal: ONBEKEND');
+    expect(report).toContain('Movie Pass-bijbetaling niet gecontroleerd');
+    expect(report).not.toMatch(/https?:|data:|@|fictief-geheim|2030/);
+    await quick.evaluate(() =>
+      Object.defineProperty(navigator.clipboard, 'writeText', {
+        configurable: true,
+        value: async () => {
+          throw new Error('fixture denial');
+        },
+      }),
+    );
+    await copy.click();
+    await expect(quick.getByTestId('copy-report-status')).toContainText(
+      'Rapport niet gekopieerd',
+    );
+
     await source.evaluate(() => {
       document.querySelector(
         'li[data-test="quick-book-film-selector"] .dropdown-opener__title-value',
       )!.textContent = 'Demo Beta';
     });
+
+    await quick.evaluate(() => {
+      const original = chrome.scripting.executeScript.bind(chrome.scripting);
+      const barrier = new Promise<void>((resolve) =>
+        Reflect.set(window, 'releaseFixtureRead', resolve),
+      );
+      chrome.scripting.executeScript = (async (
+        injection: chrome.scripting.ScriptInjection<[], unknown>,
+      ) => {
+        await barrier; // test-only explicit pending-read barrier
+        return original(injection);
+      }) as typeof chrome.scripting.executeScript;
+    });
     await quick
       .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
       .click();
+    await expect(copy).toBeDisabled();
+    await expect(quick.getByTestId('copy-report-status')).toHaveText('');
+    await quick.evaluate(() => Reflect.get(window, 'releaseFixtureRead')());
     await expect(quick.getByTestId('read-movie')).toHaveText('Demo Beta');
+    await expect(copy).toBeEnabled();
     await quick.close();
     fixtureHtml = bookingAlpha;
     await source.goto(heroUrl);
@@ -247,6 +322,33 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       'Legenda-koppeling ONBEKEND',
     );
     await seats.close();
+    for (const [html, scheme, category, hall] of [
+      [dynamicLuxPage, 'LUX_4', 'Lux', 'Zaal 2'],
+      [dynamicRankPage, 'RANK_3', 'Regular', 'Zaal 6 Dolby Cinema'],
+    ]) {
+      fixtureHtml = html!;
+      await source.reload();
+      const variant = await openPopup();
+      await variant
+        .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
+        .click();
+      await expect(variant.getByTestId('read-hall')).toHaveText(hall!);
+      await expect(variant.getByTestId('seat-diagnostic')).toContainText(
+        scheme!,
+      );
+      await expect(variant.getByTestId('seat-pairs')).toHaveText(
+        `Rij 1: 1 + 2 · ${category}`,
+      );
+      await expect(variant.getByTestId('read-seats')).toContainText(
+        'Movie Pass-bijbetaling niet gecontroleerd',
+      );
+      expect(
+        await variant.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await variant.close();
+    }
     fixtureHtml = bookingBeta;
     await source.reload();
     const checkout = await openPopup();
@@ -258,6 +360,9 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     );
     await expect(checkout.getByTestId('read-movie')).toHaveCount(0);
     await expect(checkout.getByTestId('read-seats')).toHaveCount(0);
+    await expect(
+      checkout.getByRole('button', { name: 'Kopieer rapport', exact: true }),
+    ).toBeDisabled();
     await expect(checkout.locator('body')).not.toContainText(
       'dummy-private-value',
     );
