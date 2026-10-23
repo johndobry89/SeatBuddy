@@ -71,8 +71,6 @@ test('Dolby hall mismatch/missing heading and a third or partial category scheme
 test('unsafe or conflicting icon references and duplicate/missing images yield safe diagnostic codes', () => {
   for (const icon of [
     'https://example.test/public-icons/lux.svg',
-    '/public-icons/fake-lux.svg?session=private',
-    '/account/lux.svg',
     'https://user:pass@www.vuecinemas.nl/public-icons/lux.svg',
     'blob:fake',
     'javascript:alert(1)',
@@ -84,6 +82,16 @@ test('unsafe or conflicting icon references and duplicate/missing images yield s
       pairs: [],
     });
     expect(JSON.stringify(result)).not.toContain(icon);
+  }
+  // Same-origin paths/queries are opaque identities now; differing references
+  // remain unmatched rather than being rejected by path-name heuristics.
+  for (const icon of [
+    '/public-icons/fake-lux.svg?revision=different',
+    '/account/fake-lux.svg',
+  ]) {
+    expect(
+      read(dynamicLuxPage.replace(fixtureIconPath('lux'), icon)).seats,
+    ).toMatchObject({ diagnostic: 'SEAT_ICON_NO_MATCH', pairs: [] });
   }
   expect(
     read(dataLegendPage.replace(fakeIcon('saver'), fakeIcon('lux'))).seats
@@ -115,7 +123,7 @@ test('copy report is exact allowlisted plaintext with unknown fields and determi
   result.observedAt = new Date(2030, 3, 12, 19, 30).getTime();
   expect(formatReadReport(result)).toBe(
     [
-      'SeatBuddies 0.11.4-experimental',
+      'SeatBuddies 0.11.5-experimental',
       `Waargenomen (lokale tijd): ${new Date(result.observedAt).toLocaleString('nl-NL', { hour12: false })}`,
       'Bron: Quick Ticket',
       'Film: ONBEKEND',
