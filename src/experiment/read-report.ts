@@ -1,6 +1,6 @@
 import { resultSchema } from './vue-page-reader';
 
-export const experimentVersion = '0.11.4-experimental';
+export const experimentVersion = '0.11.5-experimental';
 const sources = {
   VISIBLE_MAIN_METADATA: 'Zichtbare metadata',
   VISIBLE_QUICK_TICKET: 'Quick Ticket',

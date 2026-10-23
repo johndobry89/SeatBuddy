@@ -380,24 +380,19 @@ export function readVisibleVuePage(): PageRead {
         RANK_3: ['Regular', 'Saver', 'Super Saver'],
       } as const;
       const reference = (raw: string): string | null => {
+        if (!raw.trim() || /^(?:#|null$|undefined$|none$)/i.test(raw.trim()))
+          return null;
         if (raw.startsWith('data:image/')) return raw;
         try {
           const url = new URL(raw, document.baseURI);
-          // No external asset origin has been verified. Accept only same-origin
-          // static image paths, without credentials/query/fragment/encoded IDs.
+          // Same-page image identity only. Keep the complete opaque query/path;
+          // never inspect, strip, fetch, export or persist either (issue #37).
           if (
             url.protocol !== 'https:' ||
             url.origin !== location.origin ||
             url.username ||
             url.password ||
-            url.search ||
-            url.hash ||
-            !/^\/(?:assets|static|images|img|public-icons)\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.(?:svg|png|webp|avif|jpe?g)$/.test(
-              url.pathname,
-            ) ||
-            /(?:account|booking|checkout|payment|session|token|private|order|login)/i.test(
-              url.pathname,
-            )
+            url.hash
           )
             return null;
           return url.href;

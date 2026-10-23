@@ -9,6 +9,8 @@ import {
 import { publicShowing } from '../fixtures/vue-page-reader';
 import {
   dynamicLuxPage,
+  identityLuxPage,
+  fixtureIdentityPath,
   dynamicRankPage,
   fixtureIconPath,
 } from '../fixtures/vue-legend';
@@ -21,7 +23,7 @@ import {
 
 test('packaged experiment: native action grant, one popup click, fixture-only isolated observation, no retained data', async () => {
   test.setTimeout(45_000);
-  const label = '0.11.4-experimental';
+  const label = '0.11.5-experimental';
   const path = `build/experiment/seatbuddies-${label}-chrome-test.zip`;
   const packaged = process.env.SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP
     ? await unpackActionsArtifact(
@@ -36,7 +38,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       );
   const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-read-spike-'));
   expect(packaged.sha256).toBe(
-    'a2f846231045615f4120d8c8e23b6e9136ba7dad079fdc6a242fdcde3f46b8ca',
+    'b184c5cd3958042a6e566f8240ff5ffad70d3bf1957c3c7962a79d47b8475c64',
   );
   const previous = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
   process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
@@ -86,10 +88,11 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       )
         await route.fulfill({ contentType: 'text/html', body: fixtureHtml });
       else if (
-        ['ultra', 'lux', 'saver', 'super', 'special'].some(
-          (key) =>
-            route.request().url() ===
-            `https://www.vuecinemas.nl${fixtureIconPath(key)}`,
+        ['ultra', 'lux', 'saver', 'super', 'special'].some((key) =>
+          [fixtureIconPath(key), fixtureIdentityPath(key)].some(
+            (path) =>
+              route.request().url() === `https://www.vuecinemas.nl${path}`,
+          ),
         ) &&
         route.request().resourceType() === 'image'
       )
@@ -324,6 +327,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     await seats.close();
     for (const [html, scheme, category, hall] of [
       [dynamicLuxPage, 'LUX_4', 'Lux', 'Zaal 2'],
+      [identityLuxPage, 'LUX_4', 'Lux', 'Zaal 2'],
       [dynamicRankPage, 'RANK_3', 'Regular', 'Zaal 6 Dolby Cinema'],
     ]) {
       fixtureHtml = html!;

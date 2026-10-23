@@ -35,3 +35,11 @@ export const dataLegendPage = dynamicLuxPage.replace(
   /(?:https:\/\/www.vuecinemas.nl)?\/public-icons\/fake-([a-z]+)\.svg/g,
   (_, key: string) => fakeIcon(key),
 );
+
+// Synthetic identity regression: arbitrary path, complete opaque query, no real asset.
+export const fixtureIdentityPath = (key: string) =>
+  `/other-path/icon?revision=demo&kind=${key}`;
+export const identityLuxPage = dynamicLuxPage.replace(
+  /(?:https:\/\/www.vuecinemas.nl)?\/public-icons\/fake-([a-z]+)\.svg/g,
+  (_, key: string) => `https://www.vuecinemas.nl${fixtureIdentityPath(key)}`,
+);
