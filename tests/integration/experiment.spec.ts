@@ -7,6 +7,7 @@ import {
   unpackExtensionArchive,
 } from '../helpers/packaged-extension';
 import { publicShowing } from '../fixtures/vue-page-reader';
+import { seatPage } from '../fixtures/vue-seatmap';
 import {
   bookingAlpha,
   bookingBeta,
@@ -15,7 +16,7 @@ import {
 
 test('packaged experiment: native action grant, one popup click, fixture-only isolated observation, no retained data', async () => {
   test.setTimeout(45_000);
-  const label = '0.11.2-experimental';
+  const label = '0.11.3-experimental';
   const path = `build/experiment/seatbuddies-${label}-chrome-test.zip`;
   const packaged = process.env.SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP
     ? await unpackActionsArtifact(
@@ -30,7 +31,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       );
   const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-read-spike-'));
   expect(packaged.sha256).toBe(
-    '7a3c9cd9f043a40d1ba3ce94021e65d1e90a64e1fd749300cdfa65a3e818438c',
+    'ec416947c8f5f18e37efb8efcac2d4b7c3d9d0e65e74a73c42f7399db86d1eac',
   );
   const previous = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
   process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
@@ -211,6 +212,41 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     }))
       await expect(hero.getByTestId(`read-${key}`)).toHaveText(value);
     await hero.close();
+    fixtureHtml = seatPage;
+    await source.reload();
+    const seats = await openPopup();
+    await seats
+      .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
+      .click();
+    await expect(seats.getByTestId('seat-counts')).toHaveText(
+      '6 beschikbaar · 1 niet beschikbaar · 1 geselecteerd · 0 onbekend',
+    );
+    await expect(seats.getByTestId('seat-pairs').locator('li')).toHaveCount(1);
+    await expect(seats.getByTestId('seat-pairs')).toHaveText(
+      'Rij 1: 1 + 2 · Lux',
+    );
+    await expect(seats.getByTestId('read-seats')).toContainText(
+      'Mogelijk naast elkaar',
+    );
+    expect(
+      await seats.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    // Synthetic page mutation, then a second explicit user read: no inherited legend/pair.
+    await source.evaluate(() =>
+      document
+        .querySelectorAll('.seats-category')
+        .forEach((node) => node.remove()),
+    );
+    await seats
+      .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
+      .click();
+    await expect(seats.getByTestId('seat-pairs')).toHaveCount(0);
+    await expect(seats.getByTestId('read-seats')).toContainText(
+      'Legenda-koppeling ONBEKEND',
+    );
+    await seats.close();
     fixtureHtml = bookingBeta;
     await source.reload();
     const checkout = await openPopup();
@@ -221,6 +257,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       'NIET BESCHIKBAAR',
     );
     await expect(checkout.getByTestId('read-movie')).toHaveCount(0);
+    await expect(checkout.getByTestId('read-seats')).toHaveCount(0);
     await expect(checkout.locator('body')).not.toContainText(
       'dummy-private-value',
     );

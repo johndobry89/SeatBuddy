@@ -11,6 +11,56 @@ const fieldSchema = z
   .refine(
     (field) => !field.value || !/[@<>\r\n]|https?:|\d{7}/i.test(field.value),
   );
+const candidateCategory = z.enum(['Lux', 'Saver Lux', 'Super Saver Lux']);
+const seatSummarySchema = z
+  .strictObject({
+    source: z.literal('VISIBLE_LIVE_SEATMAP'),
+    observedAt: z.number().int().positive(),
+    reason: z.enum([
+      'CONTEXT_UNKNOWN',
+      'MAP_UNKNOWN',
+      'STRUCTURE_UNKNOWN',
+      'LEGEND_UNKNOWN',
+      'NO_SAFE_PAIR',
+      'CHECK_VISUALLY',
+    ]),
+    categoryEvidence: z.enum(['EXACT_VISIBLE_ICON', 'UNKNOWN']),
+    counts: z
+      .strictObject({
+        available: z.number().int().min(0).max(499),
+        unavailable: z.number().int().min(0).max(499),
+        picked: z.number().int().min(0).max(499),
+        unknown: z.number().int().min(0).max(499),
+        categoryUnknown: z.number().int().min(0).max(499),
+        ultraLux: z.number().int().min(0).max(499),
+      })
+      .nullable(),
+    pairs: z
+      .array(
+        z
+          .strictObject({
+            row: z.number().int().min(1).max(999),
+            seats: z.tuple([
+              z.number().int().min(1).max(999),
+              z.number().int().min(1).max(999),
+            ]),
+            categories: z.tuple([candidateCategory, candidateCategory]),
+          })
+          .refine((pair) => Math.abs(pair.seats[0] - pair.seats[1]) === 1),
+      )
+      .max(3),
+  })
+  .refine(
+    (summary) =>
+      (summary.reason === 'CHECK_VISUALLY') === summary.pairs.length > 0,
+  )
+  .refine(
+    (summary) =>
+      !summary.pairs.length ||
+      (summary.counts !== null &&
+        summary.categoryEvidence === 'EXACT_VISIBLE_ICON'),
+  );
+type SeatSummary = z.infer<typeof seatSummarySchema>;
 const resultSchema = z.strictObject({
   reason: z.enum([
     'VISIBLE_METADATA',
@@ -24,6 +74,7 @@ const resultSchema = z.strictObject({
     'VISIBLE_QUICK_TICKET',
     'VISIBLE_BOOKING_HERO',
   ]),
+  seats: seatSummarySchema.optional(),
   fields: z.strictObject({
     movie: fieldSchema,
     cinema: fieldSchema,
@@ -35,7 +86,7 @@ const resultSchema = z.strictObject({
 export type PageRead = z.infer<typeof resultSchema>;
 
 /** Serialized by Chrome: deliberately self-contained, no imported closures.
- * Vue selectors are issue #31's sanitised snapshot evidence, not a live guarantee. */
+ * Selectors are issues #31/#33's sanitised evidence, not a live guarantee. */
 export function readVisibleVuePage(): PageRead {
   const unknown = () => ({ status: 'UNKNOWN' as const, value: null });
   const result: PageRead = {
@@ -228,7 +279,7 @@ export function readVisibleVuePage(): PageRead {
       result.fields.time = unknown();
     if (hall.field.value && !/^Zaal [1-9]\d?$/.test(hall.field.value))
       result.fields.hall = unknown();
-    // Explicitly allowlisted hall heading only; never read the seat grid.
+    // Explicitly allowlisted hall heading; compare before any seat observation.
     const screenNodes = [
       ...document.querySelectorAll('[data-test="screen-title"]'),
     ].filter(visible);
@@ -239,6 +290,259 @@ export function readVisibleVuePage(): PageRead {
       )
         result.fields.hall = { status: 'AMBIGUOUS', value: null };
     }
+    // Same isolated read, only after a complete, consistent showing. No fallback
+    // from Quick Ticket, unknown headers or the protected-page guard above.
+    const summary: SeatSummary = {
+      source: 'VISIBLE_LIVE_SEATMAP',
+      observedAt: result.observedAt,
+      reason: 'CONTEXT_UNKNOWN',
+      categoryEvidence: 'UNKNOWN',
+      counts: null,
+      pairs: [],
+    };
+    result.seats = summary;
+    const observeSeats = () => {
+      summary.reason = 'MAP_UNKNOWN';
+      const scenes = document.querySelectorAll('.seat-map__scaled-scene');
+      const maps = document.querySelectorAll('.seats[data-test="seats"]');
+      if (scenes.length > 1 || maps.length > 1) return;
+      const scene = scenes[0],
+        map = maps[0] ?? scene;
+      if (
+        !map ||
+        !visible(map) ||
+        (scene && (!visible(scene) || !scene.contains(map)))
+      )
+        return;
+      const rows = [
+        ...map.querySelectorAll('.seats__row[data-test^="seats-row-"]'),
+      ];
+      if (
+        !rows.length ||
+        rows.length > 50 ||
+        new Set(rows.map((row) => row.getAttribute('data-test'))).size !==
+          rows.length ||
+        rows.some((row) => !visible(row))
+      )
+        return;
+      // Reject malformed/hidden/oversized maps before inspecting seat attributes.
+      const buttons = [...map.querySelectorAll('button.seats__seat')];
+      if (
+        !buttons.length ||
+        buttons.length >= 500 ||
+        rows.some((row) => row.children.length > 1000) ||
+        buttons.some(
+          (button) => !visible(button) || !rows.includes(button.parentElement!),
+        )
+      )
+        return;
+      summary.reason = 'STRUCTURE_UNKNOWN';
+      const counts = {
+        available: 0,
+        unavailable: 0,
+        picked: 0,
+        unknown: 0,
+        categoryUnknown: 0,
+        ultraLux: 0,
+      };
+      summary.counts = counts;
+      type Category = 'Ultra Lux' | 'Lux' | 'Saver Lux' | 'Super Saver Lux';
+      const titles: Record<string, Category> = {
+        'Ultra Lux stoelen': 'Ultra Lux',
+        'Lux stoelen': 'Lux',
+        'Saver Lux stoelen': 'Saver Lux',
+        'Super Saver Lux stoelen': 'Super Saver Lux',
+      };
+      const legend = [
+        ...document.querySelectorAll(
+          'button.seats-category[data-test="area-category-item-button"]',
+        ),
+      ].filter(visible);
+      // Exact in-page strings only: never decode, fetch, hash or return icon data.
+      const icons = new Map<string, Category>();
+      const categories = new Set<Category>();
+      if (legend.length === 4)
+        for (const entry of legend) {
+          const title = single(entry, '.seats-category__title').field.value;
+          const images = entry.querySelectorAll(
+            'img[data-test="area-category-item-icon-image"]',
+          );
+          const icon =
+            images.length === 1 && visible(images[0]!)
+              ? images[0]!.getAttribute('src')
+              : null;
+          const category =
+            title && Object.hasOwn(titles, title) ? titles[title] : undefined;
+          if (
+            !category ||
+            !icon?.startsWith('data:image/') ||
+            icons.has(icon) ||
+            categories.has(category)
+          )
+            break;
+          icons.set(icon, category);
+          categories.add(category);
+        }
+      const legendKnown = icons.size === 4 && categories.size === 4;
+      summary.categoryEvidence = legendKnown ? 'EXACT_VISIBLE_ICON' : 'UNKNOWN';
+      const parsed = buttons.map((button) => {
+        const match =
+          /^Seat ([1-9]\d{0,2})-([1-9]\d{0,2}), (available|unavailable|picked)$/.exec(
+            button.getAttribute('aria-label') ?? '',
+          );
+        const disabled =
+          (button as HTMLButtonElement).disabled || button.matches(':disabled');
+        const state = match?.[3];
+        const valid =
+          !!match &&
+          disabled === (state === 'unavailable') &&
+          !button.hasAttribute('aria-disabled');
+        const column = button.getAttribute('data-column') ?? '';
+        const id = button.getAttribute('data-test');
+        const images = button.querySelectorAll(
+          'img[data-test="seat-icon-image"]',
+        );
+        const icon =
+          valid &&
+          state === 'available' &&
+          legendKnown &&
+          images.length === 1 &&
+          visible(images[0]!)
+            ? images[0]!.getAttribute('src')
+            : null;
+        return {
+          button,
+          row: Number(match?.[1]),
+          seat: Number(match?.[2]),
+          id,
+          column: /^\d{1,3}$/.test(column) ? Number(column) : NaN,
+          state: valid ? state : undefined,
+          category: icon ? icons.get(icon) : undefined,
+        };
+      });
+      const ids = new Set<string>(),
+        labels = new Set<string>(),
+        positions = new Map<Element, Set<number>>(),
+        rowLabels = new Map<Element, number>();
+      let ambiguous = false;
+      for (const seat of parsed) {
+        const label = `${seat.row}-${seat.seat}`,
+          parent = seat.button.parentElement!;
+        const columns = positions.get(parent) ?? new Set<number>();
+        if (Number.isFinite(seat.row)) {
+          if (rowLabels.has(parent) && rowLabels.get(parent) !== seat.row)
+            ambiguous = true;
+          rowLabels.set(parent, seat.row);
+        }
+        if (
+          !seat.id ||
+          ids.has(seat.id) ||
+          labels.has(label) ||
+          !Number.isFinite(seat.column) ||
+          columns.has(seat.column)
+        )
+          ambiguous = true;
+        if (seat.id) ids.add(seat.id);
+        labels.add(label);
+        columns.add(seat.column);
+        positions.set(parent, columns);
+        if (seat.state === 'available') counts.available++;
+        else if (seat.state === 'unavailable') counts.unavailable++;
+        else if (seat.state === 'picked') counts.picked++;
+        else counts.unknown++;
+        if (!seat.category) counts.categoryUnknown++;
+        if (seat.category === 'Ultra Lux') counts.ultraLux++;
+      }
+      if (ambiguous || new Set(rowLabels.values()).size !== rowLabels.size) {
+        summary.counts = null;
+        return;
+      }
+      summary.reason = legendKnown ? 'NO_SAFE_PAIR' : 'LEGEND_UNKNOWN';
+      if (!legendKnown) return;
+      // Unlike the fictional matcher, these observations prove neither fees,
+      // account eligibility nor a hold. Retain its gap/unknown/Ultra exclusions.
+      const candidates: {
+        pair: SeatSummary['pairs'][number];
+        same: boolean;
+      }[] = [];
+      for (let i = 0; i < parsed.length - 1; i++) {
+        const a = parsed[i]!,
+          b = parsed[i + 1]!;
+        if (
+          a.state !== 'available' ||
+          b.state !== 'available' ||
+          !a.category ||
+          !b.category ||
+          a.category === 'Ultra Lux' ||
+          b.category === 'Ultra Lux' ||
+          a.row !== b.row ||
+          a.button.parentElement !== b.button.parentElement ||
+          Math.abs(a.seat - b.seat) !== 1 ||
+          Math.abs(a.column - b.column) !== 1
+        )
+          continue;
+        // Ignore formatting whitespace only. A span, comment or other node breaks adjacency.
+        let next = a.button.nextSibling;
+        while (next?.nodeType === Node.TEXT_NODE && !next.textContent?.trim())
+          next = next.nextSibling;
+        if (next !== b.button) continue;
+        if (
+          [a.button, b.button, a.button.parentElement!].some((node) =>
+            /accessible|wheelchair|disabled|companion|special|recliner|paired|sofa/i.test(
+              node.className,
+            ),
+          )
+        )
+          continue;
+        const ar = a.button.getBoundingClientRect(),
+          br = b.button.getBoundingClientRect();
+        // Counts-only when layout is unavailable. Reject overlap, large gaps,
+        // different lines and strongly unequal cells, including reversed order.
+        const left = ar.left < br.left ? ar : br,
+          right = left === ar ? br : ar;
+        const width = Math.min(ar.width, br.width),
+          height = Math.min(ar.height, br.height);
+        if (
+          ![
+            ar.left,
+            ar.right,
+            ar.top,
+            ar.width,
+            ar.height,
+            br.left,
+            br.right,
+            br.top,
+            br.width,
+            br.height,
+          ].every(Number.isFinite) ||
+          width <= 0 ||
+          height <= 0 ||
+          Math.max(ar.width, br.width) > width * 1.25 ||
+          Math.max(ar.height, br.height) > height * 1.25 ||
+          Math.abs(ar.top - br.top) > height * 0.25 ||
+          right.left < left.right ||
+          right.left - left.right > width * 0.25
+        )
+          continue;
+        candidates.push({
+          pair: {
+            row: a.row,
+            seats: [a.seat, b.seat],
+            categories: [a.category, b.category],
+          },
+          same: a.category === b.category,
+        });
+      }
+      candidates.sort((a, b) => Number(b.same) - Number(a.same));
+      summary.pairs = candidates.slice(0, 3).map((candidate) => candidate.pair);
+      if (summary.pairs.length) summary.reason = 'CHECK_VISUALLY';
+    };
+    if (
+      Object.values(result.fields).every(
+        (field) => field.status === 'OBSERVED_VISIBLE',
+      )
+    )
+      observeSeats();
     result.reason = 'VISIBLE_METADATA';
     return result;
   }
