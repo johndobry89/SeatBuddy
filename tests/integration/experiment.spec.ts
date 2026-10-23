@@ -38,7 +38,7 @@ async function experimentPackage() {
         label,
       );
   expect(packaged.sha256).toBe(
-    'a2aefdaff669d4fb81a9517e2c4a826e8f4d5f6d067f4e61f98c23aef64376e8',
+    '7b6a19e96faecd5d142b33ab2ce16e5e6e44483ab1d4b048d6f21300189b2c70',
   );
   return packaged;
 }
@@ -454,7 +454,7 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
         )
           await route.fulfill({
             contentType: 'text/html',
-            body: duoPage(forA),
+            body: duoPage(forA).replaceAll('Zaal 2', 'Zaal 6 Dolby Cinema'),
           });
         else {
           unexpected.push(route.request().resourceType());

@@ -427,10 +427,10 @@ dd:nth-of-type(3) {
   grid-column: 1 / 3;
 }
 dd:nth-of-type(4) {
-  grid-column: 3 / 5;
+  grid-column: 3 / 4;
 }
 dd:nth-of-type(5) {
-  grid-column: 5 / 7;
+  grid-column: 4 / 7;
 }
 .copy-caption {
   display: flex;

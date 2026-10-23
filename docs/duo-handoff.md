@@ -74,7 +74,9 @@ local/session-storage, opslagherstel, netwerk of stil tabbladonderzoek.
   kopieeractie en B's match passen zonder scroll. Synthetische bron en dubbele
   Chrome-/klembordtransporten; ook lokaal verval na vijf minuten en het weigeren
   van late antwoorden na gewijzigde invoer werkelijk gecontroleerd. Dit bewijst
-  geen native grant of echt klembord.
+  geen native grant of echt klembord. Dolby-zaaloverloop eveneens gereproduceerd
+  (602px inhoud) en hersteld (586px) bij dezelfde 360×600-viewport; deze bekende
+  zaalvariant is opgenomen in de native duo-regressie.
 - De native ZIP-regressie start **twee afzonderlijke tijdelijke Chrome-profielen**
   en echte action-popups/activeTab/executeScript op uitsluitend lokaal vervulde
   fictieve documenten. Controleert geen standaardkeuze, toetsenbordkopie,
@@ -112,7 +114,7 @@ geen aanvullende beheerworkflow bouwen.
 
 Experimenteel: `build/experiment/seatbuddies-0.11.7-experimental-chrome-test.zip`
 en gelijknamige `.sha256`; alleen deze versie installeren voor de duo-proef.
-SHA256: `a2aefdaff669d4fb81a9517e2c4a826e8f4d5f6d067f4e61f98c23aef64376e8`.
+SHA256: `7b6a19e96faecd5d142b33ab2ce16e5e6e44483ab1d4b048d6f21300189b2c70`.
 Beide pakketten zijn onafhankelijk op ZIP-CRC, SHA en alle bytes tegen hun dist
 gecontroleerd; normale ZIP is byte-identiek met een herbouw van de basiscommit:
 `372d6ef1682ae3a9c339f1bd9f4a3d044c3eebf3a693453e0dcc6fdb675625fc`.
