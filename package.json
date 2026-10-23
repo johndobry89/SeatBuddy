@@ -19,6 +19,8 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run icons:check && npm test && npm run build",
     "test:ui": "npm run build && playwright test --project=ui",
     "package": "npm run build && node scripts/package.mjs",
+    "package:experiment": "npm run typecheck && node scripts/package-experiment.mjs",
+    "test:experiment": "npm run package:experiment && playwright test --project=experiment",
     "icons": "node scripts/icons.mjs",
     "icons:check": "node scripts/icons.mjs --check",
     "test:adversarial": "vitest run tests/unit/companion.test.ts tests/unit/retention.test.ts tests/unit/buddies.test.ts tests/unit/adapter.test.ts tests/unit/read-only.test.ts tests/unit/read-only-messages.test.ts tests/unit/seat-policy.test.ts tests/unit/zero-extra-manual.test.ts tests/unit/normal-context.test.ts tests/unit/worker.test.ts tests/unit/self-test.test.ts",

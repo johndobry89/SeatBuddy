@@ -5,23 +5,47 @@ import { zipSync, unzipSync } from 'fflate';
 import { auditRuntime } from './audit-runtime.mjs';
 import { pathToFileURL } from 'node:url';
 
-export async function packageRuntime(root) {
-  const dist = resolve(root, 'dist');
+export async function packageRuntime(root, variant = 'normal') {
+  if (!['normal', 'experiment'].includes(variant))
+    throw new Error('Unknown package variant');
+  const experimental = variant === 'experiment';
+  const dist = resolve(root, experimental ? 'build/experiment/dist' : 'dist');
   const pkg = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
   const manifest = JSON.parse(
     await readFile(resolve(dist, 'manifest.json'), 'utf8'),
   );
-  if (manifest.version !== pkg.version || manifest.manifest_version !== 3)
+  if (
+    manifest.version !== (experimental ? '0.11.1' : pkg.version) ||
+    manifest.manifest_version !== 3
+  )
     throw new Error('Package/manifest version mismatch');
   if (
     JSON.stringify(manifest.permissions) !==
-      JSON.stringify(['sidePanel', 'storage']) ||
+      JSON.stringify(
+        experimental
+          ? ['sidePanel', 'storage', 'activeTab', 'scripting']
+          : ['sidePanel', 'storage'],
+      ) ||
     manifest.host_permissions?.length ||
     manifest.optional_host_permissions?.length ||
     manifest.optional_permissions?.length ||
     manifest.content_scripts?.length
   )
     throw new Error('Unexpected production privileges');
+  if (experimental) {
+    const normal = JSON.parse(
+      await readFile(resolve(root, 'public/manifest.json'), 'utf8'),
+    );
+    const expected = {
+      ...normal,
+      name: 'SeatBuddies — Vue Page Reader (experiment)',
+      version: '0.11.1',
+      version_name: '0.11.1-experimental',
+      permissions: ['sidePanel', 'storage', 'activeTab', 'scripting'],
+    };
+    if (JSON.stringify(manifest) !== JSON.stringify(expected))
+      throw new Error('Unexpected experimental manifest delta');
+  }
   const files = {};
   async function collect(dir) {
     for (const item of (await readdir(dir, { withFileTypes: true })).sort(
@@ -111,14 +135,17 @@ export async function packageRuntime(root) {
     if (!Buffer.from(unpacked[name]).equals(files[name]))
       throw new Error('Archive verification failed');
   await mkdir(resolve(root, 'build'), { recursive: true });
-  const name = `seatbuddies-${pkg.version}-chrome-test.zip`;
-  await writeFile(resolve(root, 'build', name), bytes);
+  const output = resolve(root, experimental ? 'build/experiment' : 'build');
+  const name = experimental
+    ? 'seatbuddies-0.11.1-experimental-chrome-test.zip'
+    : `seatbuddies-${pkg.version}-chrome-test.zip`;
+  await writeFile(resolve(output, name), bytes);
   await writeFile(
-    resolve(root, 'build', `${name}.sha256`),
+    resolve(output, `${name}.sha256`),
     `${createHash('sha256').update(bytes).digest('hex')}  ${name}\n`,
   );
   console.log(
-    `Verified platform-neutral Chrome unpacked test build: build/${name} (${Object.keys(files).length} runtime files, ${bytes.length} bytes).`,
+    `Verified platform-neutral Chrome unpacked test build: ${relative(root, output)}/${name} (${Object.keys(files).length} runtime files, ${bytes.length} bytes).`,
   );
 
   return {

@@ -9,6 +9,7 @@ export default defineConfig({
   projects: [
     { name: 'extension', testMatch: 'extension.spec.ts' },
     { name: 'ui', testMatch: 'ui.spec.ts' },
+    { name: 'experiment', testMatch: 'experiment.spec.ts' },
   ],
   webServer: {
     command:

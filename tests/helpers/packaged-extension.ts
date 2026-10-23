@@ -4,12 +4,13 @@ import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { unzipSync } from 'fflate';
 import { reviewedManifestScope } from '../../src/privacy/manifest';
+import normalManifest from '../../public/manifest.json' with { type: 'json' };
 
 const maxBytes = 10 * 1024 * 1024;
 export const digest = (bytes: Uint8Array) =>
   createHash('sha256').update(bytes).digest('hex');
 export const packageName = (version: string) => {
-  if (!/^\d+\.\d+\.\d+$/.test(version))
+  if (!/^\d+\.\d+\.\d+$/.test(version) && version !== '0.11.1-experimental')
     throw new Error('Invalid package version');
   return `seatbuddies-${version}-chrome-test.zip`;
 };
@@ -113,10 +114,20 @@ export async function unpackExtensionArchive(
   const manifest = JSON.parse(
     Buffer.from(files['manifest.json']).toString('utf8'),
   ) as Record<string, unknown>;
+  const experimental = version === '0.11.1-experimental';
+  const expectedExperiment = {
+    ...normalManifest,
+    name: 'SeatBuddies — Vue Page Reader (experiment)',
+    version: '0.11.1',
+    version_name: '0.11.1-experimental',
+    permissions: ['sidePanel', 'storage', 'activeTab', 'scripting'],
+  };
   if (
-    !reviewedManifestScope.safeParse(manifest).success ||
-    manifest.version !== version ||
-    manifest.incognito !== 'spanning'
+    experimental
+      ? JSON.stringify(manifest) !== JSON.stringify(expectedExperiment)
+      : !reviewedManifestScope.safeParse(manifest).success ||
+        manifest.version !== version ||
+        manifest.incognito !== 'spanning'
   )
     throw new Error('Unexpected packaged manifest');
   for (const file of [

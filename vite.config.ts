@@ -3,10 +3,25 @@ import vue from '@vitejs/plugin-vue';
 import { runtimeNotices } from './scripts/runtime-notices.ts';
 import { resolve } from 'node:path';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [vue(), runtimeNotices()],
+  resolve: {
+    alias:
+      mode === 'experiment'
+        ? [
+            {
+              find: './PopupApp.vue',
+              replacement: resolve(
+                import.meta.dirname,
+                'src/experiment/PopupApp.vue',
+              ),
+            },
+          ]
+        : [],
+  },
   base: './',
   build: {
+    outDir: mode === 'experiment' ? 'build/experiment/dist' : 'dist',
     target: 'chrome116',
     modulePreload: { polyfill: false }, // Chrome 116 supports local modulepreload natively; no fetch shim.
     rollupOptions: {
@@ -24,4 +39,4 @@ export default defineConfig({
       output: { entryFileNames: '[name].js' },
     },
   },
-});
+}));
