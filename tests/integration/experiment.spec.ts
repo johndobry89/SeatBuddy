@@ -23,7 +23,7 @@ import {
 
 test('packaged experiment: native action grant, one popup click, fixture-only isolated observation, no retained data', async () => {
   test.setTimeout(45_000);
-  const label = '0.11.5-experimental';
+  const label = '0.11.6-experimental';
   const path = `build/experiment/seatbuddies-${label}-chrome-test.zip`;
   const packaged = process.env.SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP
     ? await unpackActionsArtifact(
@@ -38,7 +38,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       );
   const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-read-spike-'));
   expect(packaged.sha256).toBe(
-    'b184c5cd3958042a6e566f8240ff5ffad70d3bf1957c3c7962a79d47b8475c64',
+    '6514244749b0035655c52471300dae65bf962dfe2769b6508485925c79e148e1',
   );
   const previous = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
   process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
@@ -290,7 +290,9 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     }))
       await expect(hero.getByTestId(`read-${key}`)).toHaveText(value);
     await hero.close();
-    fixtureHtml = seatPage;
+    fixtureHtml = seatPage
+      .replaceAll('width:20px', 'width:22px')
+      .replace('left:24px', 'left:28px');
     await source.reload();
     const seats = await openPopup();
     await seats

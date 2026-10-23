@@ -10,7 +10,7 @@ const maxBytes = 10 * 1024 * 1024;
 export const digest = (bytes: Uint8Array) =>
   createHash('sha256').update(bytes).digest('hex');
 export const packageName = (version: string) => {
-  if (!/^\d+\.\d+\.\d+$/.test(version) && version !== '0.11.5-experimental')
+  if (!/^\d+\.\d+\.\d+$/.test(version) && version !== '0.11.6-experimental')
     throw new Error('Invalid package version');
   return `seatbuddies-${version}-chrome-test.zip`;
 };
@@ -114,12 +114,12 @@ export async function unpackExtensionArchive(
   const manifest = JSON.parse(
     Buffer.from(files['manifest.json']).toString('utf8'),
   ) as Record<string, unknown>;
-  const experimental = version === '0.11.5-experimental';
+  const experimental = version === '0.11.6-experimental';
   const expectedExperiment = {
     ...normalManifest,
     name: 'SeatBuddies — Vue Page Reader (experiment)',
-    version: '0.11.5',
-    version_name: '0.11.5-experimental',
+    version: '0.11.6',
+    version_name: '0.11.6-experimental',
     permissions: ['sidePanel', 'storage', 'activeTab', 'scripting'],
   };
   if (
