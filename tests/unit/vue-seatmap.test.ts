@@ -45,6 +45,13 @@ test('bounded four-row snapshot: ARIA status, exact legend, one possible pair, n
   expect(read(backwards).pairs[0]?.seats).toEqual([2, 1]);
 });
 
+test('ordinary 22px seats with a 6px gap produce one possible physical pair', () => {
+  const page = seatPage
+    .replaceAll('width:20px', 'width:22px')
+    .replace('left:24px', 'left:28px');
+  expect(read(page).pairs).toEqual([pair]);
+});
+
 test('rejects span gaps, skipped columns, intervening nodes, aisles, overlap and special placement', () => {
   const first = seat(1, 1, 1),
     second = seat(1, 2, 2);
@@ -53,6 +60,10 @@ test('rejects span gaps, skipped columns, intervening nodes, aisles, overlap and
     first + second.replace('data-column="2"', 'data-column="4"'),
     first + '<!-- break -->' + second,
     first + second.replace('left:24px', 'left:48px'),
+    first.replace('width:20px', 'width:22px') +
+      second
+        .replace('width:20px', 'width:22px')
+        .replace('left:24px', 'left:30px'), // 8 / 22: still too wide
     first + second.replace('left:24px', 'left:10px'),
     first.replace('class="seats__seat"', 'class="seats__seat accessible"') +
       second,

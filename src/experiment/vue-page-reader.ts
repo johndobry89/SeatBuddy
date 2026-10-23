@@ -660,7 +660,7 @@ export function readVisibleVuePage(): PageRead {
           Math.max(ar.height, br.height) > height * 1.25 ||
           Math.abs(ar.top - br.top) > height * 0.25 ||
           right.left < left.right ||
-          right.left - left.right > width * 0.25
+          right.left - left.right > width * 0.3
         )
           continue;
         candidates.push({
