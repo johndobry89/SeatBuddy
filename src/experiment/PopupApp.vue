@@ -54,11 +54,20 @@ const labels = {
   time: 'Tijd',
   hall: 'Zaal',
 };
+const seatReasons = {
+  CONTEXT_UNKNOWN: 'ONBEKEND — voorstelling of zaal niet eenduidig.',
+  MAP_UNKNOWN: 'ONBEKEND — geen unieke zichtbare stoelkaart.',
+  STRUCTURE_UNKNOWN: 'ONBEKEND — stoelgegevens tegenstrijdig of niet uniek.',
+  LEGEND_UNKNOWN: 'ONBEKEND — categorieën niet betrouwbaar gekoppeld.',
+  NO_SAFE_PAIR:
+    'GEEN BETROUWBAAR PAAR — buurrelatie of categorie onvoldoende bewezen.',
+  CHECK_VISUALLY: 'Mogelijk naast elkaar — controleer op Vue.',
+};
 </script>
 <template>
-  <ProductShell popup test-version="0.11.2-experimental">
+  <ProductShell popup test-version="0.11.3-experimental">
     <template #page-reader>
-      <p class="source">EXPERIMENT 01 · tijdelijke toegang na je klik</p>
+      <p class="source">EXPERIMENT · tijdelijke toegang na je klik</p>
       <button :disabled="busy" @click="read">
         {{ busy ? 'Pagina lezen…' : 'Lees deze Vue-pagina' }}
       </button>
@@ -86,6 +95,39 @@ const labels = {
               </dd>
             </template>
           </dl>
+          <section v-if="result.seats" data-testid="read-seats">
+            <h2>Stoelen (momentopname)</h2>
+            <p v-if="result.seats.counts" data-testid="seat-counts">
+              {{ result.seats.counts.available }} beschikbaar ·
+              {{ result.seats.counts.unavailable }} niet beschikbaar ·
+              {{ result.seats.counts.picked }} geselecteerd ·
+              {{ result.seats.counts.unknown }} onbekend
+            </p>
+            <p>{{ seatReasons[result.seats.reason] }}</p>
+            <ol v-if="result.seats.pairs.length" data-testid="seat-pairs">
+              <li v-for="(pair, index) in result.seats.pairs" :key="index">
+                Rij {{ pair.row }}: {{ pair.seats.join(' + ') }} ·
+                {{
+                  pair.categories[0] === pair.categories[1]
+                    ? pair.categories[0]
+                    : pair.categories.join(' / ')
+                }}
+              </li>
+            </ol>
+            <small>
+              {{
+                result.seats.categoryEvidence === 'EXACT_VISIBLE_ICON'
+                  ? 'Categorie via gelijke zichtbare legenda-iconen.'
+                  : 'Legenda-koppeling ONBEKEND.'
+              }}
+              <template v-if="result.seats.counts">
+                {{ result.seats.counts.categoryUnknown }} categorie onbekend;
+                {{ result.seats.counts.ultraLux }} Ultra Lux uitgesloten.
+              </template>
+              Ultra Lux en onbekende categorieën nooit voorgesteld. Geen
+              kostenbewijs: controleer zelf géén bijbetaling na Movie Pass.
+            </small>
+          </section>
           <small
             >Momentopname
             {{ new Date(result.observedAt).toLocaleTimeString('nl-NL') }} ·
@@ -95,9 +137,12 @@ const labels = {
                 : result.screenScope === 'VISIBLE_BOOKING_HERO'
                   ? 'Booking-header'
                   : 'Zichtbare metadata'
-            }}. Geen account-, stoel- of kostenbewijs.</small
+            }}. Geen account-, reserverings- of kostenbewijs.</small
           >
-          <p>Keuze gewijzigd? Klik opnieuw op Lees deze Vue-pagina.</p>
+          <p>
+            Elke wijziging maakt dit verouderd. Lees opnieuw; geen stoelen
+            vastgehouden.
+          </p>
         </template>
       </div>
     </template>

@@ -15,7 +15,7 @@ export async function packageRuntime(root, variant = 'normal') {
     await readFile(resolve(dist, 'manifest.json'), 'utf8'),
   );
   if (
-    manifest.version !== (experimental ? '0.11.2' : pkg.version) ||
+    manifest.version !== (experimental ? '0.11.3' : pkg.version) ||
     manifest.manifest_version !== 3
   )
     throw new Error('Package/manifest version mismatch');
@@ -39,8 +39,8 @@ export async function packageRuntime(root, variant = 'normal') {
     const expected = {
       ...normal,
       name: 'SeatBuddies — Vue Page Reader (experiment)',
-      version: '0.11.2',
-      version_name: '0.11.2-experimental',
+      version: '0.11.3',
+      version_name: '0.11.3-experimental',
       permissions: ['sidePanel', 'storage', 'activeTab', 'scripting'],
     };
     if (JSON.stringify(manifest) !== JSON.stringify(expected))
@@ -137,7 +137,7 @@ export async function packageRuntime(root, variant = 'normal') {
   await mkdir(resolve(root, 'build'), { recursive: true });
   const output = resolve(root, experimental ? 'build/experiment' : 'build');
   const name = experimental
-    ? 'seatbuddies-0.11.2-experimental-chrome-test.zip'
+    ? 'seatbuddies-0.11.3-experimental-chrome-test.zip'
     : `seatbuddies-${pkg.version}-chrome-test.zip`;
   await writeFile(resolve(output, name), bytes);
   await writeFile(

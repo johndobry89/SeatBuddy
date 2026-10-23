@@ -7,6 +7,7 @@ import {
 export function extract(
   html: string,
   url = 'https://www.vuecinemas.nl/public-fixture',
+  prepare?: (document: Document) => void,
 ): PageRead {
   const dom = new JSDOM(html, { url, runScripts: 'outside-only' });
   const { window } = dom;
@@ -61,6 +62,7 @@ export function extract(
     };
   }
   try {
+    prepare?.(window.document);
     return window.eval(`(${readVisibleVuePage.toString()})()`) as PageRead;
   } finally {
     window.close();
