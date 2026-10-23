@@ -46,7 +46,9 @@ de browserlezing gecontroleerd. Eén lokale vervalcallback wist de weergave, zon
 site-timer, countdown of polling. Herlezen, gewijzigd plakveld, navigatie/tabwissel
 of popupsluiting wissen het bewijs en de selectie. Een lokale revisie voorkomt
 dat een vertraagd antwoord een inmiddels gewijzigd plan alsnog groen maakt.
-Dezelfde tekst terugplakken maakt een oud lopend antwoord niet geldig.
+Dezelfde tekst terugplakken maakt een oud lopend antwoord niet geldig. Zonder
+netwerk kan A een al gedeelde kopie niet op afstand intrekken; bij een andere
+keuze een nieuw plan delen en B opnieuw laten controleren.
 
 **De controle is bedoeld vóór beide losse boekingen en biedt geen tijdslot of
 hold.** A en B boeken ieder zelf; Movie Pass-bijbetaling blijft per account
@@ -89,14 +91,24 @@ local/session-storage, opslagherstel, netwerk of stil tabbladonderzoek.
   renderer-PASS als native bewijs presenteren.
   Definitieve Linux/macOS Intel-resultaten en exacte oplevercommit worden bij
   het opleverrapport gecontroleerd; [branchchecks](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-41-duo-handoff).
+- **Tussenliggende native CI, 17edc15, [run 40011414985](https://github.com/johndobry89/SeatBuddy/actions/runs/40011414985):**
+  Mac Intel 31 UI / 7 normale native / 2 experimentele native PASS. Linux 31 UI /
+  11 normale native PASS, experimenteel 1 PASS / 1 FAIL: B-popup 605px tegenover
+  de gehandhaafde 600px-grens. Plaklabel verkort en buitenruimte van 12 naar 8px;
+  geen tekst verborgen of assertion versoepeld. Gebouwde renderer met de werkelijk
+  verpakte geserialiseerde reader opnieuw gecontroleerd: drie A-keuzes en B
+  passen binnen 360×600, ook met Dolby-zaal. Definitieve head-CI apart controleren.
 - **OWNER_LIVE_DUO NOT_RUN, HUMAN_TASK_SPEEDUP NOT_RUN, LIVE_BOOKING_TEST NOT_RUN,
   G0-toestemming INCONCLUSIVE.** Geen productie-integratie of nul-kostenbelofte.
 
 ## Handelingen versus twee tabs
 
-Binnen de popup: A **lezen → paar kiezen → kopiëren** = drie acties, nul
+Functionele stappen binnen de popup: A **lezen → paar kiezen → kopiëren** = drie acties, nul
 voorstellingsinvoervelden. B **disclosure openen → plakken → controleren** = drie
-acties, één plakveld, geen dubbele filminvoer. Ieder heeft daarnaast één bewuste
+stappen, één plakveld, geen dubbele filminvoer. Fysiek zijn dat voor A drie
+klikken; B gebruikt drie klikken (disclosure, plakveld focussen, controleren) plus
+het plakgebaar. Dit is extra bediening tegenover de website zelf. Ieder heeft
+daarnaast één bewuste
 extensie-icoonklik nodig. Zelfde pagina/profielen openen en tekst via het zelf
 gekozen kanaal doorgeven blijven handmatig; dat kanaal is geen extensiefunctie.
 Bij de gemeten korte synthetische labels: nul scrollacties; lange labels, zoomen,
@@ -114,7 +126,7 @@ geen aanvullende beheerworkflow bouwen.
 
 Experimenteel: `build/experiment/seatbuddies-0.11.7-experimental-chrome-test.zip`
 en gelijknamige `.sha256`; alleen deze versie installeren voor de duo-proef.
-SHA256: `7b6a19e96faecd5d142b33ab2ce16e5e6e44483ab1d4b048d6f21300189b2c70`.
+SHA256: `a41384c43e961ab301ba2a346a23761a0c160a8696ff33cf6988d9b2b1fa7965`.
 Beide pakketten zijn onafhankelijk op ZIP-CRC, SHA en alle bytes tegen hun dist
 gecontroleerd; normale ZIP is byte-identiek met een herbouw van de basiscommit:
 `372d6ef1682ae3a9c339f1bd9f4a3d044c3eebf3a693453e0dcc6fdb675625fc`.

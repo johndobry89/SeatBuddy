@@ -304,7 +304,7 @@ const seatReasons = {
         <summary>Duo-plan ontvangen</summary>
         <template v-if="importOpen">
           <label for="incoming-plan"
-            >Plak het volledige duo-plan in je eigen Chrome-profiel</label
+            >Plak duo-plan in je eigen Chrome-profiel</label
           >
           <textarea
             id="incoming-plan"
@@ -346,7 +346,7 @@ const seatReasons = {
 
 <style scoped>
 .duo-popup {
-  padding: 0.75rem;
+  padding: 0.5rem;
 }
 .duo-popup :deep(.brand-caption) {
   display: none;

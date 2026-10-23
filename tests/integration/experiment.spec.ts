@@ -38,7 +38,7 @@ async function experimentPackage() {
         label,
       );
   expect(packaged.sha256).toBe(
-    '7b6a19e96faecd5d142b33ab2ce16e5e6e44483ab1d4b048d6f21300189b2c70',
+    'a41384c43e961ab301ba2a346a23761a0c160a8696ff33cf6988d9b2b1fa7965',
   );
   return packaged;
 }
@@ -555,7 +555,7 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
     expect(profiles[0]).not.toBe(profiles[1]);
     await b.popup.getByText('Duo-plan ontvangen', { exact: true }).click();
     const input = b.popup.getByLabel(
-      'Plak het volledige duo-plan in je eigen Chrome-profiel',
+      'Plak duo-plan in je eigen Chrome-profiel',
     );
     await input.fill(text);
     await b.popup.evaluate(() => {
