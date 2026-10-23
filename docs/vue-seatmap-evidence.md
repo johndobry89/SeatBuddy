@@ -76,6 +76,27 @@ en het opleverrapport; alleen terminale uitslagen van die head zijn geldig.
 Lokale native proef: beheerde `ExtensionInstallBlocklist=[*]` blokkeert het laden;
 geen policywijziging of bypass. Linux en macOS Intel blijven de bestaande CI-gates.
 
+**Werkelijk geobserveerde implementatie-CI:** bron
+`81e4892b44bbda035333fa80857194cc21f9db59`,
+[run 39941794090](https://github.com/johndobry89/SeatBuddy/actions/runs/39941794090).
+Package PASS (21s). macOS Intel **SUCCESS** (8m09): 31 UI, zeven native smoke en
+één experimentele native proef PASS (13,9s), met echte gedownloade artifactbytes.
+Linux **FAIL** (5m43): systeemdependency-installatie overschreed de stapgrens van
+vijf minuten, vóór UI/native; die browserproeven dus **NOT_RUN**. Root cause achter
+de timeout INCONCLUSIVE; ruwe logs niet toegankelijk. `gh run rerun --failed`
+werd werkelijk geprobeerd en kreeg REST Forbidden. De documentatiecommit hierna
+wijzigt geen runtime-/testbytes; zijn definitieve eigen CI-status wordt apart in
+het opleverrapport vermeld, nooit gelijkgesteld aan deze bron-SHA.
+
+Draft-PR-aanmaak naar de voorgeschreven basis is werkelijk geprobeerd:
+GraphQL Forbidden. [Exact gestapeld compare](https://github.com/johndobry89/SeatBuddy/compare/feat/issue-31-vue-header-fix...feat/issue-33-live-seatmap-spike?expand=1).
+Klaarstaande titel: **EXPERIMENT 02: zichtbare Vue-stoelkaart en conservatieve
+buurparen**. Body: “Refs #33. Eén bestaande klik leest de eerste zichtbare kaart;
+strikte ARIA en legenda, maximaal drie conservatieve paren. Geen siteacties,
+opslag of extra rechten. Zie deze bewijsnotitie en definitieve commitchecks voor
+proeven, checksum en blokkades. Stoelacceptatie OWNER_LIVE_NOT_RUN; G0 INCONCLUSIVE.
+Draft naar feat/issue-31-vue-header-fix; niets mergen/publiceren.”
+
 **Packaging:** normale 0.11.0 met alleen sidePanel/storage byte-identiek:
 `372d6ef1682ae3a9c339f1bd9f4a3d044c3eebf3a693453e0dcc6fdb675625fc`.
 Experiment 0.11.3 met daarnaast uitsluitend activeTab/scripting, geen hosts of
