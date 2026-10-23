@@ -36,6 +36,16 @@
 
 **Sprint12:** eigenaar rapporteert S11 geïnstalleerd/renderend maar UX FAIL. Compacte start met één officiële Vue-link, nul verplichte formulieren; oude assistent achter gesloten Ontwikkelaarstests. Pollingknipperen gereproduceerd/gerepareerd, geen maskering. Alleen een klein fictief drie-acties-ontwerpexperiment. **PRODUCT_VALUE NO-GO**: geen bewezen voordeel tegenover twee tabs; stop verdere uitbreiding totdat een toegestane bron echte coördinatiewinst mogelijk maakt. Zie [ADR-010](docs/decisions/ADR-010-product-shell-reboot.md), [benchmark](docs/ux-reset-benchmark.md) en [integratiebesluit](docs/vue-integration-decision-2026-10.md). Alle oorspronkelijke veiligheids-/opslaginvarianten blijven. Nieuwe menselijke proef NOT_RUN.
 
+**Sprint 13 / issue #41:** uitsluitend in 0.11.7-experimental één expliciet
+gekozen werkelijk gelezen paar delen als strikt maximaal 700 tekens groot plan;
+B controleert dat exacte paar en alle vijf voorstellingsvelden in een ander eigen
+Chrome-profiel. Vluchtig, vijf minuten vanaf A-observatie, geen nieuwe rechten,
+opslag, netwerk, prijs-/accountafleiding of boekingshandeling. Normale 0.11.0-shell
+ongewijzigd; bestaande lees-/fysieke veiligheidsregels hergebruikt. Eigenaar
+bevestigde live kandidaatgeneratie in 0.11.6, nog geen tweeprofielacceptatie of
+praktische tijdwinst. [Contract, bewijs en eigenaarproef](docs/duo-handoff.md).
+G0-toestemming INCONCLUSIVE; geen productie-/boekings-GO.
+
 **Interpretatie:** dit document beschrijft een kandidaatproduct en duidelijke beslisgates. Een ontwerpkeuze is geen bewezen Chrome/Vue-integratie. `UNKNOWN` blijft onbekend tot een reproduceerbare waarneming het oplost. Het OF-ontwerpkader en `AGENTS.md` geven geen bijzondere browserrechten of toestemming voor live boekingen.
 
 ---

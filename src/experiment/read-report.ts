@@ -1,6 +1,7 @@
+import { safePublicLabel } from './duo-plan';
 import { resultSchema } from './vue-page-reader';
 
-export const experimentVersion = '0.11.6-experimental';
+export const experimentVersion = '0.11.7-experimental';
 const sources = {
   VISIBLE_MAIN_METADATA: 'Zichtbare metadata',
   VISIBLE_QUICK_TICKET: 'Quick Ticket',
@@ -23,17 +24,7 @@ export function formatReadReport(raw: unknown): string {
     throw refusal();
   const result = parsed.data;
   for (const field of Object.values(result.fields)) {
-    if (
-      field.value &&
-      (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]|@|[<>\\]|(?:[a-z][a-z0-9+.-]*:\/\/)|(?:https?|ftp|file|data|blob|javascript|chrome-extension):|www\.|(?:\b[a-z0-9-]+\.)+[a-z]{2,24}\b|(?:^|\s)\/[a-z0-9]/iu.test(
-        field.value,
-      ) ||
-        /(?:token|secret|password|wachtwoord|movie\s*pass|pasnummer|username|gebruikersnaam|credential|login|account|order|booking|session|cookie|bearer|pin|card|kaartnummer|email|e-mail)(?:\b|[_:=])/i.test(
-          field.value,
-        ) ||
-        /[A-Za-z0-9_-]{24,}|\d{7}/.test(field.value))
-    )
-      throw refusal();
+    if (field.value && !safePublicLabel(field.value)) throw refusal();
   }
   const time = new Date(result.observedAt);
   if (!Number.isFinite(time.getTime())) throw refusal();

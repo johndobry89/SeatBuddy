@@ -1,3 +1,17 @@
+# Sprint 13 — Duo Handoff / issue #41
+
+**23 oktober 2026 · 0.11.7-experimental.** Eigenaar bevestigde met 0.11.6 live
+kandidaatparen/visuele aangrenzing; onafhankelijke tweepersoonsacceptatie blijft
+**NOT_RUN**. Eén klein vluchtig plan delen en exact herlezen op B's eigen
+profiel: [werking, bewijsniveaus, privacygrenzen en testkaart](duo-handoff.md).
+Geen account-/kosten-/boekingbewijs of G0-toestemming afgeleid. De normale
+0.11.0-build, rechten en opslagbeleid blijven ongewijzigd. Eerdere NO-GO's voor
+bewezen live tijdwinst/productie blijven gelden; alleen begrensde menselijke
+duo-proef is nu uitvoerbaar. Definitieve native platformuitslagen horen bij de
+exacte oplever-SHA in het opleverrapport, niet bij synthetische testclaims.
+
+---
+
 # S12 — Operation Reboot / issue #27
 
 **22 October2026.** Base freshly fetched `feat/issue-25-sprint-11` **764234ca94fbaafbeaa96281add7182ea704c728**, branch **feat/issue-27-sprint-12**. PR#26 verified draft/unmerged; stack/main untouched. S11 final-head [run39810990294](https://github.com/johndobry89/SeatBuddy/actions/runs/39810990294) actually SUCCESS (5m57): Linux322unit/27UI/10native and Mac Intel322unit/27UI/6native. That technical baseline did **not** establish human value: owner now reports installed/rendered but **UX FAIL**. Textual feedback read; private screenshots/session not imported.
