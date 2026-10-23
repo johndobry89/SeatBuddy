@@ -43,6 +43,10 @@ normaal venster, voltooid laden, URL en exact HTTPS-origin
 toegang, navigatie of tabwissel stopt de proef. Alleen gedurende de open popup
 bestaan twee Chrome-metadata-eventhandlers voor het ongeldig maken van dit
 doel; geen achtergrondwatcher, DOM-observer of polling.
+Vanwege de bestaande onzekere vensterherkomst van native spanning-popups
+weigert de lezer ook iedere proef zolang **Toestaan in incognito** aan staat,
+zelfs in een normaal venster. Dit volgt de bestaande fail-closed grens in
+`background/normal-context.ts`; geen incognitotabs worden daarvoor opgevraagd.
 
 Maximaal één `chrome.scripting.executeScript` per popup, `world: ISOLATED`,
 `frameIds: [0]`. De zelfdragende functie controleert nogmaals origin/topframe.
@@ -100,6 +104,11 @@ Dit is apart op een leeg lokaal profiel gereproduceerd, de testaansturing is
 gecorrigeerd en beide popup-awaits zijn gekoppeld zodat een API-fout zichtbaar blijft.
 De volgende exacte head krijgt dezelfde volledige CI; geen eerste-run engineering-GO.
 
+Op [herstelrun 39925827131](https://github.com/johndobry89/SeatBuddy/actions/runs/39925827131)
+is Linux daadwerkelijk PASS: 335 unit, 31 UI, 11 bestaande native en de nieuwe
+ZIP-/action-/activeTab-/popup-/opslagproef (3,6s). De latere incognitotoegangsgrens
+heeft dezelfde vier unit-regressies doorstaan en krijgt opnieuw native CI.
+
 ## Installeren en precies drie menselijke stappen
 
 Download in de geslaagde [Actions-run van deze branch](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-29-vue-read-spike)
@@ -110,13 +119,14 @@ Pak daarna die ZIP uit. Gebruik een schoon normaal Chrome-testprofiel, geen
 incognito of persoonlijke logins. Dit is unpacked testdistributie, geen release.
 
 Experimentele inner ZIP: SHA256
-`727e39c9b7992b3789abe2854aba25dcb2080b54b21e8724338b4df6d8ed5bd9`
-(32 runtimebestanden, 131173 bytes). Normale ZIP:
+`661d5e41e378f3ff2921717fd24bf34b0843613a28dde4f8975c930bdf5fd028`
+(32 runtimebestanden, 131234 bytes). Normale ZIP:
 `372d6ef1682ae3a9c339f1bd9f4a3d044c3eebf3a693453e0dcc6fdb675625fc`.
 
 1. Open `chrome://extensions`, zet Ontwikkelaarsmodus aan en laad de uitgepakte
    map met `manifest.json` op root. Controleer **0.11.1-experimental** en de vier
-   bovengenoemde rechten. Schakel een oude SeatBuddies-testkopie uit tegen verwarring.
+   bovengenoemde rechten; laat **Toestaan in incognito** uit. Schakel een oude
+   SeatBuddies-testkopie uit tegen verwarring.
 2. Open zelf een **openbare specifieke Vue-voorstellingspagina**, zonder login,
    ticket-/stoelkeuze, winkelmand of checkout. Open het extensie-icoon en klik één
    keer **Lees deze Vue-pagina**. Typ geen voorstelling opnieuw in.

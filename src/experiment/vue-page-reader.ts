@@ -227,7 +227,7 @@ export function createPageReadSession(invalidate: () => void) {
   };
   const unavailable = () =>
     new Error(
-      'NIET BESCHIKBAAR — open een openbare Vue-voorstelling in een normaal venster en klik opnieuw op het extensie-icoon.',
+      'NIET BESCHIKBAAR — open een openbare Vue-voorstelling in een normaal venster en klik opnieuw op het extensie-icoon. Incognitotoegang voor dit experiment moet uit staan.',
     );
   const eligible = (
     tab: chrome.tabs.Tab | undefined,
@@ -256,6 +256,12 @@ export function createPageReadSession(invalidate: () => void) {
       !chrome.extension?.getViews({ type: 'popup' }).includes(window)
     )
       return;
+    // Native spanning popups can lack a provable window identity (ADR-006).
+    // Refuse the entire experiment while incognito access is enabled.
+    if (await bounded(chrome.extension.isAllowedIncognitoAccess())) {
+      revoke();
+      return;
+    }
     chrome.tabs.onUpdated.addListener(onUpdated);
     chrome.tabs.onActivated.addListener(onActivated);
     const [tab] = await bounded(

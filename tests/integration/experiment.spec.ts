@@ -25,7 +25,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       );
   const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-read-spike-'));
   expect(packaged.sha256).toBe(
-    '727e39c9b7992b3789abe2854aba25dcb2080b54b21e8724338b4df6d8ed5bd9',
+    '661d5e41e378f3ff2921717fd24bf34b0843613a28dde4f8975c930bdf5fd028',
   );
   const previous = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
   process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';

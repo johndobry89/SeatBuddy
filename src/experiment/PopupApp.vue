@@ -14,7 +14,7 @@ const session = createPageReadSession(() => {
   result.value = null;
   if (!disposed)
     message.value =
-      'NIET BESCHIKBAAR — tab gewijzigd of geen tijdelijke toegang. Sluit en heropen de popup op een openbare Vue-voorstelling.';
+      'NIET BESCHIKBAAR — tab gewijzigd of geen tijdelijke toegang. Incognitotoegang moet uit staan. Heropen de popup op een openbare Vue-voorstelling.';
 });
 async function read() {
   if (busy.value || used.value) return;

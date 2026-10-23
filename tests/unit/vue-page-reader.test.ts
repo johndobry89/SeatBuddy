@@ -111,6 +111,7 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
     { url: 'https://www.vuecinemas.nl.evil.invalid/' },
     { url: 'https://www.vuecinemas.nl:444/' },
     { incognito: true },
+    { incognitoAllowed: true },
     { url: undefined },
     { pendingUrl: 'https://www.vuecinemas.nl/other' },
     { status: 'loading' },
@@ -124,7 +125,10 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
     const onUpdated = { addListener: vi.fn(), removeListener };
     vi.stubGlobal('window', {});
     vi.stubGlobal('chrome', {
-      extension: { getViews: () => [window] },
+      extension: {
+        getViews: () => [window],
+        isAllowedIncognitoAccess: async () => false,
+      },
       tabs: {
         query,
         onUpdated,
@@ -132,6 +136,14 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
       },
       scripting: { executeScript },
     });
+    if ('incognitoAllowed' in patch)
+      vi.stubGlobal('chrome', {
+        ...chrome,
+        extension: {
+          ...chrome.extension,
+          isAllowedIncognitoAccess: async () => true,
+        },
+      });
     const session = createPageReadSession(vi.fn());
     await expect(session.read()).rejects.toThrow('NIET BESCHIKBAAR');
     expect(executeScript).toHaveBeenCalledTimes(
@@ -155,7 +167,10 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
   const addListener = vi.fn(),
     removeListener = vi.fn();
   vi.stubGlobal('chrome', {
-    extension: { getViews: () => [window] },
+    extension: {
+      getViews: () => [window],
+      isAllowedIncognitoAccess: async () => false,
+    },
     tabs: {
       query,
       onUpdated: { addListener, removeListener },
@@ -174,9 +189,7 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
   session.dispose();
   // Navigation while the popup is open revokes the initial target, even on the same URL.
   const navigated = createPageReadSession(vi.fn());
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
   const callback = addListener.mock.calls.at(-2)?.[0] as (
     id: number,
     change: { status: string },
