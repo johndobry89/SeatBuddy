@@ -93,6 +93,13 @@ Chrome-opslag, nul workerberichten en een lege nieuw geopende popup. Dit bewijst
 pas engineering-GO als deze native proef daadwerkelijk slaagt; unit-groen alleen
 is onvoldoende. De testdebuggingvlag is geen extensiepermissie en wordt niet verpakt.
 
+Eerste [CI-run 39924898895](https://github.com/johndobry89/SeatBuddy/actions/runs/39924898895):
+Linux 335 unit / 31 UI / 11 bestaande native PASS; Mac Intel 335 / 31 / 7 PASS.
+De nieuwe proef faalde vóór lezen: CDP vereist een **tab**-target, geen page-target.
+Dit is apart op een leeg lokaal profiel gereproduceerd, de testaansturing is
+gecorrigeerd en beide popup-awaits zijn gekoppeld zodat een API-fout zichtbaar blijft.
+De volgende exacte head krijgt dezelfde volledige CI; geen eerste-run engineering-GO.
+
 ## Installeren en precies drie menselijke stappen
 
 Download in de geslaagde [Actions-run van deze branch](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-29-vue-read-spike)

@@ -24,6 +24,9 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
         label,
       );
   const profile = await mkdtemp(join(tmpdir(), 'seatbuddies-read-spike-'));
+  expect(packaged.sha256).toBe(
+    '727e39c9b7992b3789abe2854aba25dcb2080b54b21e8724338b4df6d8ed5bd9',
+  );
   const previous = process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
   process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1';
   const context = await chromium.launchPersistentContext(profile, {
@@ -76,26 +79,33 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     });
     const source = await context.newPage();
     await source.goto(fixtureUrl);
-    await source.evaluate(() => {
-      Reflect.set(window, 'fixtureMainWorldOnly', 'not-in-isolated-world');
-    });
-    const cdp = await context.newCDPSession(source);
-    const { targetInfo } = await cdp.send('Target.getTargetInfo');
     const browser = context.browser();
     if (!browser)
       throw new Error('Browser-level CDP required for the native action test');
     const control = await browser.newBrowserCDPSession();
-    const popupReady = context.waitForEvent('page', {
-      predicate: (page) =>
-        page.url().split(/[?#]/)[0] === `chrome-extension://${id}/popup.html`,
+    // triggerAction requires the browser's TAB target, not its PAGE target.
+    const { targetInfos } = await control.send('Target.getTargets', {
+      filter: [{ type: 'tab' }],
     });
+    const targets = targetInfos.filter((target) => target.url === fixtureUrl);
+    expect(targets).toHaveLength(1);
+    const openPopup = async () => {
+      const [popup] = await Promise.all([
+        context.waitForEvent('page', {
+          predicate: (page) =>
+            page.url().split(/[?#]/)[0] ===
+            `chrome-extension://${id}/popup.html`,
+        }),
+        control.send('Extensions.triggerAction', {
+          id,
+          targetId: targets[0]!.targetId,
+        }),
+      ]);
+      return popup;
+    };
     // CDP's browser action emulates the icon click, unlike action.openPopup,
     // which alone does not establish activeTab. The subsequent button is real UI.
-    await control.send('Extensions.triggerAction', {
-      id,
-      targetId: targetInfo.targetId,
-    });
-    const popup = await popupReady;
+    const popup = await openPopup();
     await expect(popup.locator('input, select, textarea')).toHaveCount(0);
     await expect(popup.getByTestId('legacy-tools')).toHaveCount(0);
     await expect(popup.getByTestId('read-movie')).toHaveCount(0);
@@ -140,15 +150,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     ).toBe(0);
     // Closing the popup destroys its observation. A fresh popup has no result.
     await popup.close();
-    const freshReady = context.waitForEvent('page', {
-      predicate: (page) =>
-        page.url().split(/[?#]/)[0] === `chrome-extension://${id}/popup.html`,
-    });
-    await control.send('Extensions.triggerAction', {
-      id,
-      targetId: targetInfo.targetId,
-    });
-    const fresh = await freshReady;
+    const fresh = await openPopup();
     await expect(
       fresh.getByRole('button', { name: 'Lees deze Vue-pagina', exact: true }),
     ).toBeEnabled();
