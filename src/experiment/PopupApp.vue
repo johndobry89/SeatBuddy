@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { defineAsyncComponent, onBeforeUnmount, ref } from 'vue';
+import { experimentVersion, formatReadReport } from './read-report';
 import ProductShell from '../components/ProductShell.vue';
 import { createPageReadSession, type PageRead } from './vue-page-reader';
 const LegacyPopup = defineAsyncComponent(
@@ -8,9 +9,12 @@ const LegacyPopup = defineAsyncComponent(
 const result = ref<PageRead | null>(null);
 const busy = ref(false),
   message = ref('');
+const copying = ref(false),
+  copyMessage = ref('');
 let disposed = false;
 const session = createPageReadSession(() => {
   result.value = null;
+  copyMessage.value = '';
   if (!disposed)
     message.value =
       'NIET BESCHIKBAAR — tab gewijzigd of geen tijdelijke toegang. Incognitotoegang moet uit staan. Heropen de popup op een openbare Vue-voorstelling.';
@@ -19,6 +23,7 @@ async function read() {
   if (busy.value) return;
   result.value = null;
   message.value = '';
+  copyMessage.value = '';
   busy.value = true;
   try {
     const observation = await session.read();
@@ -40,6 +45,30 @@ async function read() {
           : 'NIET BESCHIKBAAR — geen betrouwbare waarneming.';
   } finally {
     busy.value = false;
+  }
+}
+async function copyReport() {
+  const observation = result.value;
+  if (
+    busy.value ||
+    copying.value ||
+    !observation ||
+    observation.reason === 'PROTECTED_PAGE'
+  )
+    return;
+  copying.value = true;
+  copyMessage.value = '';
+  try {
+    const report = formatReadReport(observation);
+    await navigator.clipboard.writeText(report);
+    if (!disposed && result.value === observation)
+      copyMessage.value = 'Gekopieerd';
+  } catch {
+    if (!disposed && result.value === observation)
+      copyMessage.value =
+        'Rapport niet gekopieerd — klembord geweigerd of gegevens niet veilig.';
+  } finally {
+    copying.value = false;
   }
 }
 onBeforeUnmount(() => {
@@ -65,7 +94,7 @@ const seatReasons = {
 };
 </script>
 <template>
-  <ProductShell popup test-version="0.11.3-experimental">
+  <ProductShell popup :test-version="experimentVersion">
     <template #page-reader>
       <p class="source">EXPERIMENT · tijdelijke toegang na je klik</p>
       <button :disabled="busy" @click="read">
@@ -104,6 +133,10 @@ const seatReasons = {
               {{ result.seats.counts.unknown }} onbekend
             </p>
             <p>{{ seatReasons[result.seats.reason] }}</p>
+            <small data-testid="seat-diagnostic"
+              >Schema {{ result.seats.scheme }} · diagnose
+              {{ result.seats.diagnostic }}</small
+            >
             <ol v-if="result.seats.pairs.length" data-testid="seat-pairs">
               <li v-for="(pair, index) in result.seats.pairs" :key="index">
                 Rij {{ pair.row }}: {{ pair.seats.join(' + ') }} ·
@@ -121,11 +154,14 @@ const seatReasons = {
                   : 'Legenda-koppeling ONBEKEND.'
               }}
               <template v-if="result.seats.counts">
-                {{ result.seats.counts.categoryUnknown }} categorie onbekend;
-                {{ result.seats.counts.ultraLux }} Ultra Lux uitgesloten.
+                {{ result.seats.counts.categoryUnknownAvailable }} beschikbare
+                stoelen met categorie onbekend;
+                {{ result.seats.counts.ultraLuxAvailable }} Ultra Lux herkend
+                (geen bewijs van afwezigheid).
               </template>
-              Ultra Lux en onbekende categorieën nooit voorgesteld. Geen
-              kostenbewijs: controleer zelf géén bijbetaling na Movie Pass.
+              Ultra Lux en onbekende categorieën nooit voorgesteld. Movie
+              Pass-bijbetaling niet gecontroleerd; controleer bijbetaling per
+              account.
             </small>
           </section>
           <small
@@ -145,6 +181,18 @@ const seatReasons = {
           </p>
         </template>
       </div>
+      <button
+        type="button"
+        :disabled="
+          busy || copying || !result || result.reason === 'PROTECTED_PAGE'
+        "
+        @click="copyReport"
+      >
+        Kopieer rapport
+      </button>
+      <p role="status" aria-live="polite" data-testid="copy-report-status">
+        {{ copyMessage }}
+      </p>
     </template>
     <template #page-boundary
       ><p class="product-boundary">

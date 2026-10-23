@@ -11,7 +11,14 @@ const fieldSchema = z
   .refine(
     (field) => !field.value || !/[@<>\r\n]|https?:|\d{7}/i.test(field.value),
   );
-const candidateCategory = z.enum(['Lux', 'Saver Lux', 'Super Saver Lux']);
+const candidateCategory = z.enum([
+  'Lux',
+  'Saver Lux',
+  'Super Saver Lux',
+  'Regular',
+  'Saver',
+  'Super Saver',
+]);
 const seatSummarySchema = z
   .strictObject({
     source: z.literal('VISIBLE_LIVE_SEATMAP'),
@@ -24,6 +31,18 @@ const seatSummarySchema = z
       'NO_SAFE_PAIR',
       'CHECK_VISUALLY',
     ]),
+    scheme: z.enum(['LUX_4', 'RANK_3', 'UNKNOWN']),
+    diagnostic: z.enum([
+      'NONE',
+      'LEGEND_COUNT',
+      'LEGEND_TITLE',
+      'LEGEND_IMAGE_MISSING',
+      'LEGEND_ICON_TYPE',
+      'LEGEND_DUPLICATE_ICON',
+      'SEAT_ICON_NO_MATCH',
+      'NOT_VISIBLE',
+      'UNKNOWN',
+    ]),
     categoryEvidence: z.enum(['EXACT_VISIBLE_ICON', 'UNKNOWN']),
     counts: z
       .strictObject({
@@ -31,8 +50,8 @@ const seatSummarySchema = z
         unavailable: z.number().int().min(0).max(499),
         picked: z.number().int().min(0).max(499),
         unknown: z.number().int().min(0).max(499),
-        categoryUnknown: z.number().int().min(0).max(499),
-        ultraLux: z.number().int().min(0).max(499),
+        categoryUnknownAvailable: z.number().int().min(0).max(499),
+        ultraLuxAvailable: z.number().int().min(0).max(499),
       })
       .nullable(),
     pairs: z
@@ -61,7 +80,7 @@ const seatSummarySchema = z
         summary.categoryEvidence === 'EXACT_VISIBLE_ICON'),
   );
 type SeatSummary = z.infer<typeof seatSummarySchema>;
-const resultSchema = z.strictObject({
+export const resultSchema = z.strictObject({
   reason: z.enum([
     'VISIBLE_METADATA',
     'UNSUPPORTED',
@@ -277,12 +296,17 @@ export function readVisibleVuePage(): PageRead {
       result.fields.time.status === 'OBSERVED_VISIBLE'
     )
       result.fields.time = unknown();
-    if (hall.field.value && !/^Zaal [1-9]\d?$/.test(hall.field.value))
+    if (
+      hall.field.value &&
+      !/^Zaal [1-9]\d{0,2}(?: Dolby Cinema)?$/.test(hall.field.value)
+    )
       result.fields.hall = unknown();
     // Explicitly allowlisted hall heading; compare before any seat observation.
     const screenNodes = [
       ...document.querySelectorAll('[data-test="screen-title"]'),
     ].filter(visible);
+    if (hall.field.value?.endsWith(' Dolby Cinema') && screenNodes.length === 0)
+      result.fields.hall = unknown();
     if (result.fields.hall.value && screenNodes.length) {
       if (
         screenNodes.length !== 1 ||
@@ -296,6 +320,8 @@ export function readVisibleVuePage(): PageRead {
       source: 'VISIBLE_LIVE_SEATMAP',
       observedAt: result.observedAt,
       reason: 'CONTEXT_UNKNOWN',
+      scheme: 'UNKNOWN',
+      diagnostic: 'UNKNOWN',
       categoryEvidence: 'UNKNOWN',
       counts: null,
       pairs: [],
@@ -342,48 +368,161 @@ export function readVisibleVuePage(): PageRead {
         unavailable: 0,
         picked: 0,
         unknown: 0,
-        categoryUnknown: 0,
-        ultraLux: 0,
+        categoryUnknownAvailable: 0,
+        ultraLuxAvailable: 0,
       };
       summary.counts = counts;
-      type Category = 'Ultra Lux' | 'Lux' | 'Saver Lux' | 'Super Saver Lux';
-      const titles: Record<string, Category> = {
-        'Ultra Lux stoelen': 'Ultra Lux',
-        'Lux stoelen': 'Lux',
-        'Saver Lux stoelen': 'Saver Lux',
-        'Super Saver Lux stoelen': 'Super Saver Lux',
+      type Category =
+        'Ultra Lux' | SeatSummary['pairs'][number]['categories'][number];
+      // Screen capabilities, not venue routing or Movie Pass price classes.
+      const schemes = {
+        LUX_4: ['Ultra Lux', 'Lux', 'Saver Lux', 'Super Saver Lux'],
+        RANK_3: ['Regular', 'Saver', 'Super Saver'],
+      } as const;
+      const reference = (raw: string): string | null => {
+        if (raw.startsWith('data:image/')) return raw;
+        try {
+          const url = new URL(raw, document.baseURI);
+          // No external asset origin has been verified. Accept only same-origin
+          // static image paths, without credentials/query/fragment/encoded IDs.
+          if (
+            url.protocol !== 'https:' ||
+            url.origin !== location.origin ||
+            url.username ||
+            url.password ||
+            url.search ||
+            url.hash ||
+            !/^\/(?:assets|static|images|img|public-icons)\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.(?:svg|png|webp|avif|jpe?g)$/.test(
+              url.pathname,
+            ) ||
+            /(?:account|booking|checkout|payment|session|token|private|order|login)/i.test(
+              url.pathname,
+            )
+          )
+            return null;
+          return url.href;
+        } catch {
+          return null;
+        }
       };
-      const legend = [
+      const imageReferences = (image: HTMLImageElement) => {
+        const raw = [image.getAttribute('src') ?? '', image.currentSrc].filter(
+          Boolean,
+        );
+        const refs = raw.map(reference);
+        return refs.length && refs.every((ref): ref is string => ref !== null)
+          ? [...new Set(refs)]
+          : null;
+      };
+      const dynamic = [
+        ...document.querySelectorAll('.seat-map-legend-list__item--dynamic'),
+      ];
+      const categoryButtons = [
         ...document.querySelectorAll(
           'button.seats-category[data-test="area-category-item-button"]',
         ),
-      ].filter(visible);
-      // Exact in-page strings only: never decode, fetch, hash or return icon data.
+      ];
+      const entries = (dynamic.length ? dynamic : categoryButtons)
+        .filter(visible)
+        .slice(0, 9);
+      const titleSelector = dynamic.length
+        ? '[data-test="legend-title"]'
+        : '.seats-category__title';
+      const names = entries.map(
+        (entry) =>
+          single(entry, titleSelector).field.value?.replace(/ stoelen$/, '') ??
+          '',
+      );
+      const scheme = (Object.keys(schemes) as (keyof typeof schemes)[]).find(
+        (key) =>
+          (key !== 'RANK_3' || dynamic.length > 0) &&
+          entries.length === schemes[key].length &&
+          new Set(names).size === entries.length &&
+          schemes[key].every((name) => names.includes(name)),
+      );
       const icons = new Map<string, Category>();
-      const categories = new Set<Category>();
-      if (legend.length === 4)
-        for (const entry of legend) {
-          const title = single(entry, '.seats-category__title').field.value;
-          const images = entry.querySelectorAll(
-            'img[data-test="area-category-item-icon-image"]',
+      const byCategory = new Map<Category, string[]>();
+      let legendKnown = false;
+      summary.diagnostic =
+        entries.length === 0 && (dynamic.length || categoryButtons.length)
+          ? 'NOT_VISIBLE'
+          : entries.length !== 3 && entries.length !== 4
+            ? 'LEGEND_COUNT'
+            : 'LEGEND_TITLE';
+      if (scheme) {
+        summary.scheme = scheme;
+        summary.diagnostic = 'NONE';
+        const inspect = (
+          nodes: Element[],
+          selector: string,
+          crossCheck = false,
+        ) => {
+          for (const entry of nodes) {
+            const name = single(entry, selector).field.value?.replace(
+              / stoelen$/,
+              '',
+            );
+            if (!name || !names.includes(name)) {
+              summary.diagnostic = 'LEGEND_TITLE';
+              return false;
+            }
+            const category = name as Category;
+            const images = entry.querySelectorAll<HTMLImageElement>('img');
+            if (images.length !== 1) {
+              summary.diagnostic = 'LEGEND_IMAGE_MISSING';
+              return false;
+            }
+            if (!visible(images[0]!)) {
+              summary.diagnostic = 'NOT_VISIBLE';
+              return false;
+            }
+            const refs = imageReferences(images[0]!);
+            if (!refs) {
+              summary.diagnostic = 'LEGEND_ICON_TYPE';
+              return false;
+            }
+            if (crossCheck) {
+              if (
+                !byCategory.get(category)?.some((ref) => refs.includes(ref))
+              ) {
+                summary.diagnostic = 'LEGEND_ICON_TYPE';
+                return false;
+              }
+            } else {
+              if (
+                refs.some(
+                  (ref) => icons.has(ref) && icons.get(ref) !== category,
+                )
+              ) {
+                summary.diagnostic = 'LEGEND_DUPLICATE_ICON';
+                return false;
+              }
+              refs.forEach((ref) => icons.set(ref, category));
+              byCategory.set(category, refs);
+            }
+          }
+          return true;
+        };
+        legendKnown = inspect(entries, titleSelector);
+        const controls = categoryButtons.filter(visible).slice(0, 9);
+        if (legendKnown && dynamic.length && controls.length) {
+          const controlNames = controls.map((entry) =>
+            single(entry, '.seats-category__title').field.value?.replace(
+              / stoelen$/,
+              '',
+            ),
           );
-          const icon =
-            images.length === 1 && visible(images[0]!)
-              ? images[0]!.getAttribute('src')
-              : null;
-          const category =
-            title && Object.hasOwn(titles, title) ? titles[title] : undefined;
           if (
-            !category ||
-            !icon?.startsWith('data:image/') ||
-            icons.has(icon) ||
-            categories.has(category)
-          )
-            break;
-          icons.set(icon, category);
-          categories.add(category);
+            scheme !== 'LUX_4' ||
+            controls.length !== 4 ||
+            new Set(controlNames).size !== 4
+          ) {
+            summary.diagnostic = 'LEGEND_COUNT';
+            legendKnown = false;
+          } else
+            legendKnown = inspect(controls, '.seats-category__title', true);
         }
-      const legendKnown = icons.size === 4 && categories.size === 4;
+      }
       summary.categoryEvidence = legendKnown ? 'EXACT_VISIBLE_ICON' : 'UNKNOWN';
       const parsed = buttons.map((button) => {
         const match =
@@ -402,14 +541,17 @@ export function readVisibleVuePage(): PageRead {
         const images = button.querySelectorAll(
           'img[data-test="seat-icon-image"]',
         );
-        const icon =
-          valid &&
-          state === 'available' &&
-          legendKnown &&
-          images.length === 1 &&
-          visible(images[0]!)
-            ? images[0]!.getAttribute('src')
-            : null;
+        let category: Category | undefined;
+        if (valid && state === 'available' && legendKnown) {
+          const refs =
+            images.length === 1 && visible(images[0]!)
+              ? imageReferences(images[0] as HTMLImageElement)
+              : null;
+          const matches = new Set(refs?.map((ref) => icons.get(ref)));
+          if (refs && matches.size === 1 && !matches.has(undefined))
+            category = [...matches][0];
+          else summary.diagnostic = 'SEAT_ICON_NO_MATCH';
+        }
         return {
           button,
           row: Number(match?.[1]),
@@ -417,7 +559,7 @@ export function readVisibleVuePage(): PageRead {
           id,
           column: /^\d{1,3}$/.test(column) ? Number(column) : NaN,
           state: valid ? state : undefined,
-          category: icon ? icons.get(icon) : undefined,
+          category,
         };
       });
       const ids = new Set<string>(),
@@ -450,8 +592,10 @@ export function readVisibleVuePage(): PageRead {
         else if (seat.state === 'unavailable') counts.unavailable++;
         else if (seat.state === 'picked') counts.picked++;
         else counts.unknown++;
-        if (!seat.category) counts.categoryUnknown++;
-        if (seat.category === 'Ultra Lux') counts.ultraLux++;
+        if (seat.state === 'available' && !seat.category)
+          counts.categoryUnknownAvailable++;
+        if (seat.state === 'available' && seat.category === 'Ultra Lux')
+          counts.ultraLuxAvailable++;
       }
       if (ambiguous || new Set(rowLabels.values()).size !== rowLabels.size) {
         summary.counts = null;

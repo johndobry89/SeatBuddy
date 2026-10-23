@@ -31,8 +31,8 @@ test('bounded four-row snapshot: ARIA status, exact legend, one possible pair, n
     unavailable: 1,
     picked: 1,
     unknown: 0,
-    categoryUnknown: 3,
-    ultraLux: 1,
+    categoryUnknownAvailable: 1,
+    ultraLuxAvailable: 1,
   });
   expect(result.pairs).toEqual([pair]);
   expect(JSON.stringify(result)).not.toMatch(
@@ -95,7 +95,7 @@ test('missing, mismatched, hidden or duplicate legend never guesses category or 
   ]) {
     const result = read(bookingAlpha + legend + fakeMap);
     expect(result.pairs).toEqual([]);
-    expect(result.counts?.categoryUnknown).toBeGreaterThanOrEqual(4);
+    expect(result.counts?.categoryUnknownAvailable).toBeGreaterThanOrEqual(4);
   }
 });
 
