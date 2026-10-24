@@ -16,7 +16,7 @@ import {
 } from '../fixtures/vue-legend';
 import { duoPage } from '../fixtures/duo-handoff';
 import { parseDuoPlan } from '../../src/experiment/duo-plan';
-import { seatPage } from '../fixtures/vue-seatmap';
+import { seatPage, seat } from '../fixtures/vue-seatmap';
 import {
   bookingAlpha,
   bookingBeta,
@@ -24,7 +24,7 @@ import {
 } from '../fixtures/vue-header';
 
 async function experimentPackage() {
-  const label = '0.11.7-experimental';
+  const label = '0.11.8-experimental';
   const path = `build/experiment/seatbuddies-${label}-chrome-test.zip`;
   const packaged = process.env.SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP
     ? await unpackActionsArtifact(
@@ -38,7 +38,7 @@ async function experimentPackage() {
         label,
       );
   expect(packaged.sha256).toBe(
-    'a41384c43e961ab301ba2a346a23761a0c160a8696ff33cf6988d9b2b1fa7965',
+    'cb8ab60cd84ee118b6fa860a4a5327bc8a6bb626ac0c321221cdf99ed2e32e78',
   );
   return packaged;
 }
@@ -618,6 +618,23 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
     await expect(b.popup.getByTestId('duo-status')).not.toHaveAttribute(
       'data-status',
       'DUO_MATCH_POSSIBLE',
+    );
+    // The same chosen target is outside B's top three. A newly observed UNKNOWN
+    // neighbour must reject it through the shared one-seat buffer, with no click on Vue.
+    await b.source.evaluate(
+      (html) =>
+        document
+          .querySelector('[data-test="seats-row-1"]')!
+          .insertAdjacentHTML('beforeend', html),
+      seat(1, 7, 7, 'special'),
+    );
+    await check.click();
+    await expect(b.popup.getByTestId('duo-status')).toHaveAttribute(
+      'data-status',
+      'UNKNOWN_STOP',
+    );
+    await b.source.evaluate(() =>
+      document.querySelector('[data-test="fake-seat-1-7"]')!.remove(),
     );
     // Only fixture DOM is mutated. A new conscious check invalidates prior GO.
     await b.source.evaluate(() => {

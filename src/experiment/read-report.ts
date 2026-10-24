@@ -1,7 +1,7 @@
 import { safePublicLabel } from './duo-plan';
 import { resultSchema } from './vue-page-reader';
 
-export const experimentVersion = '0.11.7-experimental';
+export const experimentVersion = '0.11.8-experimental';
 const sources = {
   VISIBLE_MAIN_METADATA: 'Zichtbare metadata',
   VISIBLE_QUICK_TICKET: 'Quick Ticket',

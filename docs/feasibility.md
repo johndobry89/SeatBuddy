@@ -1,3 +1,13 @@
+# FIX 05 — conservatieve één-stoelbuffer / issue #42
+
+**24 oktober 2026 · 0.11.8-experimental.** Alleen de gedeelde paarcontrole krijgt
+een buffer naast bestaande speciale/ongeclassificeerde posities; A-suggesties en
+B-targetcontrole gebruiken dezelfde regel. Overuitsluiting is expliciet
+productbeleid, geen universele Vue-beperking. [Fix, regressiebewijs en grenzen](adjacent-special-seat-guard.md).
+Nieuwe live buffer-/duoproef NOT_RUN; G0 INCONCLUSIVE. Normale ZIP en rechten gelijk.
+
+---
+
 # Sprint 13 — Duo Handoff / issue #41
 
 **23 oktober 2026 · 0.11.7-experimental.** Eigenaar bevestigde met 0.11.6 live
