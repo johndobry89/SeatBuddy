@@ -8,6 +8,7 @@ export const duoPage = (forA = false) =>
   `<div class="seat-map__scaled-scene"><div class="seats" data-test="seats"><div class="seats__row" data-test="seats-row-1" style="position:relative;height:24px">${Array.from(
     { length: 6 },
     (_, i) =>
+      (i === 4 ? '<span class="seats__seat"></span>' : '') +
       seat(1, i + 1, i + 1, 'lux', forA && i < 4 ? 'unavailable' : 'available'),
   ).join(
     '',

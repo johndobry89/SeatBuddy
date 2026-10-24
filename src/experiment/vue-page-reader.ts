@@ -655,37 +655,26 @@ export function readVisibleVuePage(target?: DuoPlan): PageRead {
       // Unlike the fictional matcher, these observations prove neither fees,
       // account eligibility nor a hold. Retain its gap/unknown/Ultra exclusions.
       type ObservedSeat = (typeof parsed)[number];
-      // One physical safety predicate for discovery AND exact received-pair checks.
-      const assessPair = (
-        a: ObservedSeat,
-        b: ObservedSeat,
-      ): SeatSummary['pairs'][number] | null => {
+      const isSpecial = (seat: ObservedSeat) =>
+        [seat.button, seat.button.parentElement!].some((node) =>
+          /accessible|wheelchair|disabled|companion|special|recliner|paired|sofa/i.test(
+            node.className,
+          ),
+        );
+      // Same physical predicate for pair members AND their one-seat buffer.
+      const areNeighbours = (a: ObservedSeat, b: ObservedSeat): boolean => {
         if (
-          a.state !== 'available' ||
-          b.state !== 'available' ||
-          !a.category ||
-          !b.category ||
-          a.category === 'Ultra Lux' ||
-          b.category === 'Ultra Lux' ||
           a.row !== b.row ||
           a.button.parentElement !== b.button.parentElement ||
           Math.abs(a.seat - b.seat) !== 1 ||
           Math.abs(a.column - b.column) !== 1
         )
-          return null;
-        // Ignore formatting whitespace only. A span, comment or other node breaks adjacency.
+          return false;
+        // Ignore formatting whitespace only; never cross a span/comment/aisle.
         let next = a.button.nextSibling;
         while (next?.nodeType === Node.TEXT_NODE && !next.textContent?.trim())
           next = next.nextSibling;
-        if (next !== b.button) return null;
-        if (
-          [a.button, b.button, a.button.parentElement!].some((node) =>
-            /accessible|wheelchair|disabled|companion|special|recliner|paired|sofa/i.test(
-              node.className,
-            ),
-          )
-        )
-          return null;
+        if (next !== b.button) return false;
         const ar = a.button.getBoundingClientRect(),
           br = b.button.getBoundingClientRect();
         // Counts-only when layout is unavailable. Reject overlap, large gaps,
@@ -714,6 +703,38 @@ export function readVisibleVuePage(target?: DuoPlan): PageRead {
           Math.abs(ar.top - br.top) > height * 0.25 ||
           right.left < left.right ||
           right.left - left.right > width * 0.3
+        )
+          return false;
+        return true;
+      };
+      // One eligibility check for discovery AND exact received-pair verification.
+      const assessPair = (
+        a: ObservedSeat,
+        b: ObservedSeat,
+      ): SeatSummary['pairs'][number] | null => {
+        if (
+          a.state !== 'available' ||
+          b.state !== 'available' ||
+          !a.category ||
+          !b.category ||
+          a.category === 'Ultra Lux' ||
+          b.category === 'Ultra Lux' ||
+          isSpecial(a) ||
+          isSpecial(b) ||
+          !areNeighbours(a, b)
+        )
+          return null;
+        // Only the immediate outside buttons can border this DOM-adjacent pair.
+        // An unclassified neighbour is conservatively unsafe, whatever its status.
+        const before = parsed[parsed.indexOf(a) - 1],
+          after = parsed[parsed.indexOf(b) + 1];
+        if (
+          (before &&
+            (!before.category || isSpecial(before)) &&
+            areNeighbours(before, a)) ||
+          (after &&
+            (!after.category || isSpecial(after)) &&
+            areNeighbours(b, after))
         )
           return null;
         return {
