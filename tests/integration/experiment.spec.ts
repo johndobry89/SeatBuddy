@@ -17,6 +17,7 @@ import {
 import { duoPage } from '../fixtures/duo-handoff';
 import { parseDuoPlan } from '../../src/experiment/duo-plan';
 import { seatPage, seat } from '../fixtures/vue-seatmap';
+import { rearCenterPage } from '../fixtures/vue-ranking';
 import {
   bookingAlpha,
   bookingBeta,
@@ -24,7 +25,7 @@ import {
 } from '../fixtures/vue-header';
 
 async function experimentPackage() {
-  const label = '0.11.8-experimental';
+  const label = '0.11.9-experimental';
   const path = `build/experiment/seatbuddies-${label}-chrome-test.zip`;
   const packaged = process.env.SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP
     ? await unpackActionsArtifact(
@@ -38,7 +39,7 @@ async function experimentPackage() {
         label,
       );
   expect(packaged.sha256).toBe(
-    'cb8ab60cd84ee118b6fa860a4a5327bc8a6bb626ac0c321221cdf99ed2e32e78',
+    '6a63ff26996688ec39c6cb76dcafc2f995ce517cdef90724f729aa4db987fe6e',
   );
   return packaged;
 }
@@ -362,6 +363,31 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       ).toBe(true);
       await variant.close();
     }
+    // Invented reverse-numbered room, real browser rectangles (no layout double).
+    fixtureHtml = rearCenterPage();
+    await source.reload();
+    const ranked = await openPopup();
+    const readRanked = ranked.getByRole('button', {
+      name: 'Lees deze Vue-pagina',
+      exact: true,
+    });
+    await readRanked.click();
+    await expect(ranked.getByTestId('seat-pairs').locator('li')).toHaveText([
+      'Rij 1: 4 + 5 · Lux',
+      'Rij 1: 2 + 3 · Lux',
+      'Rij 1: 6 + 7 · Lux',
+    ]);
+    // Ambiguous orientation must revert to the old order, never invent a rear.
+    await source.evaluate(() => {
+      document.querySelector<HTMLElement>(
+        '[data-test="screen-title"]',
+      )!.style.top = '80px';
+    });
+    await readRanked.click();
+    await expect(
+      ranked.getByTestId('seat-pairs').locator('li').first(),
+    ).toHaveText('Rij 6: 1 + 2 · Lux');
+    await ranked.close();
     fixtureHtml = bookingBeta;
     await source.reload();
     const checkout = await openPopup();
@@ -508,8 +534,12 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
       exact: true,
     });
     await expect(copy).toHaveCount(0);
-    await choice.first().focus();
-    await choice.first().press('Space');
+    const chosen = a.popup.getByRole('radio', {
+      name: 'Rij 1: 5 + 6 · Lux',
+      exact: true,
+    });
+    await chosen.focus();
+    await chosen.press('Space');
     await a.popup.evaluate(() =>
       Object.defineProperty(navigator.clipboard, 'writeText', {
         configurable: true,
@@ -553,6 +583,14 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
     // The second browser context is a separate disk profile, not another tab/login.
     const b = await actor(false);
     expect(profiles[0]).not.toBe(profiles[1]);
+    await b.popup
+      .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
+      .click();
+    await expect(b.popup.getByTestId('seat-pairs').locator('li')).toHaveText([
+      'Rij 4: 1 + 2 · Lux',
+      'Rij 3: 1 + 2 · Lux',
+      'Rij 2: 1 + 2 · Lux',
+    ]);
     await b.popup.getByText('Duo-plan ontvangen', { exact: true }).click();
     const input = b.popup.getByLabel(
       'Plak duo-plan in je eigen Chrome-profiel',

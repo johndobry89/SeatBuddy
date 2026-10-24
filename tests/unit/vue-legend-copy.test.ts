@@ -123,7 +123,7 @@ test('copy report is exact allowlisted plaintext with unknown fields and determi
   result.observedAt = new Date(2030, 3, 12, 19, 30).getTime();
   expect(formatReadReport(result)).toBe(
     [
-      'SeatBuddies 0.11.8-experimental',
+      'SeatBuddies 0.11.9-experimental',
       `Waargenomen (lokale tijd): ${new Date(result.observedAt).toLocaleString('nl-NL', { hour12: false })}`,
       'Bron: Quick Ticket',
       'Film: ONBEKEND',

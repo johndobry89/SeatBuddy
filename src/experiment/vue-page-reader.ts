@@ -768,17 +768,98 @@ export function readVisibleVuePage(target?: DuoPlan): PageRead {
       const candidates: {
         pair: SeatSummary['pairs'][number];
         same: boolean;
+        a: ObservedSeat;
+        b: ObservedSeat;
+        depth: number;
+        centerDistance: number;
       }[] = [];
       for (let i = 0; i < parsed.length - 1; i++) {
-        const pair = assessPair(parsed[i]!, parsed[i + 1]!);
+        const a = parsed[i]!,
+          b = parsed[i + 1]!,
+          pair = assessPair(a, b);
         if (pair)
           candidates.push({
             pair,
             same: pair.categories[0] === pair.categories[1],
+            a,
+            b,
+            depth: 0,
+            centerDistance: 0,
           });
       }
+      // Ranking only: exact B verification above never depends on the shortlist.
+      // Missing/ambiguous orientation retains the old stable category/DOM order.
       candidates.sort((a, b) => Number(b.same) - Number(a.same));
-      summary.pairs = candidates.slice(0, 3).map((candidate) => candidate.pair);
+      let shortlist = candidates.slice(0, 3);
+      const screen = screenNodes.length === 1 ? screenNodes[0] : undefined;
+      if (candidates.length && screen) {
+        const rectangles = parsed.map((seat) =>
+            seat.button.getBoundingClientRect(),
+          ),
+          sr = screen.getBoundingClientRect();
+        const measurable = [sr, ...rectangles].every(
+          (rect) =>
+            [
+              rect.left,
+              rect.right,
+              rect.top,
+              rect.bottom,
+              rect.width,
+              rect.height,
+            ].every(Number.isFinite) &&
+            rect.width > 0 &&
+            rect.height > 0,
+        );
+        const center =
+          (Math.min(...rectangles.map((rect) => rect.left)) +
+            Math.max(...rectangles.map((rect) => rect.right))) /
+          2;
+        if (
+          measurable &&
+          sr.width > sr.height &&
+          sr.left <= center &&
+          center <= sr.right &&
+          sr.bottom <= Math.min(...rectangles.map((rect) => rect.top))
+        ) {
+          // All physical seats define the room, including occupied/Ultra seats.
+          // One physical row gets one depth, so tiny within-row offsets do not
+          // outrank its horizontal center. Labels and DOM order give no depth.
+          const rowDepth = new Map<Element, { sum: number; count: number }>();
+          parsed.forEach((seat, i) => {
+            const parent = seat.button.parentElement!,
+              depth = rowDepth.get(parent) ?? { sum: 0, count: 0 },
+              rect = rectangles[i]!;
+            depth.sum += (rect.top + rect.bottom) / 2;
+            depth.count++;
+            rowDepth.set(parent, depth);
+          });
+          for (const candidate of candidates) {
+            const depth = rowDepth.get(candidate.a.button.parentElement!)!,
+              ar = rectangles[parsed.indexOf(candidate.a)]!,
+              br = rectangles[parsed.indexOf(candidate.b)]!;
+            candidate.depth = depth.sum / depth.count;
+            candidate.centerDistance = Math.abs(
+              (ar.left + ar.right + br.left + br.right) / 4 - center,
+            );
+          }
+          candidates.sort(
+            (a, b) =>
+              b.depth - a.depth ||
+              a.centerDistance - b.centerDistance ||
+              Number(b.same) - Number(a.same),
+          );
+          shortlist = [];
+          const used = new Set<ObservedSeat>();
+          for (const candidate of candidates) {
+            if (used.has(candidate.a) || used.has(candidate.b)) continue;
+            shortlist.push(candidate);
+            used.add(candidate.a);
+            used.add(candidate.b);
+            if (shortlist.length === 3) break;
+          }
+        }
+      }
+      summary.pairs = shortlist.map((candidate) => candidate.pair);
       if (summary.pairs.length) summary.reason = 'CHECK_VISUALLY';
     };
     const complete = Object.values(result.fields).every(
