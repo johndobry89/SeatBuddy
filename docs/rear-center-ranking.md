@@ -46,6 +46,16 @@ kaart met echte browserrechthoeken en daarna de fallback na bewuste herlezing.
 Definitieve UI/native platformuitslagen, oplever-SHA en CI staan bij de gestapelde
 draft-PR en [branchchecks](https://github.com/johndobry89/SeatBuddy/actions?query=branch%3Afeat%2Fissue-43-rear-center-ranking).
 
+Eerste native CI op `da9f9cc`: de nieuwe rangschikkings-/fallbackproef PASS,
+maar de oudere duoproef FAIL omdat deze blind de eerste optie selecteerde en
+stoel 5+6 verwachtte. Die aanname is door de gevraagde rangschikking veranderd.
+De test kiest nu expliciet het gelabelde doelpaar, zonder assertions af te zwakken.
+B's kleine fictieve kaart bevat drie veilige achterste alternatieven; een echte
+popupread bewijst dat het doel buiten zijn shortlist ligt vóór de exacte controle.
+De eerste macOS-pushjob stopte bovendien bij de bestaande bufferregressie op de
+5s-unitlimiet; de afzonderlijke macOS-PR-unitrun slaagde. Oude CI is geen totale
+PASS; definitieve head-CI wordt apart gerapporteerd. Runtime-ZIP bleef gelijk.
+
 Experimentele ZIP: `build/experiment/seatbuddies-0.11.9-experimental-chrome-test.zip`.
 SHA256 `6a63ff26996688ec39c6cb76dcafc2f995ce517cdef90724f729aa4db987fe6e`.
 Beide ZIPs onafhankelijk op checksum, CRC, exacte bestandslijst, alle bytes tegen

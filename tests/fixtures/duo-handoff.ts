@@ -1,7 +1,7 @@
 import { bookingAlpha } from './vue-header';
 import { fakeLegend, seat } from './vue-seatmap';
 
-// Invented seats 5+6: only candidate for A, outside B's existing first three.
+// Invented 5+6: A can choose it explicitly; B has three rear-row alternatives.
 export const duoPage = (forA = false) =>
   bookingAlpha +
   fakeLegend +
@@ -12,4 +12,4 @@ export const duoPage = (forA = false) =>
       seat(1, i + 1, i + 1, 'lux', forA && i < 4 ? 'unavailable' : 'available'),
   ).join(
     '',
-  )}</div>${forA ? [2, 3].map((row) => `<div class="seats__row" data-test="seats-row-${row}" style="position:relative;height:24px">${seat(row, 1, 1)}${seat(row, 2, 2)}</div>`).join('') : ''}</div></div>`;
+  )}</div>${(forA ? [2, 3] : [2, 3, 4]).map((row) => `<div class="seats__row" data-test="seats-row-${row}" style="position:relative;height:24px">${seat(row, 1, 1)}${seat(row, 2, 2)}</div>`).join('')}</div></div>`;

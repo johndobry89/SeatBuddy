@@ -534,8 +534,12 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
       exact: true,
     });
     await expect(copy).toHaveCount(0);
-    await choice.first().focus();
-    await choice.first().press('Space');
+    const chosen = a.popup.getByRole('radio', {
+      name: 'Rij 1: 5 + 6 · Lux',
+      exact: true,
+    });
+    await chosen.focus();
+    await chosen.press('Space');
     await a.popup.evaluate(() =>
       Object.defineProperty(navigator.clipboard, 'writeText', {
         configurable: true,
@@ -579,6 +583,14 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
     // The second browser context is a separate disk profile, not another tab/login.
     const b = await actor(false);
     expect(profiles[0]).not.toBe(profiles[1]);
+    await b.popup
+      .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
+      .click();
+    await expect(b.popup.getByTestId('seat-pairs').locator('li')).toHaveText([
+      'Rij 4: 1 + 2 · Lux',
+      'Rij 3: 1 + 2 · Lux',
+      'Rij 2: 1 + 2 · Lux',
+    ]);
     await b.popup.getByText('Duo-plan ontvangen', { exact: true }).click();
     const input = b.popup.getByLabel(
       'Plak duo-plan in je eigen Chrome-profiel',
