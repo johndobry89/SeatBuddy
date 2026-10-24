@@ -1,3 +1,15 @@
+# FIX 06 — rangschikking achterin/midden / issue #43
+
+**24 oktober 2026 · 0.11.9-experimental.** Alleen veilige kandidaatparen krijgen
+een geometrische voorkeur voor achterin/midden en een niet-overlappende shortlist
+als één zichtbare, overeenkomende schermkop aantoonbaar boven de stoelen
+ligt. Anders blijft de oude stabiele fallback. Detectie, buffer en exacte
+B-verificatie buiten de top drie blijven gelijk.
+[Werking, regressiebewijs en beperkingen](rear-center-ranking.md).
+Live rangschikking/buffer/A→B NOT_RUN; G0 INCONCLUSIVE. Normale ZIP/rechten gelijk.
+
+---
+
 # FIX 05 — conservatieve één-stoelbuffer / issue #42
 
 **24 oktober 2026 · 0.11.8-experimental.** Alleen de gedeelde paarcontrole krijgt

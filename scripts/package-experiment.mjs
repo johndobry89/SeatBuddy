@@ -11,8 +11,8 @@ const normal = JSON.parse(
 const manifest = {
   ...normal,
   name: 'SeatBuddies — Vue Page Reader (experiment)',
-  version: '0.11.8',
-  version_name: '0.11.8-experimental',
+  version: '0.11.9',
+  version_name: '0.11.9-experimental',
   permissions: ['sidePanel', 'storage', 'activeTab', 'scripting'],
 };
 await writeFile(
