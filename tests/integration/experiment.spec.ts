@@ -25,7 +25,7 @@ import {
 } from '../fixtures/vue-header';
 
 async function experimentPackage() {
-  const label = '0.11.9-experimental';
+  const label = '0.11.10-experimental';
   const path = `build/experiment/seatbuddies-${label}-chrome-test.zip`;
   const packaged = process.env.SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP
     ? await unpackActionsArtifact(
@@ -39,7 +39,7 @@ async function experimentPackage() {
         label,
       );
   expect(packaged.sha256).toBe(
-    '6a63ff26996688ec39c6cb76dcafc2f995ce517cdef90724f729aa4db987fe6e',
+    'd4e8ad19416bc85f5bfc4cf68444b14ffd88b992064e9f4f7de4836a1f301090',
   );
   return packaged;
 }
@@ -671,6 +671,9 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
       'data-status',
       'UNKNOWN_STOP',
     );
+    await expect(b.popup.getByTestId('duo-status')).toContainText(
+      'dit exacte paar is op de huidige stoelkaart niet veilig bewezen',
+    );
     await b.source.evaluate(() =>
       document.querySelector('[data-test="fake-seat-1-7"]')!.remove(),
     );
@@ -699,6 +702,9 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
     await expect(b.popup.getByTestId('duo-status')).toHaveAttribute(
       'data-status',
       'UNKNOWN_STOP',
+    );
+    await expect(b.popup.getByTestId('duo-status')).toContainText(
+      'geplakte duo-plan is ongeldig',
     );
     await expect(b.popup.locator('body')).not.toContainText('Mogelijk passend');
     expect(

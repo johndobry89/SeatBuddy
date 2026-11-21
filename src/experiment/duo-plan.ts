@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
 export const DUO_TTL_MS = 5 * 60_000;
+export class DuoPlanExpiredError extends Error {
+  readonly name = 'DuoPlanExpiredError';
+  constructor() {
+    super('STOP — duo-plan verlopen of klok onduidelijk.');
+  }
+}
 const prefix = 'SeatBuddies duo-plan v1\n';
 /** Shared copy boundary: no credentials, URL, token or line injection in labels. */
 export function safePublicLabel(value: string): boolean {
@@ -70,7 +76,7 @@ export function validateDuoPlan(raw: unknown, now = Date.now()): DuoPlan {
     now < plan.observedAt ||
     now - plan.observedAt >= DUO_TTL_MS
   )
-    throw new Error('STOP — duo-plan verlopen of klok onduidelijk.');
+    throw new DuoPlanExpiredError();
   return plan;
 }
 export function formatDuoPlan(raw: unknown, now = Date.now()): string {

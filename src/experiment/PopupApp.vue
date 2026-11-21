@@ -5,10 +5,12 @@ import ProductShell from '../components/ProductShell.vue';
 import {
   createPageReadSession,
   createDuoPlan,
+  PageReadUnavailableError,
   type PageRead,
 } from './vue-page-reader';
 import {
   DUO_TTL_MS,
+  DuoPlanExpiredError,
   parseDuoPlan,
   duoStatusLabels,
   type DuoPlan,
@@ -27,6 +29,7 @@ const selected = ref<number | null>(null),
   importOpen = ref(false);
 const duoStatus = ref<DuoStatus | null>(null),
   imported = ref<DuoPlan | null>(null);
+const duoFailureMessage = ref('');
 let revision = 0;
 let disposed = false,
   expiry: ReturnType<typeof setTimeout> | undefined;
@@ -37,6 +40,7 @@ function clearObservation() {
   selected.value = null;
   copyMessage.value = '';
   duoStatus.value = null;
+  duoFailureMessage.value = '';
   imported.value = null;
 }
 function expireAt(at: number) {
@@ -46,19 +50,24 @@ function expireAt(at: number) {
     () => {
       const wasDuo = imported.value !== null;
       clearObservation();
-      if (wasDuo) duoStatus.value = 'UNKNOWN_STOP';
+      if (wasDuo) {
+        duoStatus.value = 'UNKNOWN_STOP';
+        duoFailureMessage.value =
+          'STOP — dit duo-plan is ouder dan vijf minuten. Vraag een verse overdracht.';
+      }
       message.value =
         'STOP — momentopname verlopen. Lees opnieuw of vraag een vers duo-plan.';
     },
     Math.max(0, at + DUO_TTL_MS - Date.now()),
   );
 }
-const session = createPageReadSession(() => {
+const session = createPageReadSession((reason) => {
   clearObservation();
-  if (incoming.value) duoStatus.value = 'UNKNOWN_STOP';
-  if (!disposed)
-    message.value =
-      'NIET BESCHIKBAAR — tab gewijzigd of geen tijdelijke toegang. Incognitotoegang moet uit staan. Heropen de popup op een openbare Vue-voorstelling.';
+  if (incoming.value) {
+    duoStatus.value = 'UNKNOWN_STOP';
+    duoFailureMessage.value = `STOP — ${new PageReadUnavailableError(reason).message.replace(/^NIET BESCHIKBAAR — /, '')}`;
+  }
+  if (!disposed) message.value = new PageReadUnavailableError(reason).message;
 });
 async function read() {
   if (busy.value) return;
@@ -130,19 +139,37 @@ async function checkDuo() {
   message.value = '';
   busy.value = true;
   const current = revision;
+  let phase: 'PLAN' | 'PAGE' | 'RECHECK' = 'PLAN';
   try {
     const plan = parseDuoPlan(text);
+    phase = 'PAGE';
     const observation = await session.read(plan);
     if (disposed || current !== revision || incoming.value !== text) return;
     // Re-parse after the asynchronous browser read: a plan may have expired.
+    phase = 'RECHECK';
     parseDuoPlan(text);
     result.value = observation;
     imported.value = plan;
     duoStatus.value = observation.duo ?? 'UNKNOWN_STOP';
+    if (duoStatus.value === 'UNKNOWN_STOP')
+      duoFailureMessage.value = Object.values(observation.fields).every(
+        (field) => field.status === 'OBSERVED_VISIBLE',
+      )
+        ? 'STOP — dit exacte paar is op de huidige stoelkaart niet veilig bewezen.'
+        : 'STOP — voorstelling of stoelkaart niet volledig en eenduidig vastgesteld.';
     expireAt(plan.observedAt);
-  } catch {
-    if (!disposed && current === revision && incoming.value === text)
+  } catch (error) {
+    if (!disposed && current === revision && incoming.value === text) {
       duoStatus.value = 'UNKNOWN_STOP';
+      duoFailureMessage.value =
+        error instanceof DuoPlanExpiredError
+          ? 'STOP — duo-plan ouder dan vijf minuten of lokale klok onduidelijk. Vraag een vers plan.'
+          : error instanceof PageReadUnavailableError
+            ? `STOP — ${error.message.replace(/^NIET BESCHIKBAAR — /, '')}`
+            : phase === 'PLAN' || phase === 'RECHECK'
+              ? 'STOP — geplakte duo-plan is ongeldig of gewijzigd. Kopieer opnieuw vanuit A.'
+              : 'STOP — Chrome kon de pagina niet betrouwbaar controleren. Heropen de popup.';
+    }
   } finally {
     busy.value = false;
   }
@@ -328,7 +355,9 @@ const seatReasons = {
             data-testid="duo-status"
             :data-status="duoStatus"
           >
-            {{ duoStatus ? duoStatusLabels[duoStatus] : '' }}
+            {{
+              duoFailureMessage || (duoStatus ? duoStatusLabels[duoStatus] : '')
+            }}
           </p>
         </template>
       </details>
