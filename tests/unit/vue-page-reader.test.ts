@@ -1,5 +1,8 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { createPageReadSession } from '../../src/experiment/vue-page-reader';
+import {
+  createPageReadSession,
+  PageReadUnavailableError,
+} from '../../src/experiment/vue-page-reader';
 import { publicShowing } from '../fixtures/vue-page-reader';
 import { extract } from '../helpers/vue-page-reader';
 
@@ -107,8 +110,24 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
           isAllowedIncognitoAccess: async () => true,
         },
       });
-    const session = createPageReadSession(vi.fn());
-    await expect(session.read()).rejects.toThrow('NIET BESCHIKBAAR');
+    const invalidate = vi.fn();
+    const session = createPageReadSession(invalidate);
+    const reason =
+      'incognitoAllowed' in patch
+        ? 'INCOGNITO_PERMISSION'
+        : Object.keys(patch).length
+          ? 'TAB_UNAVAILABLE'
+          : 'READ_FAILED';
+    const error = await session.read().catch((cause: unknown) => cause);
+    expect(error).toMatchObject({
+      name: 'PageReadUnavailableError',
+      reason,
+    } satisfies Partial<PageReadUnavailableError>);
+    expect((error as Error).message).not.toMatch(
+      /fictional-private-error|public-fixture|\.invalid/,
+    );
+    if (Object.keys(patch).length)
+      expect(invalidate).toHaveBeenCalledWith(reason);
     expect(executeScript).toHaveBeenCalledTimes(
       Object.keys(patch).length ? 0 : 1,
     );
@@ -142,7 +161,9 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
     scripting: { executeScript },
   });
   const session = createPageReadSession(vi.fn());
-  await expect(session.read()).rejects.toThrow('NIET BESCHIKBAAR');
+  await expect(session.read()).rejects.toMatchObject({
+    reason: 'READ_FAILED',
+  });
   await expect(session.read()).rejects.toThrow('NIET BESCHIKBAAR');
   expect(executeScript).toHaveBeenCalledTimes(2);
   expect(executeScript.mock.calls[0]?.[0]).toMatchObject({
@@ -158,7 +179,9 @@ test('Chrome target/grant guards refuse wrong origins, incognito, navigation, ex
     change: { status: string },
   ) => void;
   callback(12, { status: 'loading' });
-  await expect(navigated.read()).rejects.toThrow('NIET BESCHIKBAAR');
+  await expect(navigated.read()).rejects.toMatchObject({
+    reason: 'TAB_CHANGED',
+  });
   expect(executeScript).toHaveBeenCalledTimes(2);
   navigated.dispose();
 });

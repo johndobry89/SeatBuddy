@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   duoCategorySchema,
   duoStatusSchema,
+  DuoPlanExpiredError,
   formatDuoPlan,
   validateDuoPlan,
   type DuoPlan,
@@ -1030,9 +1031,40 @@ export function readVisibleVuePage(target?: DuoPlan): PageRead {
 }
 
 /** Only the lifetime of this action popup. No worker, retained data or retries. */
-export function createPageReadSession(invalidate: () => void) {
+export type PageReadFailureReason =
+  | 'POPUP_CONTEXT'
+  | 'INCOGNITO_PERMISSION'
+  | 'TAB_UNAVAILABLE'
+  | 'TAB_CHANGED'
+  | 'READ_FAILED';
+
+const readFailureMessages: Record<PageReadFailureReason, string> = {
+  POPUP_CONTEXT:
+    'NIET BESCHIKBAAR — open SeatBuddies via het extensie-icoon, niet als losse extensietab.',
+  INCOGNITO_PERMISSION:
+    'NIET BESCHIKBAAR — zet bij SeatBuddies in chrome://extensions de optie Toestaan in incognito uit. Ook een normaal venster wordt anders geweigerd.',
+  TAB_UNAVAILABLE:
+    'NIET BESCHIKBAAR — open en laad eerst de openbare Vue-voorstelling in het actieve normale tabblad.',
+  TAB_CHANGED:
+    'NIET BESCHIKBAAR — het tabblad is gewijzigd of de tijdelijke toegang vervallen. Heropen de popup op de voorstelling.',
+  READ_FAILED:
+    'NIET BESCHIKBAAR — de beveiligde paginalezing is mislukt. Sluit de popup en probeer opnieuw.',
+};
+
+/** A bounded public diagnosis. Never surface raw Chrome exceptions or tab URLs. */
+export class PageReadUnavailableError extends Error {
+  readonly name = 'PageReadUnavailableError';
+  constructor(readonly reason: PageReadFailureReason) {
+    super(readFailureMessages[reason]);
+  }
+}
+
+export function createPageReadSession(
+  invalidate: (reason: PageReadFailureReason) => void,
+) {
   let revoked = false,
     reading = false;
+  let failureReason: PageReadFailureReason = 'POPUP_CONTEXT';
   let target: { id: number; windowId: number; url: string } | undefined;
   const bounded = async <T>(operation: Promise<T>): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -1055,25 +1087,24 @@ export function createPageReadSession(invalidate: () => void) {
       clearTimeout(timer);
     }
   };
-  const revoke = () => {
+  const revoke = (reason: PageReadFailureReason) => {
+    failureReason = reason;
     revoked = true;
-    invalidate();
+    invalidate(reason);
   };
   const onUpdated = (id: number, change: { status?: string; url?: string }) => {
     if (
       id === target?.id &&
       (change.status === 'loading' || change.url !== undefined)
     )
-      revoke();
+      revoke('TAB_CHANGED');
   };
   const onActivated = (info: { windowId: number; tabId: number }) => {
     if (target && info.windowId === target.windowId && info.tabId !== target.id)
-      revoke();
+      revoke('TAB_CHANGED');
   };
-  const unavailable = () =>
-    new Error(
-      'NIET BESCHIKBAAR — open een openbare Vue-voorstelling in een normaal venster en klik opnieuw op het extensie-icoon. Incognitotoegang voor dit experiment moet uit staan.',
-    );
+  const unavailable = (reason = failureReason) =>
+    new PageReadUnavailableError(reason);
   const eligible = (
     tab: chrome.tabs.Tab | undefined,
   ): tab is chrome.tabs.Tab & { id: number; url: string } => {
@@ -1104,7 +1135,7 @@ export function createPageReadSession(invalidate: () => void) {
     // Native spanning popups can lack a provable window identity (ADR-006).
     // Refuse the entire experiment while incognito access is enabled.
     if (await bounded(chrome.extension.isAllowedIncognitoAccess())) {
-      revoke();
+      revoke('INCOGNITO_PERMISSION');
       return;
     }
     chrome.tabs.onUpdated.addListener(onUpdated);
@@ -1112,10 +1143,11 @@ export function createPageReadSession(invalidate: () => void) {
     const [tab] = await bounded(
       chrome.tabs.query({ active: true, currentWindow: true }),
     );
-    if (eligible(tab) && !revoked)
+    if (eligible(tab) && !revoked) {
       target = { id: tab.id, windowId: tab.windowId, url: tab.url };
-    else revoke();
-  })().catch(revoke);
+      failureReason = 'READ_FAILED';
+    } else revoke('TAB_UNAVAILABLE');
+  })().catch(() => revoke('READ_FAILED'));
   return {
     async read(plan?: DuoPlan): Promise<PageRead> {
       await initialized;
@@ -1133,7 +1165,7 @@ export function createPageReadSession(invalidate: () => void) {
           current?.id !== target?.id ||
           current?.url !== target?.url
         )
-          throw unavailable();
+          throw unavailable('TAB_CHANGED');
         const results = await bounded(
           chrome.scripting.executeScript({
             target: { tabId: current.id!, frameIds: [0] },
@@ -1154,7 +1186,7 @@ export function createPageReadSession(invalidate: () => void) {
           results[0]?.frameId !== 0 ||
           !results[0]?.documentId
         )
-          throw unavailable();
+          throw unavailable('TAB_CHANGED');
         const result = resultSchema.parse(results[0].result);
         if (verifiedPlan) {
           validateDuoPlan(verifiedPlan);
@@ -1167,14 +1199,17 @@ export function createPageReadSession(invalidate: () => void) {
         )
           throw unavailable();
         return result;
-      } catch {
-        throw unavailable();
+      } catch (error) {
+        if (revoked) throw unavailable(failureReason);
+        if (error instanceof DuoPlanExpiredError) throw error;
+        if (error instanceof PageReadUnavailableError) throw error;
+        throw unavailable('READ_FAILED');
       } finally {
         reading = false;
       }
     },
     dispose() {
-      revoke();
+      revoke('TAB_CHANGED');
       if (typeof chrome !== 'undefined') {
         chrome.tabs?.onUpdated.removeListener(onUpdated);
         chrome.tabs?.onActivated.removeListener(onActivated);

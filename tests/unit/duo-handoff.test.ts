@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { createDuoPlan } from '../../src/experiment/vue-page-reader';
 import {
   DUO_TTL_MS,
+  DuoPlanExpiredError,
   formatDuoPlan,
   parseDuoPlan,
 } from '../../src/experiment/duo-plan';
@@ -146,8 +147,10 @@ test('stale/future plans and changed or incomplete observations cannot inherit p
   const now = observation.observedAt;
   const text = createDuoPlan(observation, 0, now);
   expect(() => parseDuoPlan(text, now + DUO_TTL_MS - 1)).not.toThrow();
-  expect(() => parseDuoPlan(text, now + DUO_TTL_MS)).toThrow();
-  expect(() => parseDuoPlan(text, now - 1)).toThrow();
+  expect(() => parseDuoPlan(text, now + DUO_TTL_MS)).toThrow(
+    DuoPlanExpiredError,
+  );
+  expect(() => parseDuoPlan(text, now - 1)).toThrow(DuoPlanExpiredError);
   const old = parseDuoPlan(text, now);
   old.observedAt = Date.now() - DUO_TTL_MS;
   expect(extract(duoPage(), undefined, fixtureGeometry, old).duo).toBe(
