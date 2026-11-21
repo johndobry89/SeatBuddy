@@ -120,10 +120,12 @@ async function copy(reportOnly = true) {
       : createDuoPlan(observation, selected.value ?? -1);
     await navigator.clipboard.writeText(text);
     if (!disposed && result.value === observation)
-      copyMessage.value = 'Gekopieerd';
+      copyMessage.value = reportOnly
+        ? 'Rapport gekopieerd.'
+        : 'Gekopieerd — stuur nu het hele bericht door.';
   } catch {
     if (!disposed && result.value === observation)
-      copyMessage.value = `${reportOnly ? 'Rapport' : 'Duo-plan'} niet gekopieerd — klembord geweigerd, gegevens onveilig of verlopen.`;
+      copyMessage.value = `${reportOnly ? 'Rapport' : 'Stoelen'} niet gekopieerd — klembord geweigerd, gegevens onveilig of verlopen.`;
   } finally {
     copying.value = false;
   }
@@ -230,7 +232,7 @@ const seatReasons = {
             <h2>
               {{
                 result.seats.pairs.length
-                  ? 'Mogelijk naast elkaar'
+                  ? '1. Kies jullie stoelen'
                   : 'Stoelen (momentopname)'
               }}
             </h2>
@@ -265,7 +267,7 @@ const seatReasons = {
               v-if="result.seats.pairs.length"
               data-testid="seat-pairs"
               role="radiogroup"
-              aria-label="Kies buurpaar voor duo-plan"
+              aria-label="Kies één paar om met je partner te delen"
             >
               <li v-for="(pair, index) in result.seats.pairs" :key="index">
                 <label class="pair-choice">
@@ -294,28 +296,23 @@ const seatReasons = {
           </section>
         </template>
       </div>
-      <div class="copy-actions">
+      <div v-if="result?.seats?.pairs.length" class="copy-actions">
         <button
-          v-if="selected !== null && result?.seats"
           type="button"
-          :disabled="busy || copying"
+          :disabled="busy || copying || selected === null"
           @click="copy(false)"
         >
-          Kopieer duo-plan
-        </button>
-        <button
-          class="copy-report"
-          type="button"
-          :disabled="
-            busy || copying || !result || result.reason === 'PROTECTED_PAGE'
-          "
-          @click="copy()"
-        >
-          Kopieer rapport
+          2. Kopieer stoelen voor je partner
         </button>
       </div>
       <div class="copy-caption">
-        <small v-if="selected !== null">A = eerste stoel · B = tweede.</small>
+        <small v-if="result?.seats?.pairs.length && selected === null"
+          >Kies hierboven eerst één paar. Er is nog niets geboekt.</small
+        >
+        <small v-if="selected !== null"
+          >Jij: eerste stoel · partner: tweede. Deel binnen 5 min na
+          lezen.</small
+        >
         <span
           v-show="copyMessage"
           role="status"
@@ -328,10 +325,11 @@ const seatReasons = {
         class="duo-import"
         @toggle="importOpen = ($event.target as HTMLDetailsElement).open"
       >
-        <summary>Duo-plan ontvangen</summary>
+        <summary>3. Stoelen van partner ontvangen</summary>
         <template v-if="importOpen">
+          <p>Open dezelfde voorstelling in je Chrome-profiel.</p>
           <label for="incoming-plan"
-            >Plak duo-plan in je eigen Chrome-profiel</label
+            >Plak het hele bericht van je partner</label
           >
           <textarea
             id="incoming-plan"
@@ -343,11 +341,11 @@ const seatReasons = {
             @input="editIncoming"
           />
           <button type="button" :disabled="busy || !incoming" @click="checkDuo">
-            Controleer duo-plan op deze Vue-pagina
+            Controleer deze stoelen
           </button>
           <p v-if="imported">
-            A: rij {{ imported.pair.row }}, stoel {{ imported.pair.A }} · B:
-            stoel {{ imported.pair.B }}
+            Partner: rij {{ imported.pair.row }}, stoel {{ imported.pair.A }} ·
+            jij: stoel {{ imported.pair.B }}
           </p>
           <p
             role="status"
@@ -367,6 +365,19 @@ const seatReasons = {
         >Movie Pass-bijbetaling niet gecontroleerd; controleer zelf op
         Vue.</small
       >
+      <details class="report-tools">
+        <summary>Technisch rapport (voor foutopsporing)</summary>
+        <button
+          class="copy-report"
+          type="button"
+          :disabled="
+            busy || copying || !result || result.reason === 'PROTECTED_PAGE'
+          "
+          @click="copy()"
+        >
+          Kopieer rapport
+        </button>
+      </details>
     </template>
     <template #page-boundary><span /></template>
     <template #default="{ active }"><LegacyPopup :active="active" /></template>
@@ -375,7 +386,7 @@ const seatReasons = {
 
 <style scoped>
 .duo-popup {
-  padding: 0.5rem;
+  padding: 0.25rem;
 }
 .duo-popup :deep(.brand-caption) {
   display: none;
@@ -385,11 +396,11 @@ const seatReasons = {
   height: 2rem;
 }
 .duo-popup :deep(.brand-header.compact) {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0;
 }
 .duo-popup :deep(details) {
-  margin: 0.125rem 0;
-  padding-top: 0.125rem;
+  margin: 0;
+  padding-top: 0;
 }
 .duo-popup :deep(.product-home > h1),
 .duo-popup :deep(.product-home > h1 + p),
@@ -471,15 +482,18 @@ dd:nth-of-type(5) {
 .copy-actions {
   display: flex;
   gap: 0.35rem;
-  margin: 0.25rem 0;
+  margin: 0.125rem 0;
   align-items: center;
 }
 .copy-actions button {
   flex: 1 1 auto;
 }
+.copy-actions button:disabled {
+  opacity: 0.55;
+}
 section {
-  margin: 0.375rem 0;
-  padding-top: 0.25rem;
+  margin: 0.125rem 0;
+  padding-top: 0;
 }
 h2 {
   margin: 0.125rem 0;
@@ -497,14 +511,14 @@ small {
 ol {
   list-style: none;
   padding: 0;
-  margin: 0.25rem 0;
+  margin: 0.125rem 0;
 }
 .pair-choice {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8rem;
-  padding: 0.25rem 0;
+  padding: 0.125rem 0;
 }
 input[type='radio'] {
   margin: 0;
@@ -526,6 +540,10 @@ input[type='radio'] {
   padding: 0.2rem;
   background: var(--surface);
   font-size: 0.75rem;
+}
+.report-tools summary {
+  min-height: 1.5rem;
+  padding: 0;
 }
 .duo-import summary {
   min-height: 1.5rem;
