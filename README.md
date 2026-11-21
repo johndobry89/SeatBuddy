@@ -14,6 +14,10 @@ An independent, privacy-first, open-source **Chrome desktop companion** concept 
 4. **[docs/feasibility.md](docs/feasibility.md)** — evidence log: no live Vue account or checkout testing yet.
 5. **[docs/decisions/ADR-001-extension-first.md](docs/decisions/ADR-001-extension-first.md)** and **[ADR-002-dual-session.md](docs/decisions/ADR-002-dual-session.md)** — architecture decisions and outstanding assumptions.
 
+## SeatBuddies Next (experimental app)
+
+A small, read-only Chrome extension lives in [`app/`](app/README.md) (0.12.0-experimental): it finds conservatively safe adjacent seat pairs on the visible Vue seat map and lets the partner re-check them from a readable chat message. Nothing is reserved. See [ADR-011](docs/decisions/ADR-011-seatbuddies-next.md); live Vue acceptance is NOT_RUN.
+
 ## Planned technology
 
 Chrome desktop, Manifest V3, Side Panel, Vue 3, strict TypeScript, Vite or a compatible MV3 toolchain, Vitest and local Playwright mock tests. **The actual implementation and dependency versions have not been selected or installed yet.**
