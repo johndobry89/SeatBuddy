@@ -68,6 +68,6 @@ Recorded by the coding agent. No live Vue access, no accounts, no bookings. See 
 | N-06 | How wheelchair/companion places appear in Vue's seat-map DOM | NOT_RUN; Next rejects pairs next to any marked element as a precaution | MANUAL_LIVE_OBSERVATION needed |
 | N-07 | Whether `[data-test="screen-title"]` marks the physical screen position | NOT_RUN; without proof the list says "order as on the map" | MANUAL_LIVE_OBSERVATION needed |
 | N-08 | Timed two-person task versus two tabs plus a chat message | NOT_RUN | MANUAL_LIVE_OBSERVATION |
+| N-09 | Real incognito window via `chrome.windows.create`, "Allow in Incognito" and `clipboardRead` in a native popup | NOT_RUN (stubbed in tests only) | MANUAL_LIVE_OBSERVATION needed |
 
 Assumption (not an outcome): an empty spacer element or a comment between seats is a layout gap. Any other element is treated as a possible special place.
-| N-09 | Real incognito window via `chrome.windows.create`, "Allow in Incognito" and `clipboardRead` in a native popup | NOT_RUN (stubbed in tests only) | MANUAL_LIVE_OBSERVATION needed |
