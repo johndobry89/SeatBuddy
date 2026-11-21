@@ -25,7 +25,7 @@ import {
 } from '../fixtures/vue-header';
 
 async function experimentPackage() {
-  const label = '0.11.10-experimental';
+  const label = '0.11.11-experimental';
   const path = `build/experiment/seatbuddies-${label}-chrome-test.zip`;
   const packaged = process.env.SEATBUDDIES_EXPERIMENT_ARTIFACT_ZIP
     ? await unpackActionsArtifact(
@@ -39,7 +39,7 @@ async function experimentPackage() {
         label,
       );
   expect(packaged.sha256).toBe(
-    'd4e8ad19416bc85f5bfc4cf68444b14ffd88b992064e9f4f7de4836a1f301090',
+    '9ffd738ad54f9836ec0b9507ee05ee338c31e7577436cd2f14feb1486c1b05bc',
   );
   return packaged;
 }
@@ -145,9 +145,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     await expect(popup.locator('input, select, textarea')).toHaveCount(0);
     await expect(popup.getByTestId('legacy-tools')).toHaveCount(0);
     await expect(popup.getByTestId('read-movie')).toHaveCount(0);
-    await expect(
-      popup.getByRole('button', { name: 'Kopieer rapport', exact: true }),
-    ).toBeDisabled();
+    await expect(popup.locator('.report-tools button')).toBeDisabled();
     await popup
       .getByRole('button', { name: 'Lees deze Vue-pagina', exact: true })
       .click();
@@ -223,6 +221,9 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
         },
       });
     });
+    await quick
+      .getByText('Technisch rapport (voor foutopsporing)', { exact: true })
+      .click();
     const copy = quick.getByRole('button', {
       name: 'Kopieer rapport',
       exact: true,
@@ -230,7 +231,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     await copy.focus();
     await copy.press('Enter');
     await expect(quick.getByTestId('copy-report-status')).toHaveText(
-      'Gekopieerd',
+      'Rapport gekopieerd.',
     );
     const report = await quick.evaluate(
       () => Reflect.get(window, 'fixtureReport') as string,
@@ -314,7 +315,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
       'Rij 1: 1 + 2 · Lux',
     );
     await expect(seats.getByTestId('read-seats')).toContainText(
-      'Mogelijk naast elkaar',
+      '1. Kies jullie stoelen',
     );
     expect(
       await seats.evaluate(
@@ -399,9 +400,7 @@ test('packaged experiment: native action grant, one popup click, fixture-only is
     );
     await expect(checkout.getByTestId('read-movie')).toHaveCount(0);
     await expect(checkout.getByTestId('read-seats')).toHaveCount(0);
-    await expect(
-      checkout.getByRole('button', { name: 'Kopieer rapport', exact: true }),
-    ).toBeDisabled();
+    await expect(checkout.locator('.report-tools button')).toBeDisabled();
     await expect(checkout.locator('body')).not.toContainText(
       'dummy-private-value',
     );
@@ -530,16 +529,20 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
     await expect(choice).toHaveCount(3);
     await expect(a.popup.locator('input:checked')).toHaveCount(0);
     const copy = a.popup.getByRole('button', {
-      name: 'Kopieer duo-plan',
+      name: '2. Kopieer stoelen voor je partner',
       exact: true,
     });
-    await expect(copy).toHaveCount(0);
+    await expect(copy).toBeDisabled();
+    await expect(a.popup.getByTestId('read-seats')).toContainText(
+      '1. Kies jullie stoelen',
+    );
     const chosen = a.popup.getByRole('radio', {
       name: 'Rij 1: 5 + 6 · Lux',
       exact: true,
     });
     await chosen.focus();
     await chosen.press('Space');
+    await expect(copy).toBeEnabled();
     await a.popup.evaluate(() =>
       Object.defineProperty(navigator.clipboard, 'writeText', {
         configurable: true,
@@ -551,7 +554,7 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
     await copy.focus();
     await copy.press('Enter');
     await expect(a.popup.getByTestId('copy-report-status')).toHaveText(
-      'Gekopieerd',
+      'Gekopieerd — stuur het hele bericht nu naar je partner.',
     );
     const text = await a.popup.evaluate(
       () => Reflect.get(window, 'fixtureDuo') as string,
@@ -578,7 +581,7 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
     );
     await copy.click();
     await expect(a.popup.getByTestId('copy-report-status')).toContainText(
-      'Duo-plan niet gekopieerd',
+      'Stoelen niet gekopieerd',
     );
     // The second browser context is a separate disk profile, not another tab/login.
     const b = await actor(false);
@@ -591,10 +594,15 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
       'Rij 3: 1 + 2 · Lux',
       'Rij 2: 1 + 2 · Lux',
     ]);
-    await b.popup.getByText('Duo-plan ontvangen', { exact: true }).click();
-    const input = b.popup.getByLabel(
-      'Plak duo-plan in je eigen Chrome-profiel',
-    );
+    await b.popup
+      .getByText('3. Stoelen van partner ontvangen', { exact: true })
+      .click();
+    const input = b.popup.getByLabel('Plak het hele bericht van je partner');
+    await expect(
+      b.popup.getByText(
+        'Open dezelfde voorstelling in je eigen Chrome-profiel.',
+      ),
+    ).toBeVisible();
     await input.fill(text);
     await b.popup.evaluate(() => {
       const original = chrome.scripting.executeScript.bind(chrome.scripting);
@@ -614,7 +622,7 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
       }) as typeof chrome.scripting.executeScript;
     });
     const check = b.popup.getByRole('button', {
-      name: 'Controleer duo-plan op deze Vue-pagina',
+      name: 'Controleer deze stoelen',
       exact: true,
     });
     await check.click();
@@ -627,7 +635,7 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
     ).toBe(1);
     await expect(b.popup.getByTestId('seat-pairs')).toHaveCount(0);
     await expect(b.popup.locator('body')).toContainText(
-      'A: rij 1, stoel 5 · B: stoel 6',
+      'Partner: rij 1, stoel 5 · jij: stoel 6',
     );
     const bSize = await fits(b.popup);
     expect(bSize.noHorizontalScroll).toBe(true);
