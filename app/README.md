@@ -18,6 +18,15 @@ Onafhankelijke Chrome-extensie voor twee mensen die ieder met een eigen Vue Movi
 
 SeatBuddies vraagt, bewaart en gebruikt geen e-mailadressen of wachtwoorden, logt nergens in en klikt niets aan op Vue.
 
+## Installeren zonder zelf te bouwen
+
+1. Open op GitHub het tabblad **Actions** → workflow **SeatBuddies Next** → de laatste geslaagde run.
+2. Download onder **Artifacts** het bestand `seatbuddies-next-extension` en pak het uit.
+3. Ga in Chrome naar `chrome://extensions`, zet **Ontwikkelaarsmodus** aan en kies **Uitgepakte extensie laden**. Kies de uitgepakte map (met `manifest.json` erin).
+4. Herhaal stap 3 in het tweede Chrome-profiel.
+
+**Gaat er live iets mis?** Klik in de popup op **Kopieer foutrapport** en plak dat bij een issue. Het rapport bevat alleen statuscodes en aantallen: geen titels, stoelnummers of accountgegevens.
+
 ## Veiligheidsgrenzen
 
 - **Rechten:** alleen `activeTab` en `scripting`. Gelezen wordt pas na een klik in de popup, alleen in het actieve tabblad, het hoofdframe, en alleen op `vuecinemas.nl`.
@@ -56,7 +65,7 @@ Laad `app/dist` via `chrome://extensions` → Ontwikkelaarsmodus → **Uitgepakt
 
 | Onderdeel | Status |
 | --- | --- |
-| Unit- en UI-tests (jsdom, verzonnen fixtures) | PASS: 54 |
+| Unit- en UI-tests (jsdom, verzonnen fixtures) | PASS: 58 |
 | Echte Chromium: gebundelde reader op een lokaal vervulde, verzonnen pagina; popup op 360 px | PASS: 3 |
 | Extensie laadt uitgepakt in Chromium zonder fouten | PASS |
 | Native action-popup met echte activeTab-toegang | NOT_RUN |

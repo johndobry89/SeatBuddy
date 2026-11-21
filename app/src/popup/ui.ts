@@ -1,4 +1,5 @@
 import { checkProposal, type CheckResult } from '../core/compare';
+import { formatDiagnostic, type DiagnosticInput } from '../core/diagnostic';
 import {
   ageMinutes,
   clockTime,
@@ -26,7 +27,7 @@ type State =
   | { screen: 'a-problem'; text: string; detail?: string }
   | { screen: 'a-choose'; observation: Observation; discovery: Discovery; selected: number | null; copyError?: string }
   | { screen: 'a-shared'; message: string; pair: Pair; copied: boolean; mode: ShareMode }
-  | { screen: 'b-input'; draft: string; error?: string }
+  | { screen: 'b-input'; draft: string; error?: string; reportable?: boolean }
   | { screen: 'b-result'; draft: string; proposal: Proposal; result: CheckResult; observation: Observation };
 
 const FIELD_LABELS: Record<ShowingField, string> = {
@@ -114,6 +115,8 @@ const pairLabel = (pair: Pair) => {
 export function mount(root: HTMLElement, deps: Deps) {
   let state: State = { screen: 'home' };
   let generation = 0;
+  // Codes and counts of the latest read, for the optional developer report.
+  let diagnostic: DiagnosticInput | null = null;
 
   const set = (next: State) => {
     state = next;
@@ -126,12 +129,14 @@ export function mount(root: HTMLElement, deps: Deps) {
     try {
       const observation = await deps.read();
       if (mine !== generation) return;
+      diagnostic = { phase: 'SEARCH', observation };
       if (observation.status !== 'OK')
         return set({ screen: 'a-problem', text: PAGE_PROBLEMS[observation.status], detail: showingLine(observation.showing) });
       const map = observation.map!;
       if (map.status !== 'OK')
         return set({ screen: 'a-problem', text: MAP_PROBLEMS[map.status], detail: showingLine(observation.showing) });
       const discovery = discover(map);
+      diagnostic = { phase: 'SEARCH', observation, discovery };
       if (!discovery.pairs.length) {
         const skipped = discovery.bufferRejected
           ? ` ${discovery.bufferRejected} mogelijk${discovery.bufferRejected === 1 ? ' paar is' : 'e paren zijn'} overgeslagen omdat er direct naast een bezette of onbekende plek ligt (dat kan een rolstoel- of begeleidersplek zijn).`
@@ -145,7 +150,9 @@ export function mount(root: HTMLElement, deps: Deps) {
       set({ screen: 'a-choose', observation, discovery, selected: null });
     } catch (error) {
       if (mine !== generation) return;
-      set({ screen: 'a-problem', text: READ_FAILURES[error instanceof ReadError ? error.reason : 'NO_ACCESS'] });
+      const reason = error instanceof ReadError ? error.reason : 'NO_ACCESS';
+      diagnostic = { phase: 'SEARCH', failure: reason };
+      set({ screen: 'a-problem', text: READ_FAILURES[reason] });
     }
   }
 
@@ -187,11 +194,30 @@ export function mount(root: HTMLElement, deps: Deps) {
     try {
       const observation = await deps.read();
       if (mine !== generation) return;
-      set({ screen: 'b-result', draft, proposal, observation, result: checkProposal(proposal, observation) });
+      const result = checkProposal(proposal, observation);
+      diagnostic = { phase: 'CHECK', observation, check: result };
+      set({ screen: 'b-result', draft, proposal, observation, result });
     } catch (error) {
       if (mine !== generation) return;
-      set({ screen: 'b-input', draft, error: READ_FAILURES[error instanceof ReadError ? error.reason : 'NO_ACCESS'] });
+      const reason = error instanceof ReadError ? error.reason : 'NO_ACCESS';
+      diagnostic = { phase: 'CHECK', failure: reason };
+      set({ screen: 'b-input', draft, error: READ_FAILURES[reason], reportable: true });
     }
+  }
+
+  function reportButton() {
+    if (!diagnostic) return null;
+    const report = formatDiagnostic(diagnostic);
+    const button = el('button', { type: 'button', class: 'link', 'aria-describedby': 'report-note' }, 'Kopieer foutrapport');
+    button.addEventListener('click', async () => {
+      try {
+        await deps.copy(report);
+        button.textContent = 'Foutrapport gekopieerd';
+      } catch {
+        button.textContent = 'Kopiëren lukte niet';
+      }
+    });
+    return el('div', { class: 'report' }, button, el('small', { id: 'report-note' }, 'Alleen statuscodes en aantallen, geen titels, stoelnummers of accountgegevens.'));
   }
 
   function header(title: string, back = true) {
@@ -366,11 +392,11 @@ export function mount(root: HTMLElement, deps: Deps) {
     const views: Child[] =
       s.screen === 'home' ? homeView()
       : s.screen === 'busy' ? [header(s.role === 'A' ? 'Kies twee stoelen' : 'Gekozen stoelen controleren'), el('p', { role: 'status' }, 'Stoelkaart lezen…')]
-      : s.screen === 'a-problem' ? [header('Kies twee stoelen'), s.detail ? el('p', { class: 'showing' }, s.detail) : null, el('p', { class: 'stop', role: 'alert' }, s.text), el('button', { type: 'button', class: 'primary', onclick: readForA }, 'Opnieuw lezen')]
+      : s.screen === 'a-problem' ? [header('Kies twee stoelen'), s.detail ? el('p', { class: 'showing' }, s.detail) : null, el('p', { class: 'stop', role: 'alert' }, s.text), el('button', { type: 'button', class: 'primary', onclick: readForA }, 'Opnieuw lezen'), reportButton()]
       : s.screen === 'a-choose' ? chooseView(s)
       : s.screen === 'a-shared' ? sharedView(s)
-      : s.screen === 'b-input' ? [header('Gekozen stoelen controleren'), ...inputView(s), s.error ? el('p', { class: 'stop', role: 'alert' }, s.error) : null]
-      : [header('Gekozen stoelen controleren'), ...inputView(s), resultView(s)];
+      : s.screen === 'b-input' ? [header('Gekozen stoelen controleren'), ...inputView(s), s.error ? el('p', { class: 'stop', role: 'alert' }, s.error) : null, s.reportable ? reportButton() : null]
+      : [header('Gekozen stoelen controleren'), ...inputView(s), resultView(s), s.result.kind === 'FREE' ? null : reportButton()];
     root.replaceChildren(
       ...views.filter((v): v is Node | string => !!v),
       el('footer', {}, 'SeatBuddies reserveert of betaalt niets en is niet verbonden aan Vue.'),

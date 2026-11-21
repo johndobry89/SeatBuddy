@@ -1,0 +1,47 @@
+name: SeatBuddies Next — checks and installable build
+on:
+  push:
+    paths: ['app/**', '.github/workflows/seatbuddies-next.yml']
+  pull_request:
+    paths: ['app/**', '.github/workflows/seatbuddies-next.yml']
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  build:
+    name: Test and build the extension
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - name: Install Chromium for the real-browser checks
+        timeout-minutes: 6
+        run: npx playwright install --with-deps chromium
+      - name: Real Chromium checks (invented, locally fulfilled pages only)
+        run: npm run test:browser
+      - name: Upload installable extension folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: seatbuddies-next-extension
+          path: app/dist/
+          if-no-files-found: error
+      - name: Upload popup screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seatbuddies-next-screenshots
+          path: app/test-results/*.png
+          if-no-files-found: ignore

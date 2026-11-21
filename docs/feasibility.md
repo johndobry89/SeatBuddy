@@ -60,7 +60,7 @@ Recorded by the coding agent. No live Vue access, no accounts, no bookings. See 
 
 | ID | Subject | Status | Evidence class |
 | --- | --- | --- | --- |
-| N-01 | Unit/UI tests with invented fixtures (`npm run check`) | PASS: 54 tests, typecheck and build | SYNTHETIC_FIXTURE |
+| N-01 | Unit/UI tests with invented fixtures (`npm run check`) | PASS: 58 tests, typecheck and build | SYNTHETIC_FIXTURE |
 | N-02 | Bundled reader in real Chromium on a locally fulfilled invented page: CSS-only aisle, fade, buffer, rear/middle ranking; zero outgoing requests | PASS: 3 tests | MOCK_INTEGRATION |
 | N-03 | Unpacked extension loads in Chromium; popup opened as a tab refuses without a Vue tab | PASS | MOCK_INTEGRATION |
 | N-04 | Native action popup with a real activeTab grant | BLOCKED here: this container's Chromium closes on opening an action popup (also for the 0.11.x suite) | — |
