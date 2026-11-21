@@ -4,7 +4,6 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { validateObservation } from '../../src/popup/validate';
 import { discover } from '../../src/core/seats';
-import { formatProposal } from '../../src/core/message';
 import type { Observation } from '../../src/core/types';
 
 /**
@@ -103,68 +102,72 @@ describe('bundled reader in real Chromium', () => {
 });
 
 describe('built popup at 360 px', () => {
-  test('A and B flows fit within 600 px and show the right text', async () => {
-    const observation = await observeFixture(fixture());
+  /** A popup page with a stubbed Chrome API: the active tab, its read, and the clipboard. */
+  async function openPopup(observation: Observation, options: { incognito: boolean; clipboard?: string }) {
     const page = await context.newPage();
     await page.setViewportSize({ width: 360, height: 600 });
-    await page.addInitScript((obs) => {
-      const tab = { id: 1, url: 'https://www.vuecinemas.nl/films/x/kopen', status: 'complete', incognito: false };
-      const fresh = () => ({ ...obs, observedAt: Date.now() });
-      (globalThis as Record<string, unknown>).chrome = {
+    await page.addInitScript(({ obs, incognito, clipboard }) => {
+      const tab = { id: 1, url: 'https://www.vuecinemas.nl/films/x/kopen', status: 'complete', incognito };
+      const g = globalThis as Record<string, unknown>;
+      g.opened = [];
+      g.chrome = {
         tabs: { query: async () => [tab] },
+        windows: { create: async (o: unknown) => (g.opened as unknown[]).push(o) },
         scripting: {
           executeScript: async (injection: { files?: string[] }) => [
-            { frameId: 0, documentId: 'doc', result: injection.files ? undefined : fresh() },
+            { frameId: 0, documentId: 'doc', result: injection.files ? undefined : { ...obs, observedAt: Date.now() } },
           ],
         },
       };
-      Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (t: string) => ((globalThis as Record<string, unknown>).copied = t) } });
-    }, observation);
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: async (t: string) => (g.copied = t), readText: async () => clipboard ?? '' },
+      });
+    }, { obs: observation, incognito: options.incognito, clipboard: options.clipboard });
     await page.goto(`file://${resolve(dist, 'popup.html')}`);
-    const height = () => page.evaluate(() => document.documentElement.scrollHeight);
-    const noHorizontal = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+    return page;
+  }
+  const fits = async (page: Awaited<ReturnType<typeof openPopup>>) => {
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(600);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  };
 
-    expect(await height()).toBeLessThanOrEqual(600);
-    await page.screenshot({ path: resolve(shots, 'popup-home.png') });
+  test('window 1 → incognito window 2 in four clicks, within 600 px', async () => {
+    const observation = await observeFixture(fixture());
 
-    await page.getByRole('button', { name: 'Zoek twee stoelen' }).click();
-    await page.getByRole('radio').first().waitFor();
-    await page.keyboard.press('Tab');
-    expect(await page.getByRole('button', { name: 'Kopieer voor het tweede venster' }).isDisabled()).toBe(true);
-    await page.getByRole('radio').first().check();
-    expect(await height()).toBeLessThanOrEqual(600);
-    expect(await noHorizontal()).toBe(true);
-    await page.screenshot({ path: resolve(shots, 'popup-a-choose.png') });
-    await page.getByRole('button', { name: 'Kopieer voor het tweede venster' }).click();
-    await page.getByText('Gekopieerd!').waitFor();
-    const copied = (await page.evaluate(() => (globalThis as Record<string, unknown>).copied)) as string;
+    // Window 1 (normal): opening the popup searches at once; one click copies.
+    const one = await openPopup(observation, { incognito: false });
+    const pair = one.locator('button.pair').first();
+    await pair.waitFor();
+    await fits(one);
+    await one.screenshot({ path: resolve(shots, 'popup-a-choose.png') });
+    await pair.focus();
+    await one.keyboard.press('Enter');
+    await one.getByText('Gekopieerd!').waitFor();
+    const copied = (await one.evaluate(() => (globalThis as Record<string, unknown>).copied)) as string;
     expect(copied).toMatch(/^SeatBuddies-voorstel: Demo Film \| Vue Teststad \| 22-11-2030 18:40 \| Zaal 6 \| rij 5 \| stoel 4 \(verzender\) \+ 5 \(ontvanger\)/);
-    expect(await height()).toBeLessThanOrEqual(600);
-    await page.screenshot({ path: resolve(shots, 'popup-a-shared.png') });
+    await one.getByRole('button', { name: 'Open tweede account (incognito)' }).click();
+    await one.getByText('Vue-inlogpagina geopend in incognito').waitFor();
+    expect(await one.evaluate(() => (globalThis as Record<string, unknown>).opened)).toEqual([
+      { url: 'https://www.vuecinemas.nl/?redirect=%2Fmijn-account', incognito: true },
+    ]);
+    await fits(one);
+    await one.screenshot({ path: resolve(shots, 'popup-a-shared.png') });
+    await one.close();
 
-    await page.getByRole('button', { name: 'Klaar' }).click();
-    await page.getByRole('button', { name: 'Gekozen stoelen controleren' }).click();
-    // A long, realistic title must still fit.
-    const long = formatProposal({
-      showing: { movie: 'Demo Film', cinema: 'Vue Teststad', date: '2030-11-22', time: '18:40', hall: 'Zaal 6' },
-      row: 5, sender: 4, receiver: 5, categories: ['Lux', 'Lux'], readAt: '12:47',
-    });
-    // A real paste (keyboard shortcut) starts the check by itself.
-    const field = page.getByLabel('Plak het SeatBuddies-voorstel');
-    await field.focus();
-    await page.evaluate((text) => {
-      const area = document.querySelector('#incoming') as HTMLTextAreaElement;
-      const data = new DataTransfer();
-      data.setData('text/plain', text);
-      area.value = text;
-      area.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true }));
-      area.dispatchEvent(new Event('input', { bubbles: true }));
-    }, `[12:50] Sam: ${long}\r\n`);
-    await page.getByText('Stoel 5 is nu vrij').waitFor();
-    expect(await height()).toBeLessThanOrEqual(600);
-    expect(await noHorizontal()).toBe(true);
-    await page.screenshot({ path: resolve(shots, 'popup-b-free.png') });
-    await page.close();
+    // Window 2 (incognito): opening the popup checks the clipboard proposal at once.
+    const two = await openPopup(observation, { incognito: true, clipboard: `[12:50] Sam: ${copied}\r\n` });
+    await two.getByText('Stoel 5 is nu vrij').waitFor();
+    await fits(two);
+    await two.screenshot({ path: resolve(shots, 'popup-b-free.png') });
+    await two.close();
     expect(blocked).toEqual([]);
+  });
+
+  test('window 2 ignores unrelated clipboard text and asks to paste', async () => {
+    const observation = await observeFixture(fixture());
+    const two = await openPopup(observation, { incognito: true, clipboard: 'iets anders' });
+    await two.getByLabel('Plak het SeatBuddies-voorstel').waitFor();
+    expect(await two.evaluate(() => (document.querySelector('#incoming') as HTMLTextAreaElement).value)).toBe('');
+    await two.close();
   });
 });

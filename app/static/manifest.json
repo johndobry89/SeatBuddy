@@ -3,10 +3,14 @@
   "name": "SeatBuddies Next (test)",
   "version": "0.12.0",
   "version_name": "0.12.0-experimental",
-  "description": "Onafhankelijke hulp om op vuecinemas.nl twee losse stoelen naast elkaar te vinden. Reserveert niets. Niet verbonden aan Vue.",
+  "description": "Onafhankelijke hulp om op vuecinemas.nl twee losse stoelen naast elkaar te vinden en per account te controleren. Reserveert niets. Niet verbonden aan Vue.",
   "minimum_chrome_version": "116",
-  "permissions": ["activeTab", "scripting"],
-  "incognito": "not_allowed",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "clipboardRead"
+  ],
+  "incognito": "spanning",
   "action": {
     "default_title": "SeatBuddies",
     "default_popup": "popup.html",

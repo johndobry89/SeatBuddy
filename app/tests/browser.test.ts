@@ -43,12 +43,11 @@ describe('active tab read', () => {
     expect(executeScript.mock.calls[1]![0]).toMatchObject({ target: { tabId: 7, frameIds: [0] }, world: 'ISOLATED' });
   });
 
-  test('refuses before injecting: other site, incognito, loading, no grant', async () => {
+  test('refuses before injecting: other site, loading, no grant', async () => {
     for (const [tab, expected] of [
       [{ url: 'https://example.com/' }, 'NOT_VUE_TAB'],
       [{ url: 'https://www.vuecinemas.nl.evil.example/' }, 'NOT_VUE_TAB'],
       [{ url: undefined }, 'NOT_VUE_TAB'],
-      [{ incognito: true }, 'INCOGNITO'],
       [{ status: 'loading' }, 'TAB_LOADING'],
       [{ id: undefined }, 'NOT_VUE_TAB'],
     ] as const) {
@@ -56,6 +55,11 @@ describe('active tab read', () => {
       expect(await reason(readActiveTab(api, () => NOW))).toBe(expected);
       expect(executeScript).not.toHaveBeenCalled();
     }
+  });
+
+  test('an incognito Vue tab is read like any other (the user allowed it in Chrome)', async () => {
+    const { api } = fakeChrome({ tab: { incognito: true } });
+    expect((await readActiveTab(api, () => NOW)).status).toBe('OK');
   });
 
   test('navigation, tab switch or a different document during the read is TAB_CHANGED', async () => {

@@ -48,40 +48,34 @@ describe('home', () => {
 });
 
 describe('person A', () => {
-  test('must choose explicitly before copying; the copied text is the readable proposal', async () => {
+  test('one click on a pair chooses and copies the readable proposal; nothing is pre-chosen', async () => {
     const { deps } = setup();
     button('Zoek twee stoelen')!.click();
     await flush();
-    expect(button('Kopieer voor het tweede venster')!.disabled).toBe(true);
-    expect(button('Kopieer om te versturen')!.disabled).toBe(true);
-    expect(text()).toMatch(/Kies eerst één paar/);
-    const radios = root.querySelectorAll<HTMLInputElement>('input[type="radio"]');
-    expect(radios).toHaveLength(3);
-    expect([...radios].every((r) => !r.checked)).toBe(true);
-    expect(radios[0]!.closest('label')?.textContent).toBe('Rij 1: stoel 1 + 2 · Lux');
-    radios[1]!.dispatchEvent(new Event('change'));
-    button('Kopieer om te versturen')!.click();
+    const pairs = root.querySelectorAll<HTMLButtonElement>('button.pair');
+    expect([...pairs].map((b) => b.textContent)).toEqual(['Rij 1: stoel 1 + 2 · Lux', 'Rij 1: stoel 3 + 4 · Lux', 'Rij 1: stoel 5 + 6 · Lux']);
+    expect(deps.copy).not.toHaveBeenCalled();
+    pairs[1]!.click();
     await flush();
     const message = vi.mocked(deps.copy).mock.calls[0]![0];
     expect(parseProposal(message)).toMatchObject({ row: 1, sender: 3, receiver: 4, readAt: '12:47', showing });
     expect(text()).toMatch(/Gekopieerd!/);
+    expect(text()).toMatch(/Kies in dat venster stoel 4 en hier stoel 3 \(rij 1\)/);
+    // No text to hand over manually when the clipboard worked.
+    expect(root.querySelector('textarea')).toBeNull();
+    // Switching to "send" shows the text for a chat app.
+    button('Ik stuur het voorstel door (bijv. WhatsApp)')!.click();
     expect(text()).toMatch(/jij stoel 3 en je partner stoel 4/);
     expect(root.querySelector('textarea')?.value).toBe(message);
   });
 
-  test('second window on this computer: copy once, then clear steps per window', async () => {
-    const { deps } = setup();
+  test('pair buttons are reachable and usable by keyboard', async () => {
+    setup();
     button('Zoek twee stoelen')!.click();
     await flush();
-    root.querySelector<HTMLInputElement>('input[type="radio"]')!.dispatchEvent(new Event('change'));
-    button('Kopieer voor het tweede venster')!.click();
-    await flush();
-    expect(parseProposal(vi.mocked(deps.copy).mock.calls[0]![0])).toMatchObject({ sender: 1, receiver: 2 });
-    expect(text()).toMatch(/Gekopieerd!/);
-    expect(text()).toMatch(/Ga naar het tweede Chrome-venster/);
-    expect(text()).toMatch(/Kies in dat venster stoel 2 en hier stoel 1 \(rij 1\)/);
-    // No text to hand over manually when the clipboard worked.
-    expect(root.querySelector('textarea')).toBeNull();
+    const first = root.querySelector<HTMLButtonElement>('button.pair')!;
+    expect(first.tagName).toBe('BUTTON');
+    expect(first.closest('[role="group"]')?.getAttribute('aria-label')).toMatch(/klik om te kiezen en te kopiëren/);
   });
 
   test('says how the list is ordered', async () => {
@@ -95,8 +89,7 @@ describe('person A', () => {
     setup({ copy: vi.fn(async () => Promise.reject(new Error('denied'))) });
     button('Zoek twee stoelen')!.click();
     await flush();
-    root.querySelector<HTMLInputElement>('input[type="radio"]')!.dispatchEvent(new Event('change'));
-    button('Kopieer voor het tweede venster')!.click();
+    root.querySelector<HTMLButtonElement>('button.pair')!.click();
     await flush();
     expect(text()).not.toMatch(/Gekopieerd!/);
     expect(text()).toMatch(/Automatisch kopiëren lukte niet/);
@@ -126,11 +119,73 @@ describe('person A', () => {
   });
 });
 
+describe('second account in incognito', () => {
+  test('opens an incognito window on request and explains the one-time Chrome setting', async () => {
+    const openIncognito = vi.fn(async () => undefined);
+    setup({ openIncognito });
+    button('Open tweede account (incognito)')!.click();
+    await flush();
+    expect(openIncognito).toHaveBeenCalledTimes(1);
+    expect(text()).toMatch(/Log daar in op het tweede account/);
+    expect(text()).toMatch(/Toestaan in incognito/);
+  });
+
+  test('a refused incognito window gives an alternative, not a false success', async () => {
+    setup({ openIncognito: vi.fn(async () => Promise.reject(new Error('disabled by policy'))) });
+    button('Open tweede account (incognito)')!.click();
+    await flush();
+    expect(text()).toMatch(/Openen lukte niet; incognito staat mogelijk uit/);
+    expect(text()).not.toMatch(/geopend/);
+  });
+});
+
+describe('automatic start when the popup opens', () => {
+  const message = formatProposal({ showing, row: 1, sender: 2, receiver: 3, categories: ['Lux', 'Lux'], readAt: '12:47' });
+
+  test('normal window: searches at once, without touching the clipboard', async () => {
+    const readClipboard = vi.fn(async () => message);
+    const deps: Deps = { read: vi.fn(async () => obs()), copy: vi.fn(async () => undefined), now: () => 0, readClipboard, isIncognito: async () => false };
+    mount(root, deps, { autoStart: true });
+    await flush();
+    await flush();
+    expect(root.querySelectorAll('button.pair')).toHaveLength(3);
+    expect(readClipboard).not.toHaveBeenCalled();
+  });
+
+  test('incognito window: checks a SeatBuddies proposal from the clipboard at once', async () => {
+    const deps: Deps = { read: vi.fn(async () => obs()), copy: vi.fn(async () => undefined), now: () => 0, readClipboard: async () => `Sam: ${message}`, isIncognito: async () => true };
+    mount(root, deps, { autoStart: true });
+    await flush();
+    await flush();
+    expect(root.querySelector('.result h2')?.textContent).toBe('Stoel 3 is nu vrij');
+  });
+
+  test('incognito window: other clipboard content is ignored and never shown', async () => {
+    const read = vi.fn(async () => obs());
+    const deps: Deps = { read, copy: vi.fn(async () => undefined), now: () => 0, readClipboard: async () => 'mijn-geheime-wachtwoord', isIncognito: async () => true };
+    mount(root, deps, { autoStart: true });
+    await flush();
+    await flush();
+    expect(read).not.toHaveBeenCalled();
+    expect(root.querySelector<HTMLTextAreaElement>('#incoming')?.value).toBe('');
+    expect(text()).not.toMatch(/wachtwoord/);
+  });
+
+  test('a refused clipboard read falls back to the paste field', async () => {
+    const deps: Deps = { read: vi.fn(async () => obs()), copy: vi.fn(async () => undefined), now: () => 0, readClipboard: async () => Promise.reject(new Error('denied')), isIncognito: async () => true };
+    mount(root, deps, { autoStart: true });
+    await flush();
+    await flush();
+    expect(document.activeElement?.id).toBe('incoming');
+  });
+});
+
 describe('checking the chosen seats (second window or partner)', () => {
   const message = formatProposal({ showing, row: 1, sender: 2, receiver: 3, categories: ['Lux', 'Lux'], readAt: '12:47' });
 
   async function check(draft: string) {
     button('Gekozen stoelen controleren')!.click();
+    await flush();
     const area = root.querySelector<HTMLTextAreaElement>('#incoming')!;
     expect(document.activeElement).toBe(area);
     area.value = draft;
@@ -152,6 +207,7 @@ describe('checking the chosen seats (second window or partner)', () => {
   test('pasting checks right away, without a second click', async () => {
     const { deps } = setup();
     button('Gekozen stoelen controleren')!.click();
+    await flush();
     const area = root.querySelector<HTMLTextAreaElement>('#incoming')!;
     area.value = message;
     area.dispatchEvent(new Event('paste'));
@@ -200,6 +256,7 @@ describe('checking the chosen seats (second window or partner)', () => {
     let release!: (o: Observation) => void;
     setup({ read: vi.fn(() => new Promise<Observation>((resolve) => (release = resolve))) });
     button('Gekozen stoelen controleren')!.click();
+    await flush();
     const area = root.querySelector<HTMLTextAreaElement>('#incoming')!;
     area.value = message;
     button('Controleer op deze pagina')!.click();

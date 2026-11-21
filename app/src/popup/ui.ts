@@ -16,6 +16,17 @@ export interface Deps {
   read: () => Promise<Observation>;
   copy: (text: string) => Promise<void>;
   now: () => number;
+  /** Only called when the popup opens or a check is asked for; never polled. */
+  readClipboard?: () => Promise<string>;
+  /** Opens Vue's login page in a new incognito window for the second account. */
+  openIncognito?: () => Promise<void>;
+  /** Whether this popup belongs to an incognito window. */
+  isIncognito?: () => Promise<boolean>;
+}
+
+export interface MountOptions {
+  /** Normal window: search at once. Incognito window: check the clipboard at once. */
+  autoStart?: boolean;
 }
 
 /** 'here': a second Chrome window/profile on this computer; 'send': via a chat app. */
@@ -25,7 +36,7 @@ type State =
   | { screen: 'home' }
   | { screen: 'busy'; role: 'A' | 'B' }
   | { screen: 'a-problem'; text: string; detail?: string }
-  | { screen: 'a-choose'; observation: Observation; discovery: Discovery; selected: number | null; copyError?: string }
+  | { screen: 'a-choose'; observation: Observation; discovery: Discovery; copyError?: string }
   | { screen: 'a-shared'; message: string; pair: Pair; copied: boolean; mode: ShareMode }
   | { screen: 'b-input'; draft: string; error?: string; reportable?: boolean }
   | { screen: 'b-result'; draft: string; proposal: Proposal; result: CheckResult; observation: Observation };
@@ -41,7 +52,6 @@ const FIELD_LABELS: Record<ShowingField, string> = {
 export const READ_FAILURES: Record<ReadFailure, string> = {
   NOT_VUE_TAB:
     'Open eerst de stoelkaart op vuecinemas.nl in dit tabblad. Klik daarna opnieuw op het SeatBuddies-icoon.',
-  INCOGNITO: 'SeatBuddies werkt bewust niet in incognitovensters.',
   TAB_LOADING: 'De pagina is nog aan het laden. Probeer het zo opnieuw.',
   TAB_CHANGED: 'De pagina veranderde tijdens het lezen. Probeer het opnieuw.',
   NO_ACCESS:
@@ -112,11 +122,13 @@ const pairLabel = (pair: Pair) => {
   return `Rij ${pair.row}: stoel ${pair.seats[0]} + ${pair.seats[1]} · ${kind}`;
 };
 
-export function mount(root: HTMLElement, deps: Deps) {
+export function mount(root: HTMLElement, deps: Deps, options: MountOptions = {}) {
   let state: State = { screen: 'home' };
   let generation = 0;
   // Codes and counts of the latest read, for the optional developer report.
   let diagnostic: DiagnosticInput | null = null;
+  // Result of the last "open second account" click, shown next to the button.
+  let notice = '';
 
   const set = (next: State) => {
     state = next;
@@ -147,7 +159,7 @@ export function mount(root: HTMLElement, deps: Deps) {
           detail: showingLine(observation.showing),
         });
       }
-      set({ screen: 'a-choose', observation, discovery, selected: null });
+      set({ screen: 'a-choose', observation, discovery });
     } catch (error) {
       if (mine !== generation) return;
       const reason = error instanceof ReadError ? error.reason : 'NO_ACCESS';
@@ -156,10 +168,11 @@ export function mount(root: HTMLElement, deps: Deps) {
     }
   }
 
-  async function share(mode: ShareMode) {
-    if (state.screen !== 'a-choose' || state.selected === null) return;
-    const { observation, discovery, selected } = state;
-    const pair = discovery.pairs[selected]!;
+  /** Choosing a pair is the deliberate action: it copies the proposal at once. */
+  async function share(index: number) {
+    if (state.screen !== 'a-choose') return;
+    const { observation, discovery } = state;
+    const pair = discovery.pairs[index]!;
     let message: string;
     try {
       message = formatProposal({
@@ -171,7 +184,7 @@ export function mount(root: HTMLElement, deps: Deps) {
         readAt: clockTime(observation.observedAt),
       });
     } catch (error) {
-      return set({ ...state, copyError: error instanceof MessageError ? error.message : 'Kon geen bericht maken.' });
+      return set({ ...state, copyError: error instanceof MessageError ? error.message : 'Kon geen voorstel maken.' });
     }
     let copied = true;
     try {
@@ -179,7 +192,37 @@ export function mount(root: HTMLElement, deps: Deps) {
     } catch {
       copied = false;
     }
-    set({ screen: 'a-shared', message, pair, copied, mode });
+    set({ screen: 'a-shared', message, pair, copied, mode: 'here' });
+  }
+
+  /** Uses the clipboard only when it holds a SeatBuddies proposal; otherwise asks to paste. */
+  async function checkFromClipboard() {
+    let text = '';
+    try {
+      text = (await deps.readClipboard?.()) ?? '';
+    } catch {
+      text = '';
+    }
+    if (/seatbuddies-voorstel:/i.test(text)) return checkForB(text);
+    set({ screen: 'b-input', draft: '' });
+  }
+
+  async function openSecondAccount() {
+    try {
+      if (!deps.openIncognito) throw new Error('unavailable');
+      await deps.openIncognito();
+      notice = 'Vue-inlogpagina geopend in incognito. Log daar in op het tweede account en open dezelfde voorstelling. Eenmalig nodig: zet bij SeatBuddies “Toestaan in incognito” aan.';
+    } catch {
+      notice = 'Openen lukte niet; incognito staat mogelijk uit. Gebruik dan een tweede Chrome-profiel.';
+    }
+    render();
+  }
+
+  function secondAccountButton(primary = false) {
+    return el('div', { class: 'second' },
+      el('button', { type: 'button', class: primary ? 'primary' : 'secondary', onclick: openSecondAccount }, 'Open tweede account (incognito)'),
+      notice ? el('small', { role: 'status' }, notice) : null,
+    );
   }
 
   async function checkForB(draft: string) {
@@ -235,13 +278,14 @@ export function mount(root: HTMLElement, deps: Deps) {
       el('p', { class: 'lead' }, 'Twee stoelen naast elkaar, twee losse Movie Pass-boekingen. SeatBuddies zoekt het paar en controleert in het tweede venster of de stoel nog vrij is.'),
       el('button', { type: 'button', class: 'primary', onclick: readForA }, 'Zoek twee stoelen'),
       el('small', { class: 'hint' }, 'Open eerst op Vue de stoelkaart van de voorstelling.'),
-      el('button', { type: 'button', class: 'secondary', onclick: () => set({ screen: 'b-input', draft: '' }) }, 'Gekozen stoelen controleren'),
+      el('button', { type: 'button', class: 'secondary', onclick: checkFromClipboard }, 'Gekozen stoelen controleren'),
       el('small', { class: 'hint' }, 'In het tweede venster, of als je een voorstel kreeg.'),
+      secondAccountButton(),
       el('details', {}, el('summary', {}, 'Hoe werkt het?'),
         el('ol', {},
-          el('li', {}, 'Open in twee Chrome-vensters (twee profielen, elk met een eigen Vue-account) dezelfde voorstelling tot de stoelkaart.'),
-          el('li', {}, 'Venster 1: “Zoek twee stoelen”, kies een paar en kopieer.'),
-          el('li', {}, 'Venster 2: “Gekozen stoelen controleren” en plakken. De controle start meteen.'),
+          el('li', {}, 'Open met “Open tweede account” een incognitovenster en log daar in op het tweede Vue-account. Open in beide vensters dezelfde voorstelling tot de stoelkaart.'),
+          el('li', {}, 'Venster 1: klik op het icoon en daarna op een stoelpaar. Het voorstel is meteen gekopieerd.'),
+          el('li', {}, 'Incognitovenster: klik op het icoon. SeatBuddies controleert meteen.'),
           el('li', {}, 'Groen? Kies in elk venster de eigen stoel en rond de boeking af.'),
         )),
     ];
@@ -251,27 +295,14 @@ export function mount(root: HTMLElement, deps: Deps) {
     return [
       header('Kies twee stoelen'),
       el('p', { class: 'showing' }, showingLine(s.observation.showing)),
-      el('fieldset', {},
-        el('legend', {}, 'Twee vrije stoelen naast elkaar'),
+      el('div', { class: 'pairs', role: 'group', 'aria-label': 'Twee vrije stoelen naast elkaar; klik om te kiezen en te kopiëren' },
         ...s.discovery.pairs.map((pair, index) =>
-          el('label', { class: 'choice' },
-            el('input', {
-              type: 'radio', name: 'pair', value: String(index),
-              ...(s.selected === index ? { checked: true } : {}),
-              onchange: () => set({ ...s, selected: index, copyError: '' }),
-            }),
-            pairLabel(pair),
-          ),
+          el('button', { type: 'button', class: index === 0 ? 'pair primary' : 'pair', onclick: () => share(index) }, pairLabel(pair)),
         ),
       ),
       el('small', { class: 'hint' }, s.discovery.mode === 'SCREEN'
-        ? 'Gesorteerd: verst van het scherm en zo midden mogelijk eerst.'
-        : 'Volgorde zoals op de kaart: waar het scherm zit, kon SeatBuddies niet vaststellen. Kijk zelf welke plek je het fijnst vindt.'),
-      el('button', { type: 'button', class: 'primary', ...(s.selected === null ? { disabled: true } : {}), onclick: () => share('here') },
-        'Kopieer voor het tweede venster'),
-      el('button', { type: 'button', class: 'secondary', ...(s.selected === null ? { disabled: true } : {}), onclick: () => share('send') },
-        'Kopieer om te versturen'),
-      s.selected === null ? el('small', { class: 'hint' }, 'Kies eerst één paar. Er wordt niets gereserveerd.') : null,
+        ? 'Gesorteerd: verst van het scherm en zo midden mogelijk eerst. Klikken kiest en kopieert; er wordt niets gereserveerd.'
+        : 'Volgorde zoals op de kaart: waar het scherm zit, kon SeatBuddies niet vaststellen. Klikken kiest en kopieert; er wordt niets gereserveerd.'),
       s.copyError ? el('p', { class: 'stop', role: 'alert' }, s.copyError) : null,
       el('button', { type: 'button', class: 'link', onclick: readForA }, 'Opnieuw lezen'),
     ];
@@ -286,11 +317,12 @@ export function mount(root: HTMLElement, deps: Deps) {
         s.copied ? null : el('p', { role: 'status' }, 'Automatisch kopiëren lukte niet. Selecteer de tekst hieronder en kopieer die zelf.'),
         s.copied ? null : manual,
         el('ol', { class: 'steps' },
-          el('li', {}, 'Ga naar het tweede Chrome-venster, met het andere Vue-account, op dezelfde voorstelling.'),
-          el('li', {}, 'Klik daar op SeatBuddies → “Gekozen stoelen controleren” en plak (Ctrl+V of Cmd+V). De controle start meteen.'),
+          el('li', {}, 'Ga naar het venster van het tweede account, op dezelfde voorstelling.'),
+          el('li', {}, 'Klik daar op het SeatBuddies-icoon. In een incognitovenster controleert het meteen; in een tweede Chrome-profiel klik je op “Gekozen stoelen controleren”.'),
           el('li', {}, `Groen? Kies in dat venster stoel ${second} en hier stoel ${first} (rij ${s.pair.row}). Rond in elk venster de eigen boeking af.`),
         ),
-        el('button', { type: 'button', class: 'link', onclick: () => set({ screen: 'home' }) }, 'Klaar'),
+        secondAccountButton(),
+        el('button', { type: 'button', class: 'link', onclick: () => set({ ...s, mode: 'send' }) }, 'Ik stuur het voorstel door (bijv. WhatsApp)'),
       ];
     return [
       header(s.copied ? 'Gekopieerd!' : 'Kopieer dit voorstel'),
@@ -392,7 +424,7 @@ export function mount(root: HTMLElement, deps: Deps) {
     const views: Child[] =
       s.screen === 'home' ? homeView()
       : s.screen === 'busy' ? [header(s.role === 'A' ? 'Kies twee stoelen' : 'Gekozen stoelen controleren'), el('p', { role: 'status' }, 'Stoelkaart lezen…')]
-      : s.screen === 'a-problem' ? [header('Kies twee stoelen'), s.detail ? el('p', { class: 'showing' }, s.detail) : null, el('p', { class: 'stop', role: 'alert' }, s.text), el('button', { type: 'button', class: 'primary', onclick: readForA }, 'Opnieuw lezen'), reportButton()]
+      : s.screen === 'a-problem' ? [header('Kies twee stoelen'), s.detail ? el('p', { class: 'showing' }, s.detail) : null, el('p', { class: 'stop', role: 'alert' }, s.text), el('button', { type: 'button', class: 'primary', onclick: readForA }, 'Opnieuw lezen'), secondAccountButton(), reportButton()]
       : s.screen === 'a-choose' ? chooseView(s)
       : s.screen === 'a-shared' ? sharedView(s)
       : s.screen === 'b-input' ? [header('Gekozen stoelen controleren'), ...inputView(s), s.error ? el('p', { class: 'stop', role: 'alert' }, s.error) : null, s.reportable ? reportButton() : null]
@@ -408,5 +440,16 @@ export function mount(root: HTMLElement, deps: Deps) {
   }
 
   render();
+  if (options.autoStart)
+    void (async () => {
+      let incognito = false;
+      try {
+        incognito = (await deps.isIncognito?.()) ?? false;
+      } catch {
+        incognito = false;
+      }
+      if (incognito) await checkFromClipboard();
+      else await readForA();
+    })();
   return { get state() { return state; } };
 }

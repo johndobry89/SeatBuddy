@@ -86,3 +86,6 @@ details summary { cursor: pointer; color: var(--muted); }
 .result small { color: inherit; opacity: 0.85; }
 footer { font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
 .report { display: flex; flex-direction: column; gap: 2px; }
+.pairs { display: flex; flex-direction: column; gap: 6px; }
+button.pair { text-align: left; font-weight: 600; }
+.second { display: flex; flex-direction: column; gap: 4px; }

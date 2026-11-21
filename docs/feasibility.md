@@ -60,8 +60,8 @@ Recorded by the coding agent. No live Vue access, no accounts, no bookings. See 
 
 | ID | Subject | Status | Evidence class |
 | --- | --- | --- | --- |
-| N-01 | Unit/UI tests with invented fixtures (`npm run check`) | PASS: 58 tests, typecheck and build | SYNTHETIC_FIXTURE |
-| N-02 | Bundled reader in real Chromium on a locally fulfilled invented page: CSS-only aisle, fade, buffer, rear/middle ranking; zero outgoing requests | PASS: 3 tests | MOCK_INTEGRATION |
+| N-01 | Unit/UI tests with invented fixtures (`npm run check`) | PASS: 65 tests, typecheck and build | SYNTHETIC_FIXTURE |
+| N-02 | Bundled reader in real Chromium on a locally fulfilled invented page (CSS-only aisle, fade, buffer, rear/middle ranking) and the built popup flow normal → incognito with stubbed Chrome APIs; zero outgoing requests | PASS: 4 tests | MOCK_INTEGRATION |
 | N-03 | Unpacked extension loads in Chromium; popup opened as a tab refuses without a Vue tab | PASS | MOCK_INTEGRATION |
 | N-04 | Native action popup with a real activeTab grant | BLOCKED here: this container's Chromium closes on opening an action popup (also for the 0.11.x suite) | — |
 | N-05 | Vue markup still matches the adapter selectors | NOT_RUN | MANUAL_LIVE_OBSERVATION needed |
@@ -70,3 +70,4 @@ Recorded by the coding agent. No live Vue access, no accounts, no bookings. See 
 | N-08 | Timed two-person task versus two tabs plus a chat message | NOT_RUN | MANUAL_LIVE_OBSERVATION |
 
 Assumption (not an outcome): an empty spacer element or a comment between seats is a layout gap. Any other element is treated as a possible special place.
+| N-09 | Real incognito window via `chrome.windows.create`, "Allow in Incognito" and `clipboardRead` in a native popup | NOT_RUN (stubbed in tests only) | MANUAL_LIVE_OBSERVATION needed |

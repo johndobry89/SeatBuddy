@@ -63,3 +63,13 @@ The owner's goal is speed. The fastest legitimate route is two Chrome profiles o
 - Verdict texts are neutral ("this account" / "the other account"). The orange `PARTNER_SEAT_TAKEN` outcome covers the expected case where the first seat was just booked in the other window.
 
 The extension still never asks for, stores or uses credentials, never logs in and never clicks on Vue. It does not work around any Vue restriction on combining Movie Passes. The `AGENTS.md` invariants are unchanged. Whether a single person may operate another person's Movie Pass account is governed by Vue's terms, which remain unverified (see `docs/vue-clarification-draft.md` on the 0.11.x branch).
+
+## Addendum: four clicks with an incognito window (21 November 2026)
+
+At the owner's request, to remove clicks. This changes decision 2 above.
+
+- `incognito` is now `"spanning"` (was `"not_allowed"`). The extension works in an incognito window only after the user enables "Allow in Incognito" in Chrome. The extension stores nothing in any context.
+- New permission `clipboardRead`. The clipboard is read only when the popup opens in an incognito window, or on "Gekozen stoelen controleren", and only text containing `SeatBuddies-voorstel:` is used. Other text is ignored and never displayed.
+- A normal window searches as soon as the popup opens (read-only, after the icon click). Clicking a pair button chooses and copies in one step: no default choice, and buttons instead of radios, so arrow keys never trigger a copy.
+- "Open tweede account (incognito)" calls `chrome.windows.create({ incognito: true })` with Vue's login entry `https://www.vuecinemas.nl/?redirect=%2Fmijn-account`. The owner checked this URL on 2026-11-21.
+- Unchanged: no credentials, no login, no clicks or bookings on Vue, no storage or network. The build guard now enforces exactly `activeTab`, `scripting`, `clipboardRead` and `spanning`.

@@ -4,19 +4,26 @@ Onafhankelijke Chrome-extensie voor twee mensen die ieder met een eigen Vue Movi
 
 ## Wat het doet
 
-**Snelst: twee vensters op één computer.** Maak in Chrome twee profielen. In elk profiel log je één keer in op een eigen Vue-account; Chrome onthoudt dat. Open in beide vensters dezelfde voorstelling tot de stoelkaart. Daarna:
+**Snelst: normaal venster + incognitovenster, vier klikken.**
 
-1. **Venster 1:** klik op het SeatBuddies-icoon → **Zoek twee stoelen**. Je ziet maximaal drie paren gewone, vrije stoelen die zeker naast elkaar liggen, en of de lijst op "achterin en midden" staat of op kaartvolgorde. Kies een paar → **Kopieer voor het tweede venster**.
-2. **Venster 2:** SeatBuddies → **Gekozen stoelen controleren** → plak (Ctrl+V of Cmd+V). De controle start meteen.
-3. Je krijgt groen, oranje of STOP:
+Eenmalig: laad de extensie (zie hieronder) en zet in `chrome://extensions` bij SeatBuddies **Toestaan in incognito** aan. Dat doet de extensie nooit zelf.
+
+1. **Venster 1 (normaal, eerste account):** open de stoelkaart van de voorstelling en klik op het SeatBuddies-icoon. Het zoekt meteen en toont maximaal drie paren gewone, vrije stoelen die zeker naast elkaar liggen. Je ziet ook of de lijst op "achterin en midden" staat of op kaartvolgorde. **Klik op een paar:** het voorstel is meteen gekopieerd.
+2. **Open tweede account (incognito):** deze knop opent de Vue-inlogpagina in een incognitovenster. Log daar zelf in op het tweede account en open dezelfde voorstelling.
+3. **Venster 2 (incognito):** klik op het SeatBuddies-icoon. Het leest het voorstel van het klembord en controleert meteen:
    - **Groen:** de stoel voor dit account is vrij en ligt direct naast de andere.
    - **Oranje:** deze stoel is vrij, maar de andere niet meer. Dat is verwacht als je die net in het andere venster hebt gekozen of geboekt.
    - **STOP:** een andere voorstelling, de stoel is bezet, of het paar is niet veilig vast te stellen. De reden staat erbij.
 4. Kies in elk venster de eigen stoel en rond per account de boeking af.
 
-**Op afstand:** kies **Kopieer om te versturen** en stuur het bericht via bijvoorbeeld WhatsApp. Het is gewone, leesbare tekst. De ander plakt het bij **Gekozen stoelen controleren**; een chatnaam ervoor of een extra regel erna is geen probleem.
+**Met een tweede Chrome-profiel** in plaats van incognito werkt het ook. Klik dan in venster 2 op **Gekozen stoelen controleren**.
 
-SeatBuddies vraagt, bewaart en gebruikt geen e-mailadressen of wachtwoorden, logt nergens in en klikt niets aan op Vue.
+**Op afstand:** kies na het kopiëren **Ik stuur het voorstel door** en stuur het via bijvoorbeeld WhatsApp. Het is gewone, leesbare tekst. De ander plakt het bij **Gekozen stoelen controleren**.
+
+**Wat SeatBuddies niet doet:**
+- Hij vraagt, bewaart en gebruikt geen e-mailadressen of wachtwoorden en logt nergens in.
+- Hij klikt niets aan op Vue.
+- Het klembord leest hij alleen als de popup opent in een incognitovenster, of als je op "Gekozen stoelen controleren" klikt. Hij gebruikt alleen tekst die met `SeatBuddies-voorstel:` begint; andere tekst wordt genegeerd en nergens getoond.
 
 ## Installeren zonder zelf te bouwen
 
@@ -29,8 +36,8 @@ SeatBuddies vraagt, bewaart en gebruikt geen e-mailadressen of wachtwoorden, log
 
 ## Veiligheidsgrenzen
 
-- **Rechten:** alleen `activeTab` en `scripting`. Gelezen wordt pas na een klik in de popup, alleen in het actieve tabblad, het hoofdframe, en alleen op `vuecinemas.nl`.
-- **Geen opslag, netwerk of tracking:** geen service worker, geen opslag, geen netwerk (`connect-src 'none'`), geen analytics. Incognito is uitgeschakeld (`not_allowed`).
+- **Rechten:** alleen `activeTab`, `scripting` en `clipboardRead`. De pagina wordt pas gelezen na een klik op het icoon, alleen in het actieve tabblad, het hoofdframe, en alleen op `vuecinemas.nl`.
+- **Geen opslag, netwerk of tracking:** geen service worker, geen opslag, geen netwerk (`connect-src 'none'`), geen analytics. Incognito alleen als je dat zelf in Chrome toestaat (`spanning`). Ook daar wordt niets bewaard.
 - **Beschermde pagina's:** inlog-, account- en betaalpagina's, of een open dialoog, worden niet gelezen. Formulierwaarden worden nooit gelezen.
 - **Stoelen:** Ultra Lux, onbekende stoelsoorten, speciaal gemarkeerde plekken en paren met een bezette, onbekende of gemarkeerde directe buur worden nooit voorgesteld. "Naast elkaar" vraagt:
   - dezelfde rij;
@@ -65,10 +72,10 @@ Laad `app/dist` via `chrome://extensions` → Ontwikkelaarsmodus → **Uitgepakt
 
 | Onderdeel | Status |
 | --- | --- |
-| Unit- en UI-tests (jsdom, verzonnen fixtures) | PASS: 58 |
-| Echte Chromium: gebundelde reader op een lokaal vervulde, verzonnen pagina; popup op 360 px | PASS: 3 |
+| Unit- en UI-tests (jsdom, verzonnen fixtures) | PASS: 65 |
+| Echte Chromium: gebundelde reader op een lokaal vervulde, verzonnen pagina; popupflow normaal → incognito op 360 px | PASS: 4 |
 | Extensie laadt uitgepakt in Chromium zonder fouten | PASS |
-| Native action-popup met echte activeTab-toegang | NOT_RUN |
+| Native action-popup met echte activeTab-toegang, echt incognitovenster en klembordrecht | NOT_RUN |
 | Live Vue-observatie, proef met twee personen, gemeten tijdwinst | NOT_RUN |
 | Boekingen | Nooit onderdeel van deze app |
 

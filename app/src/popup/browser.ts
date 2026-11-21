@@ -8,7 +8,6 @@ import { validateObservation } from './validate';
  */
 export type ReadFailure =
   | 'NOT_VUE_TAB'
-  | 'INCOGNITO'
   | 'TAB_LOADING'
   | 'TAB_CHANGED'
   | 'NO_ACCESS'
@@ -63,7 +62,6 @@ export async function readActiveTab(api: Chrome = chrome, now = () => Date.now()
 async function read(api: Chrome, now: () => number): Promise<Observation> {
   const tab = await activeTab(api);
   if (!tab || tab.id === undefined) throw new ReadError('NOT_VUE_TAB');
-  if (tab.incognito) throw new ReadError('INCOGNITO');
   // Without a grant Chrome hides the URL; that also means "not readable".
   if (!ORIGINS.includes(originOf(tab.url) ?? '')) throw new ReadError('NOT_VUE_TAB');
   if (tab.status !== 'complete' || tab.pendingUrl) throw new ReadError('TAB_LOADING');
