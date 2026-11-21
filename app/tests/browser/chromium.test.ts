@@ -127,15 +127,15 @@ describe('built popup at 360 px', () => {
     expect(await height()).toBeLessThanOrEqual(600);
     await page.screenshot({ path: resolve(shots, 'popup-home.png') });
 
-    await page.getByRole('button', { name: 'Ik kies de stoelen' }).click();
+    await page.getByRole('button', { name: 'Zoek twee stoelen' }).click();
     await page.getByRole('radio').first().waitFor();
     await page.keyboard.press('Tab');
-    expect(await page.getByRole('button', { name: 'Kopieer bericht voor mijn partner' }).isDisabled()).toBe(true);
+    expect(await page.getByRole('button', { name: 'Kopieer voor het tweede venster' }).isDisabled()).toBe(true);
     await page.getByRole('radio').first().check();
     expect(await height()).toBeLessThanOrEqual(600);
     expect(await noHorizontal()).toBe(true);
     await page.screenshot({ path: resolve(shots, 'popup-a-choose.png') });
-    await page.getByRole('button', { name: 'Kopieer bericht voor mijn partner' }).click();
+    await page.getByRole('button', { name: 'Kopieer voor het tweede venster' }).click();
     await page.getByText('Gekopieerd!').waitFor();
     const copied = (await page.evaluate(() => (globalThis as Record<string, unknown>).copied)) as string;
     expect(copied).toMatch(/^SeatBuddies-voorstel: Demo Film \| Vue Teststad \| 22-11-2030 18:40 \| Zaal 6 \| rij 5 \| stoel 4 \(verzender\) \+ 5 \(ontvanger\)/);
@@ -143,14 +143,23 @@ describe('built popup at 360 px', () => {
     await page.screenshot({ path: resolve(shots, 'popup-a-shared.png') });
 
     await page.getByRole('button', { name: 'Klaar' }).click();
-    await page.getByRole('button', { name: 'Mijn partner stuurde stoelen' }).click();
+    await page.getByRole('button', { name: 'Gekozen stoelen controleren' }).click();
     // A long, realistic title must still fit.
     const long = formatProposal({
       showing: { movie: 'Demo Film', cinema: 'Vue Teststad', date: '2030-11-22', time: '18:40', hall: 'Zaal 6' },
       row: 5, sender: 4, receiver: 5, categories: ['Lux', 'Lux'], readAt: '12:47',
     });
-    await page.getByLabel('Plak het hele bericht van je partner').fill(`[12:50] Sam: ${long}\r\n`);
-    await page.getByRole('button', { name: 'Controleer op deze pagina' }).click();
+    // A real paste (keyboard shortcut) starts the check by itself.
+    const field = page.getByLabel('Plak het SeatBuddies-voorstel');
+    await field.focus();
+    await page.evaluate((text) => {
+      const area = document.querySelector('#incoming') as HTMLTextAreaElement;
+      const data = new DataTransfer();
+      data.setData('text/plain', text);
+      area.value = text;
+      area.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true }));
+      area.dispatchEvent(new Event('input', { bubbles: true }));
+    }, `[12:50] Sam: ${long}\r\n`);
     await page.getByText('Stoel 5 is nu vrij').waitFor();
     expect(await height()).toBeLessThanOrEqual(600);
     expect(await noHorizontal()).toBe(true);

@@ -4,23 +4,19 @@ Onafhankelijke Chrome-extensie voor twee mensen die ieder met een eigen Vue Movi
 
 ## Wat het doet
 
-**Persoon A: "Ik kies de stoelen"**
+**Snelst: twee vensters op één computer.** Maak in Chrome twee profielen. In elk profiel log je één keer in op een eigen Vue-account; Chrome onthoudt dat. Open in beide vensters dezelfde voorstelling tot de stoelkaart. Daarna:
 
-1. Open op vuecinemas.nl de stoelkaart van de voorstelling.
-2. Klik op het SeatBuddies-icoon en kies **Ik kies de stoelen**.
-3. SeatBuddies toont maximaal drie paren gewone, vrije stoelen die zeker naast elkaar liggen. Je ziet ook of de lijst op "achterin en midden" staat of op kaartvolgorde.
-4. Kies één paar en klik op **Kopieer bericht voor mijn partner**. Stuur het bericht, bijvoorbeeld via WhatsApp. Het is gewone, leesbare tekst, dus ook zonder extensie te begrijpen.
-
-**Persoon B: "Mijn partner stuurde stoelen"**
-
-1. Open met je eigen account dezelfde voorstelling tot de stoelkaart.
-2. Klik op SeatBuddies, kies **Mijn partner stuurde stoelen** en plak het bericht. Een chatnaam ervoor of een extra regel erna is geen probleem.
+1. **Venster 1:** klik op het SeatBuddies-icoon → **Zoek twee stoelen**. Je ziet maximaal drie paren gewone, vrije stoelen die zeker naast elkaar liggen, en of de lijst op "achterin en midden" staat of op kaartvolgorde. Kies een paar → **Kopieer voor het tweede venster**.
+2. **Venster 2:** SeatBuddies → **Gekozen stoelen controleren** → plak (Ctrl+V of Cmd+V). De controle start meteen.
 3. Je krijgt groen, oranje of STOP:
-   - **Groen:** je stoel is nu vrij en ligt direct naast die van je partner.
-   - **Oranje:** je stoel is vrij, maar die van je partner niet meer. Waarschijnlijk heeft je partner die net gekozen; vraag het na.
-   - **STOP:** een andere voorstelling, je stoel is bezet, of het paar is niet veilig vast te stellen. De reden staat erbij.
+   - **Groen:** de stoel voor dit account is vrij en ligt direct naast de andere.
+   - **Oranje:** deze stoel is vrij, maar de andere niet meer. Dat is verwacht als je die net in het andere venster hebt gekozen of geboekt.
+   - **STOP:** een andere voorstelling, de stoel is bezet, of het paar is niet veilig vast te stellen. De reden staat erbij.
+4. Kies in elk venster de eigen stoel en rond per account de boeking af.
 
-Daarna kiest en boekt ieder zelf op Vue.
+**Op afstand:** kies **Kopieer om te versturen** en stuur het bericht via bijvoorbeeld WhatsApp. Het is gewone, leesbare tekst. De ander plakt het bij **Gekozen stoelen controleren**; een chatnaam ervoor of een extra regel erna is geen probleem.
+
+SeatBuddies vraagt, bewaart en gebruikt geen e-mailadressen of wachtwoorden, logt nergens in en klikt niets aan op Vue.
 
 ## Veiligheidsgrenzen
 
@@ -52,7 +48,7 @@ npm run check
 CHROMIUM_PATH=/pad/naar/chrome npm run test:browser
 ```
 
-Laad `app/dist` via `chrome://extensions` → Ontwikkelaarsmodus → **Uitgepakte extensie laden**. Doe dat voor B in een eigen Chrome-profiel.
+Laad `app/dist` via `chrome://extensions` → Ontwikkelaarsmodus → **Uitgepakte extensie laden**, in **beide** Chrome-profielen.
 
 `.npmrc` zet `legacy-peer-deps`, omdat npm 10 anders crasht bij het oplossen van peer-dependencies. De peers (`vite`) staan expliciet vastgepind.
 
@@ -60,7 +56,7 @@ Laad `app/dist` via `chrome://extensions` → Ontwikkelaarsmodus → **Uitgepakt
 
 | Onderdeel | Status |
 | --- | --- |
-| Unit- en UI-tests (jsdom, verzonnen fixtures) | PASS: 51 |
+| Unit- en UI-tests (jsdom, verzonnen fixtures) | PASS: 54 |
 | Echte Chromium: gebundelde reader op een lokaal vervulde, verzonnen pagina; popup op 360 px | PASS: 3 |
 | Extensie laadt uitgepakt in Chromium zonder fouten | PASS |
 | Native action-popup met echte activeTab-toegang | NOT_RUN |

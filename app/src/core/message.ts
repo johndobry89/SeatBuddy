@@ -10,7 +10,7 @@ import { ALL_CATEGORIES, type Category, type Showing } from './types';
 
 export const MARKER = 'SeatBuddies-voorstel:';
 export const HELP_LINE =
-  'Open dezelfde voorstelling op Vue, klik op SeatBuddies → "Mijn partner stuurde stoelen" en plak dit hele bericht.';
+  'Open dezelfde voorstelling op Vue, klik op SeatBuddies → "Gekozen stoelen controleren" en plak dit hele bericht.';
 
 export interface Proposal {
   showing: Showing;

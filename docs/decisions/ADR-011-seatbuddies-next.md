@@ -53,3 +53,13 @@ The proposal message is only a pointer. B's verdict always comes from B's own li
 ## Failure path
 
 If live observation shows that Vue's markup differs, the read is `UNKNOWN` and the user chooses manually. If the owner's timed trial shows no practical benefit over two tabs plus a chat message, stop building the handoff and keep only the seat finder, or nothing.
+
+## Addendum: two windows on one computer (21 November 2026)
+
+The owner's goal is speed. The fastest legitimate route is two Chrome profiles on one computer, each logged in to its own Vue account, with one Movie Pass booking per account.
+
+- After choosing a pair, A can pick **Copy for the second window** (same computer, clipboard only) or **Copy to send** (chat).
+- In the checking window, pasting starts the check immediately.
+- Verdict texts are neutral ("this account" / "the other account"). The orange `PARTNER_SEAT_TAKEN` outcome covers the expected case where the first seat was just booked in the other window.
+
+The extension still never asks for, stores or uses credentials, never logs in and never clicks on Vue. It does not work around any Vue restriction on combining Movie Passes. The `AGENTS.md` invariants are unchanged. Whether a single person may operate another person's Movie Pass account is governed by Vue's terms, which remain unverified (see `docs/vue-clarification-draft.md` on the 0.11.x branch).

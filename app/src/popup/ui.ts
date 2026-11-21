@@ -17,12 +17,15 @@ export interface Deps {
   now: () => number;
 }
 
+/** 'here': a second Chrome window/profile on this computer; 'send': via a chat app. */
+type ShareMode = 'here' | 'send';
+
 type State =
   | { screen: 'home' }
   | { screen: 'busy'; role: 'A' | 'B' }
   | { screen: 'a-problem'; text: string; detail?: string }
   | { screen: 'a-choose'; observation: Observation; discovery: Discovery; selected: number | null; copyError?: string }
-  | { screen: 'a-shared'; message: string; pair: Pair; copied: boolean }
+  | { screen: 'a-shared'; message: string; pair: Pair; copied: boolean; mode: ShareMode }
   | { screen: 'b-input'; draft: string; error?: string }
   | { screen: 'b-result'; draft: string; proposal: Proposal; result: CheckResult; observation: Observation };
 
@@ -66,15 +69,15 @@ export const MAP_PROBLEMS: Record<Exclude<MapStatus, 'OK'>, string> = {
 };
 
 const UNSAFE: Record<Rejection | 'CATEGORY_CHANGED', string> = {
-  NOT_FOUND: 'deze stoelen staan niet op jouw stoelkaart',
+  NOT_FOUND: 'deze stoelen staan niet op de stoelkaart',
   NOT_AVAILABLE: 'minstens één stoel is niet vrij',
   CATEGORY_UNKNOWN: 'de soort stoel is niet te herkennen',
   ULTRA_LUX: 'het gaat om Ultra Lux-stoelen',
   SPECIAL: 'het gaat om een bijzondere plek (bijvoorbeeld een rolstoel- of begeleidersplek)',
-  NOT_ADJACENT: 'de stoelen liggen op jouw stoelkaart niet zeker direct naast elkaar',
+  NOT_ADJACENT: 'de stoelen liggen niet zeker direct naast elkaar',
   SPECIAL_NEIGHBOUR:
     'er ligt direct naast deze stoelen een bezette of onbekende plek (dat kan een rolstoel- of begeleidersplek zijn)',
-  CATEGORY_CHANGED: 'de soort stoel wijkt af van het voorstel van je partner',
+  CATEGORY_CHANGED: 'de soort stoel wijkt af van het voorstel',
 };
 
 type Child = Node | string | null | undefined | false;
@@ -146,7 +149,7 @@ export function mount(root: HTMLElement, deps: Deps) {
     }
   }
 
-  async function share() {
+  async function share(mode: ShareMode) {
     if (state.screen !== 'a-choose' || state.selected === null) return;
     const { observation, discovery, selected } = state;
     const pair = discovery.pairs[selected]!;
@@ -169,7 +172,7 @@ export function mount(root: HTMLElement, deps: Deps) {
     } catch {
       copied = false;
     }
-    set({ screen: 'a-shared', message, pair, copied });
+    set({ screen: 'a-shared', message, pair, copied, mode });
   }
 
   async function checkForB(draft: string) {
@@ -203,23 +206,24 @@ export function mount(root: HTMLElement, deps: Deps) {
   function homeView() {
     return [
       el('header', {}, el('h1', { tabindex: '-1', 'data-autofocus': true }, 'SeatBuddies')),
-      el('p', { class: 'lead' }, 'Samen naar de film, ieder met een eigen Movie Pass. SeatBuddies zoekt twee stoelen naast elkaar en helpt je partner controleren of die nog vrij zijn.'),
-      el('button', { type: 'button', class: 'primary', onclick: readForA }, 'Ik kies de stoelen'),
-      el('small', { class: 'hint' }, 'Open eerst op Vue de stoelkaart van jullie voorstelling.'),
-      el('button', { type: 'button', class: 'secondary', onclick: () => set({ screen: 'b-input', draft: '' }) }, 'Mijn partner stuurde stoelen'),
+      el('p', { class: 'lead' }, 'Twee stoelen naast elkaar, twee losse Movie Pass-boekingen. SeatBuddies zoekt het paar en controleert in het tweede venster of de stoel nog vrij is.'),
+      el('button', { type: 'button', class: 'primary', onclick: readForA }, 'Zoek twee stoelen'),
+      el('small', { class: 'hint' }, 'Open eerst op Vue de stoelkaart van de voorstelling.'),
+      el('button', { type: 'button', class: 'secondary', onclick: () => set({ screen: 'b-input', draft: '' }) }, 'Gekozen stoelen controleren'),
+      el('small', { class: 'hint' }, 'In het tweede venster, of als je een voorstel kreeg.'),
       el('details', {}, el('summary', {}, 'Hoe werkt het?'),
         el('ol', {},
-          el('li', {}, 'Eén van jullie opent de stoelkaart en kiest hier twee stoelen.'),
-          el('li', {}, 'Die stuurt het bericht naar de ander (bijvoorbeeld via WhatsApp).'),
-          el('li', {}, 'De ander opent dezelfde voorstelling met een eigen account en controleert hier of de stoel nog vrij is.'),
-          el('li', {}, 'Ieder kiest en boekt daarna zelf op Vue.'),
+          el('li', {}, 'Open in twee Chrome-vensters (twee profielen, elk met een eigen Vue-account) dezelfde voorstelling tot de stoelkaart.'),
+          el('li', {}, 'Venster 1: “Zoek twee stoelen”, kies een paar en kopieer.'),
+          el('li', {}, 'Venster 2: “Gekozen stoelen controleren” en plakken. De controle start meteen.'),
+          el('li', {}, 'Groen? Kies in elk venster de eigen stoel en rond de boeking af.'),
         )),
     ];
   }
 
   function chooseView(s: Extract<State, { screen: 'a-choose' }>) {
     return [
-      header('Kies jullie stoelen'),
+      header('Kies twee stoelen'),
       el('p', { class: 'showing' }, showingLine(s.observation.showing)),
       el('fieldset', {},
         el('legend', {}, 'Twee vrije stoelen naast elkaar'),
@@ -237,8 +241,10 @@ export function mount(root: HTMLElement, deps: Deps) {
       el('small', { class: 'hint' }, s.discovery.mode === 'SCREEN'
         ? 'Gesorteerd: verst van het scherm en zo midden mogelijk eerst.'
         : 'Volgorde zoals op de kaart: waar het scherm zit, kon SeatBuddies niet vaststellen. Kijk zelf welke plek je het fijnst vindt.'),
-      el('button', { type: 'button', class: 'primary', ...(s.selected === null ? { disabled: true } : {}), onclick: share },
-        'Kopieer bericht voor mijn partner'),
+      el('button', { type: 'button', class: 'primary', ...(s.selected === null ? { disabled: true } : {}), onclick: () => share('here') },
+        'Kopieer voor het tweede venster'),
+      el('button', { type: 'button', class: 'secondary', ...(s.selected === null ? { disabled: true } : {}), onclick: () => share('send') },
+        'Kopieer om te versturen'),
       s.selected === null ? el('small', { class: 'hint' }, 'Kies eerst één paar. Er wordt niets gereserveerd.') : null,
       s.copyError ? el('p', { class: 'stop', role: 'alert' }, s.copyError) : null,
       el('button', { type: 'button', class: 'link', onclick: readForA }, 'Opnieuw lezen'),
@@ -246,16 +252,30 @@ export function mount(root: HTMLElement, deps: Deps) {
   }
 
   function sharedView(s: Extract<State, { screen: 'a-shared' }>) {
+    const [first, second] = s.pair.seats;
+    const manual = el('textarea', { readonly: true, rows: '7', 'aria-label': 'Gekopieerd stoelvoorstel' }, s.message);
+    if (s.mode === 'here')
+      return [
+        header(s.copied ? 'Gekopieerd!' : 'Kopieer dit voorstel'),
+        s.copied ? null : el('p', { role: 'status' }, 'Automatisch kopiëren lukte niet. Selecteer de tekst hieronder en kopieer die zelf.'),
+        s.copied ? null : manual,
+        el('ol', { class: 'steps' },
+          el('li', {}, 'Ga naar het tweede Chrome-venster, met het andere Vue-account, op dezelfde voorstelling.'),
+          el('li', {}, 'Klik daar op SeatBuddies → “Gekozen stoelen controleren” en plak (Ctrl+V of Cmd+V). De controle start meteen.'),
+          el('li', {}, `Groen? Kies in dat venster stoel ${second} en hier stoel ${first} (rij ${s.pair.row}). Rond in elk venster de eigen boeking af.`),
+        ),
+        el('button', { type: 'button', class: 'link', onclick: () => set({ screen: 'home' }) }, 'Klaar'),
+      ];
     return [
-      header(s.copied ? 'Gekopieerd!' : 'Kopieer dit bericht'),
+      header(s.copied ? 'Gekopieerd!' : 'Kopieer dit voorstel'),
       el('p', { role: 'status' }, s.copied
         ? 'Stuur dit bericht nu naar je partner, bijvoorbeeld via WhatsApp.'
         : 'Automatisch kopiëren lukte niet. Selecteer de tekst hieronder en kopieer die zelf.'),
-      el('textarea', { readonly: true, rows: '7', 'aria-label': 'Bericht voor je partner' }, s.message),
+      manual,
       el('ol', { class: 'steps' },
-        el('li', {}, 'Je partner opent dezelfde voorstelling op Vue, met een eigen account in een eigen browser of Chrome-profiel.'),
-        el('li', {}, 'Je partner klikt op SeatBuddies → “Mijn partner stuurde stoelen” en plakt het bericht.'),
-        el('li', {}, `Is het groen? Dan kies jij stoel ${s.pair.seats[0]} en je partner stoel ${s.pair.seats[1]} (rij ${s.pair.row}). Ieder boekt zelf.`),
+        el('li', {}, 'Je partner opent dezelfde voorstelling op Vue, met een eigen account.'),
+        el('li', {}, 'Je partner klikt op SeatBuddies → “Gekozen stoelen controleren” en plakt het bericht.'),
+        el('li', {}, `Groen? Dan kies jij stoel ${first} en je partner stoel ${second} (rij ${s.pair.row}). Ieder rondt de eigen boeking af.`),
       ),
       el('button', { type: 'button', class: 'link', onclick: () => set({ screen: 'home' }) }, 'Klaar'),
     ];
@@ -274,9 +294,11 @@ export function mount(root: HTMLElement, deps: Deps) {
       }
       if (state.screen === 'b-input') state = { screen: 'b-input', draft: area.value };
     });
+    // Pasting is the deliberate action: check right away, one click less.
+    area.addEventListener('paste', () => setTimeout(() => checkForB(area.value), 0));
     return [
-      el('p', {}, 'Open eerst op Vue dezelfde voorstelling als je partner, met je eigen account, tot je de stoelkaart ziet.'),
-      el('label', { for: 'incoming' }, 'Plak het hele bericht van je partner'),
+      el('p', {}, 'Open in dit venster dezelfde voorstelling tot je de stoelkaart ziet.'),
+      el('label', { for: 'incoming' }, 'Plak het SeatBuddies-voorstel'),
       area,
       el('button', { type: 'button', class: 'primary', onclick: () => checkForB(area.value) }, 'Controleer op deze pagina'),
     ];
@@ -292,42 +314,42 @@ export function mount(root: HTMLElement, deps: Deps) {
       case 'FREE':
         tone = 'go';
         title = `Stoel ${result.mine} is nu vrij`;
-        body = `Rij ${result.row}: stoel ${result.mine} (jij) ligt direct naast stoel ${result.theirs} (je partner). Beide zijn nu vrij en van dezelfde soort als in het voorstel. Kies stoel ${result.mine} op Vue en boek zelf.`;
+        body = `Rij ${result.row}: stoel ${result.mine} (dit account) ligt direct naast stoel ${result.theirs} (het andere account). Beide zijn vrij en van dezelfde soort als in het voorstel. Kies hier stoel ${result.mine} en rond de boeking af; stoel ${result.theirs} hoort bij het andere account.`;
         break;
       case 'PARTNER_SEAT_TAKEN':
         tone = 'warn';
-        title = `Stoel ${result.mine} is vrij, die van je partner niet meer`;
-        body = `Stoel ${result.theirs} is niet meer vrij. Waarschijnlijk heeft je partner die net gekozen of geboekt. Vraag het even na. Klopt het, kies dan stoel ${result.mine} (rij ${result.row}) op Vue en boek zelf.`;
+        title = `Stoel ${result.mine} is vrij, stoel ${result.theirs} niet meer`;
+        body = `Is stoel ${result.theirs} net voor het andere account gekozen of geboekt? Dan is dit verwacht: kies hier stoel ${result.mine} (rij ${result.row}) en rond af. Zo niet, dan heeft iemand anders hem: zoek opnieuw twee stoelen.`;
         break;
       case 'MINE_ALREADY_SELECTED':
         tone = 'warn';
-        title = `Je hebt stoel ${result.mine} al geselecteerd`;
-        body = `Controleer zelf op Vue dat die direct naast stoel ${proposal.sender} van je partner ligt.`;
+        title = `Stoel ${result.mine} is hier al geselecteerd`;
+        body = `Controleer zelf op Vue dat die direct naast stoel ${proposal.sender} ligt.`;
         break;
       case 'PARTNER_SEAT_SELECTED_BY_YOU':
         title = 'Let op: verkeerde stoel geselecteerd';
-        body = `Je hebt stoel ${result.theirs} geselecteerd. Dat is de stoel van je partner; jouw stoel is ${proposal.receiver}.`;
+        body = `Hier is stoel ${result.theirs} geselecteerd. Die hoort bij het andere account; hier hoort stoel ${proposal.receiver}.`;
         break;
       case 'MINE_TAKEN':
         title = `STOP: stoel ${result.mine} is niet meer vrij`;
-        body = 'Vraag je partner om een nieuw voorstel.';
+        body = 'Zoek opnieuw twee stoelen.';
         break;
       case 'OTHER_SHOWING': {
         title = 'STOP: andere voorstelling';
         const seen = s.observation.showing;
-        body = `Jouw pagina wijkt af van die van je partner bij ${result.differences.map((f) => `${FIELD_LABELS[f]} (jij: ${seen[f] ?? 'onbekend'}, partner: ${proposal.showing[f]})`).join('; ')}. Open exact dezelfde voorstelling.`;
+        body = `Deze pagina wijkt af van het voorstel bij ${result.differences.map((f) => `${FIELD_LABELS[f]} (hier: ${seen[f] ?? 'onbekend'}, voorstel: ${proposal.showing[f]})`).join('; ')}. Open exact dezelfde voorstelling.`;
         break;
       }
       case 'UNSAFE':
         title = 'STOP: niet veilig vastgesteld';
-        body = `Op jouw stoelkaart: ${UNSAFE[result.reason]}. Vraag je partner om een ander voorstel, of kies samen zelf op Vue.`;
+        body = `Op deze stoelkaart: ${UNSAFE[result.reason]}. Zoek opnieuw twee stoelen, of kies zelf op Vue.`;
         break;
       case 'UNKNOWN':
         title = 'STOP: niet te controleren';
         body =
           result.reason === 'PAGE' ? (s.observation.status === 'OK' ? 'Onbekend.' : PAGE_PROBLEMS[s.observation.status])
           : result.reason === 'MAP' ? (s.observation.map && s.observation.map.status !== 'OK' ? MAP_PROBLEMS[s.observation.map.status] : MAP_PROBLEMS.NO_MAP)
-          : result.reason === 'SEAT_NOT_FOUND' ? 'Deze stoelnummers staan niet op jouw stoelkaart.'
+          : result.reason === 'SEAT_NOT_FOUND' ? 'Deze stoelnummers staan niet op deze stoelkaart.'
           : 'Of deze stoelen vrij zijn, is niet eenduidig te zien.';
         break;
     }
@@ -335,7 +357,7 @@ export function mount(root: HTMLElement, deps: Deps) {
       el('h2', { tabindex: '-1', 'data-autofocus': true }, title),
       el('p', {}, body),
       tone !== 'stop' ? el('small', {}, 'Dit is een momentopname, geen reservering. Er wordt niets voor je vastgehouden.') : null,
-      age !== null && age > 10 ? el('small', {}, `Het voorstel is ${age} minuten oud. Jouw controle hierboven is wel actueel.`) : null,
+      age !== null && age > 10 ? el('small', {}, `Het voorstel is ${age} minuten oud. De controle hierboven is wel actueel.`) : null,
     );
   }
 
@@ -343,12 +365,12 @@ export function mount(root: HTMLElement, deps: Deps) {
     const s = state;
     const views: Child[] =
       s.screen === 'home' ? homeView()
-      : s.screen === 'busy' ? [header(s.role === 'A' ? 'Kies jullie stoelen' : 'Stoelen van je partner'), el('p', { role: 'status' }, 'Stoelkaart lezen…')]
-      : s.screen === 'a-problem' ? [header('Kies jullie stoelen'), s.detail ? el('p', { class: 'showing' }, s.detail) : null, el('p', { class: 'stop', role: 'alert' }, s.text), el('button', { type: 'button', class: 'primary', onclick: readForA }, 'Opnieuw lezen')]
+      : s.screen === 'busy' ? [header(s.role === 'A' ? 'Kies twee stoelen' : 'Gekozen stoelen controleren'), el('p', { role: 'status' }, 'Stoelkaart lezen…')]
+      : s.screen === 'a-problem' ? [header('Kies twee stoelen'), s.detail ? el('p', { class: 'showing' }, s.detail) : null, el('p', { class: 'stop', role: 'alert' }, s.text), el('button', { type: 'button', class: 'primary', onclick: readForA }, 'Opnieuw lezen')]
       : s.screen === 'a-choose' ? chooseView(s)
       : s.screen === 'a-shared' ? sharedView(s)
-      : s.screen === 'b-input' ? [header('Stoelen van je partner'), ...inputView(s), s.error ? el('p', { class: 'stop', role: 'alert' }, s.error) : null]
-      : [header('Stoelen van je partner'), ...inputView(s), resultView(s)];
+      : s.screen === 'b-input' ? [header('Gekozen stoelen controleren'), ...inputView(s), s.error ? el('p', { class: 'stop', role: 'alert' }, s.error) : null]
+      : [header('Gekozen stoelen controleren'), ...inputView(s), resultView(s)];
     root.replaceChildren(
       ...views.filter((v): v is Node | string => !!v),
       el('footer', {}, 'SeatBuddies reserveert of betaalt niets en is niet verbonden aan Vue.'),
