@@ -39,7 +39,7 @@ async function experimentPackage() {
         label,
       );
   expect(packaged.sha256).toBe(
-    '9ffd738ad54f9836ec0b9507ee05ee338c31e7577436cd2f14feb1486c1b05bc',
+    'dd00d56db5f19c4edaeddcac712fdbb0a255fc3e6d2a7778199955afa054f953',
   );
   return packaged;
 }
@@ -554,7 +554,7 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
     await copy.focus();
     await copy.press('Enter');
     await expect(a.popup.getByTestId('copy-report-status')).toHaveText(
-      'Gekopieerd — stuur het hele bericht nu naar je partner.',
+      'Gekopieerd — stuur nu het hele bericht door.',
     );
     const text = await a.popup.evaluate(
       () => Reflect.get(window, 'fixtureDuo') as string,
@@ -599,9 +599,7 @@ test('duo handoff: verified ZIP in two independent profiles, explicit pair and e
       .click();
     const input = b.popup.getByLabel('Plak het hele bericht van je partner');
     await expect(
-      b.popup.getByText(
-        'Open dezelfde voorstelling in je eigen Chrome-profiel.',
-      ),
+      b.popup.getByText('Open dezelfde voorstelling in je Chrome-profiel.'),
     ).toBeVisible();
     await input.fill(text);
     await b.popup.evaluate(() => {

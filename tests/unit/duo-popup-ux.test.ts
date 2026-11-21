@@ -118,7 +118,7 @@ test('A sees a disabled share step until an explicit choice; B can paste and rec
   share.click();
   await flush();
   expect(parseDuoPlan(shared).pair).toMatchObject({ row: 7, A: 3, B: 4 });
-  expect(a.textContent).toContain('stuur het hele bericht nu naar je partner');
+  expect(a.textContent).toContain('stuur nu het hele bericht door');
 
   const b = mountPopup();
   const details = [...b.querySelectorAll('details')].find((candidate) =>
@@ -127,7 +127,7 @@ test('A sees a disabled share step until an explicit choice; B can paste and rec
   details.open = true;
   details.dispatchEvent(new Event('toggle'));
   await flush();
-  expect(details.textContent).toContain('eigen Chrome-profiel');
+  expect(details.textContent).toContain('je Chrome-profiel');
   const textarea = details.querySelector('textarea')!;
   textarea.value = shared;
   textarea.dispatchEvent(new Event('input', { bubbles: true }));

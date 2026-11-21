@@ -122,7 +122,7 @@ async function copy(reportOnly = true) {
     if (!disposed && result.value === observation)
       copyMessage.value = reportOnly
         ? 'Rapport gekopieerd.'
-        : 'Gekopieerd — stuur het hele bericht nu naar je partner.';
+        : 'Gekopieerd — stuur nu het hele bericht door.';
   } catch {
     if (!disposed && result.value === observation)
       copyMessage.value = `${reportOnly ? 'Rapport' : 'Stoelen'} niet gekopieerd — klembord geweigerd, gegevens onveilig of verlopen.`;
@@ -310,8 +310,8 @@ const seatReasons = {
           >Kies hierboven eerst één paar. Er is nog niets geboekt.</small
         >
         <small v-if="selected !== null"
-          >Jij: eerste stoel · partner: tweede stoel. Plan geldig tot vijf
-          minuten na het lezen.</small
+          >Jij: eerste stoel · partner: tweede. Deel binnen 5 min na
+          lezen.</small
         >
         <span
           v-show="copyMessage"
@@ -327,7 +327,7 @@ const seatReasons = {
       >
         <summary>3. Stoelen van partner ontvangen</summary>
         <template v-if="importOpen">
-          <p>Open dezelfde voorstelling in je eigen Chrome-profiel.</p>
+          <p>Open dezelfde voorstelling in je Chrome-profiel.</p>
           <label for="incoming-plan"
             >Plak het hele bericht van je partner</label
           >
@@ -386,7 +386,7 @@ const seatReasons = {
 
 <style scoped>
 .duo-popup {
-  padding: 0.5rem;
+  padding: 0.25rem;
 }
 .duo-popup :deep(.brand-caption) {
   display: none;
@@ -396,11 +396,11 @@ const seatReasons = {
   height: 2rem;
 }
 .duo-popup :deep(.brand-header.compact) {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0;
 }
 .duo-popup :deep(details) {
-  margin: 0.125rem 0;
-  padding-top: 0.125rem;
+  margin: 0;
+  padding-top: 0;
 }
 .duo-popup :deep(.product-home > h1),
 .duo-popup :deep(.product-home > h1 + p),
@@ -482,7 +482,7 @@ dd:nth-of-type(5) {
 .copy-actions {
   display: flex;
   gap: 0.35rem;
-  margin: 0.25rem 0;
+  margin: 0.125rem 0;
   align-items: center;
 }
 .copy-actions button {
@@ -492,8 +492,8 @@ dd:nth-of-type(5) {
   opacity: 0.55;
 }
 section {
-  margin: 0.375rem 0;
-  padding-top: 0.25rem;
+  margin: 0.125rem 0;
+  padding-top: 0;
 }
 h2 {
   margin: 0.125rem 0;
@@ -511,14 +511,14 @@ small {
 ol {
   list-style: none;
   padding: 0;
-  margin: 0.25rem 0;
+  margin: 0.125rem 0;
 }
 .pair-choice {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8rem;
-  padding: 0.25rem 0;
+  padding: 0.125rem 0;
 }
 input[type='radio'] {
   margin: 0;

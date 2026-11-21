@@ -12,7 +12,8 @@ een **UX-fix**, geen uitbreiding van boekingsmogelijkheden.
    keuze: een radioselectie is verplicht.
 3. **2. Kopieer stoelen voor je partner** is vanaf het begin zichtbaar maar pas
    klikbaar na de keuze. Na een geslaagde klembordactie volgt de aanwijzing om
-   het **hele** bericht door te sturen. Geen automatische verzending.
+   het **hele** bericht door te sturen. De compacte popup blijft binnen de
+   bestaande 360×600-regressiegrens. Geen automatische verzending.
 
 ## B: ontvangen en controleren
 
